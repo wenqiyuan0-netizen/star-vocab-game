@@ -325,15 +325,15 @@ export function ProfileView({
         {/* --- Block 4: Limits (Medium, 6 cols) --- */}
         <div 
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-3"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.10)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
         >
-           <div className="flex items-center gap-2 mb-1 opacity-70" style={{ color: highlightColor }}>
+           <div className="flex items-center gap-2 mb-1 opacity-90" style={{ color: highlightColor }}>
               <Clock className="w-4 h-4" />
               <span className="text-xs font-bold">Daily Goals</span>
            </div>
            <div className="space-y-3">
-              <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.12) }}>
-                 <span className="text-xs font-bold opacity-70" style={{ color: highlightColor }}>New</span>
+              <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.25) }}>
+                 <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>New</span>
                  <input 
                     type="number"
                     value={safeSettings.dailyNewLimit}
@@ -342,8 +342,8 @@ export function ProfileView({
                     style={{ color: highlightColor }}
                  />
               </div>
-              <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.12) }}>
-                 <span className="text-xs font-bold opacity-70" style={{ color: highlightColor }}>Review</span>
+              <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.25) }}>
+                 <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>Review</span>
                  <input 
                     type="number"
                     value={safeSettings.dailyReviewLimit}
@@ -359,14 +359,14 @@ export function ProfileView({
         <button 
           onClick={() => setShowWallpaperSettings(true)}
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col items-center justify-center gap-3 text-center group transition-all hover:scale-[1.02]"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.10)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
         >
-           <div className="w-12 h-12 rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform" style={{ backgroundColor: withOpacity(highlightColor, 0.2), color: highlightColor }}>
+           <div className="w-12 h-12 rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform" style={{ backgroundColor: withOpacity(highlightColor, 0.3), color: highlightColor }}>
               <Image className="w-6 h-6" />
            </div>
            <div>
              <span className="block text-sm font-black" style={{ color: highlightColor }}>壁纸设置</span>
-             <span className="text-[10px] opacity-60" style={{ color: highlightColor }}>自定义主题</span>
+             <span className="text-[10px] opacity-80" style={{ color: highlightColor }}>自定义主题</span>
            </div>
         </button>
 

@@ -140,27 +140,31 @@ export default function SpaceVocabGame() {
       }
 
       // Sync Settings & Wallpaper from Cloud
-      if (cloudProfile.settings) {
+      if (cloudProfile.settings && Object.keys(cloudProfile.settings).length > 0) {
         // 1. Game Settings (Daily Goals, etc.)
         if (cloudProfile.settings.gameSettings) {
            updateSettings(cloudProfile.settings.gameSettings);
         }
         // 2. Wallpaper
-         if (cloudProfile.settings.wallpaper) {
-            setWallpaper(cloudProfile.settings.wallpaper);
-            localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
-            // Also update system wallpaper for consistency if needed
-            localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
-         }
-         
-         // Update reference to avoid echo-back
-         lastSyncedSettingsRef.current = JSON.stringify({
-             gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
-             wallpaper: cloudProfile.settings.wallpaper || wallpaper
-         });
-       }
- 
-       userProfileRef.current = {
+        if (cloudProfile.settings.wallpaper) {
+           setWallpaper(cloudProfile.settings.wallpaper);
+           localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
+           // Also update system wallpaper for consistency if needed
+           localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
+        }
+        
+        // Update reference to avoid echo-back
+        lastSyncedSettingsRef.current = JSON.stringify({
+            gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
+            wallpaper: cloudProfile.settings.wallpaper || wallpaper
+        });
+      } else {
+        // If cloud has NO settings, but we have local settings, we should sync UP.
+        // But we don't want to do it immediately here to avoid race conditions.
+        // Instead, we just let the useEffect below handle it because lastSyncedSettingsRef is null.
+      }
+
+      userProfileRef.current = {
         totalXP: cloudProfile.totalXP,
         level: cloudProfile.level,
         checkInDates: cloudProfile.checkInDates || [],
@@ -470,11 +474,24 @@ export default function SpaceVocabGame() {
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('space_vocab_settings') || '{}');
-      if (s && typeof s === 'object') {
+      if (s && typeof s === 'object' && Object.keys(s).length > 0) {
         updateSettings(s);
         if (settingsRef.current.difficulty == null) {
             updateSettings({ difficulty: 5 }); // 简化逻辑，默认5
         }
+      } else {
+        // Initialize default settings if nothing in local storage
+        updateSettings({
+            speed: 2.5,
+            spawnRate: 1600,
+            maxOnScreen: 10,
+            difficulty: 5,
+            dailyNewLimit: 5,
+            dailyReviewLimit: 10,
+            ttsMode: 'none',
+            speakDe: true,
+            speakCn: false
+        });
       }
     } catch { }
   }, []);
