@@ -97,6 +97,7 @@ export default function SpaceVocabGame() {
 
   const cloudMergeRef = useRef(false);
   const lastSyncedSettingsRef = useRef(null);
+  const isFreshInstallRef = useRef(false);
 
   // V2 改动保留：增加了 dailyNewLimit 等设置项，这不影响 UI
   const settingsRef = useRef({
@@ -110,6 +111,7 @@ export default function SpaceVocabGame() {
     apiKey: '',
     dailyNewLimit: 5,      // V2 新增
     dailyReviewLimit: 10,  // V2 新增
+    updatedAt: 0           // V2 Sync: Timestamp for conflict resolution
   });
 
   // V2 改动保留：每日统计结构
@@ -141,19 +143,34 @@ export default function SpaceVocabGame() {
 
       // Sync Settings & Wallpaper from Cloud
       if (cloudProfile.settings && Object.keys(cloudProfile.settings).length > 0) {
-        // 1. Game Settings (Daily Goals, etc.)
-        if (cloudProfile.settings.gameSettings) {
-           updateSettings(cloudProfile.settings.gameSettings);
+        const cloudSettings = cloudProfile.settings.gameSettings || {};
+        let shouldApply = false;
+
+        if (isFreshInstallRef.current) {
+           shouldApply = true;
+           isFreshInstallRef.current = false;
+        } else {
+           const cloudTime = cloudSettings.updatedAt || 0;
+           const localTime = settingsRef.current.updatedAt || 0;
+           if (cloudTime > localTime) {
+               shouldApply = true;
+           }
         }
-        // 2. Wallpaper
-        if (cloudProfile.settings.wallpaper) {
-           setWallpaper(cloudProfile.settings.wallpaper);
-           localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
-           // Also update system wallpaper for consistency if needed
-           localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
+
+        if (shouldApply) {
+            // 1. Game Settings
+            if (cloudProfile.settings.gameSettings) {
+                updateSettings(cloudProfile.settings.gameSettings, true);
+            }
+            // 2. Wallpaper
+            if (cloudProfile.settings.wallpaper) {
+                setWallpaper(cloudProfile.settings.wallpaper);
+                localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
+                localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
+            }
         }
         
-        // Update reference to avoid echo-back
+        // Update reference to what is IN THE CLOUD (so we can detect if we need to push our local changes)
         lastSyncedSettingsRef.current = JSON.stringify({
             gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
             wallpaper: cloudProfile.settings.wallpaper || wallpaper
@@ -455,32 +472,53 @@ export default function SpaceVocabGame() {
     }
   }, [gameState]);
 
-  const updateSettings = newSettings => {
-    if (Object.prototype.hasOwnProperty.call(newSettings, 'difficulty')) {
-      const d = Math.max(1, Math.min(10, parseInt(newSettings.difficulty)));
+  const updateSettings = (newSettings, fromCloud = false) => {
+    // 检查是否调整了每日目标，如果是，则清除今日计划缓存，以便下次开始游戏时重新生成
+    // 并且如果当前正在菜单界面，我们可以尝试预加载新的计划（或者不预加载，等用户点开始时自动生成）
+    const hasGoalChanged = newSettings.dailyNewLimit !== undefined || newSettings.dailyReviewLimit !== undefined;
+    
+    if (hasGoalChanged) {
+      localStorage.removeItem('star_vocab_daily_plan');
+    }
+
+    const timestampUpdate = !fromCloud ? { updatedAt: Date.now() } : {};
+    const finalSettings = { ...newSettings, ...timestampUpdate };
+
+    if (Object.prototype.hasOwnProperty.call(finalSettings, 'difficulty')) {
+      const d = Math.max(1, Math.min(10, parseInt(finalSettings.difficulty)));
       const speed = parseFloat((0.7 + (d - 1) * (2.3 / 9)).toFixed(1));
       const maxOnScreen = Math.round(3 + (d - 1) * (7 / 9));
       const spawnRate = Math.round(2200 - (d - 1) * (1300 / 9));
-      settingsRef.current = { ...settingsRef.current, difficulty: d, speed, maxOnScreen, spawnRate };
+      settingsRef.current = { ...settingsRef.current, ...finalSettings, difficulty: d, speed, maxOnScreen, spawnRate };
     } else {
-      settingsRef.current = { ...settingsRef.current, ...newSettings };
+      settingsRef.current = { ...settingsRef.current, ...finalSettings };
     }
     if (typeof settingsRef.current.speed === 'number') {
       settingsRef.current.speed = Math.max(0.3, Math.min(3.0, settingsRef.current.speed));
     }
     setSettingsState({ ...settingsRef.current });
+
+    // 强制 UI 更新
+    forceUpdate({}); 
   };
 
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('space_vocab_settings') || '{}');
       if (s && typeof s === 'object' && Object.keys(s).length > 0) {
-        updateSettings(s);
+        isFreshInstallRef.current = false;
+        // Migration: If local settings exist but have no timestamp, 
+        // assume they are recent and valid, so give them a timestamp to beat stale cloud data (0).
+        if (!s.updatedAt) {
+            s.updatedAt = Date.now();
+        }
+        updateSettings(s, true);
         if (settingsRef.current.difficulty == null) {
-            updateSettings({ difficulty: 5 }); // 简化逻辑，默认5
+            updateSettings({ difficulty: 5 }, true); // 简化逻辑，默认5
         }
       } else {
         // Initialize default settings if nothing in local storage
+        isFreshInstallRef.current = true;
         updateSettings({
             speed: 2.5,
             spawnRate: 1600,
@@ -490,8 +528,9 @@ export default function SpaceVocabGame() {
             dailyReviewLimit: 10,
             ttsMode: 'none',
             speakDe: true,
-            speakCn: false
-        });
+            speakCn: false,
+            updatedAt: 0
+        }, true);
       }
     } catch { }
   }, []);
@@ -1140,7 +1179,7 @@ export default function SpaceVocabGame() {
       dailyStatsRef.current = { date: todayStr, newCount: 0, reviewCount: 0, isCheckedIn: false, bonusXP: 0 };
       localStorage.setItem('space_vocab_daily_stats', JSON.stringify(dailyStatsRef.current));
     }
-    let { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb);
+    let { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb, settingsRef.current);
     // Only show Bonus Mode message if we are actually in bonus mode (cleared all due words)
     if (mode === 'bonus' && deck.length > 0) { setMessage("进入额外复习模式！"); setTimeout(() => setMessage(null), 2500); }
     if (deck.length < MIN_DECK_SIZE && globalWordDb.length > 0) {

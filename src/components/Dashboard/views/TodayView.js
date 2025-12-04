@@ -53,10 +53,10 @@ export function TodayView(props) {
   
   const effectiveDeck = useMemo(() => {
     if (!globalWordDb || globalWordDb.length === 0) return [];
-    const { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb);
+    const { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb, props.settingsState);
     setDeckMode(mode);
     return deck;
-  }, [globalWordDb]);
+  }, [globalWordDb, props.settingsState]);
 
   // Pseudo-random sequence for Focus Mode
   const playSequence = useMemo(() => {

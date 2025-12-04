@@ -16,9 +16,20 @@ export default function Login() {
 
   const handleLogin = async () => {
     setLoading(true);
-    const { error } = await signIn(email, password);
+    // Auto-trim inputs to prevent mobile keyboard issues
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    const { error } = await signIn(cleanEmail, cleanPassword);
     if (error) {
-      setError(error.message);
+      console.error("Login error:", error);
+      if (error.message.includes('Invalid login credentials')) {
+        setError('邮箱或密码错误（请注意大小写）');
+      } else if (error.message.includes('Email not confirmed')) {
+        setError('请先去邮箱确认验证邮件');
+      } else {
+        setError(error.message);
+      }
     }
     setLoading(false);
   };
@@ -29,7 +40,10 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password);
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    const { error } = await signUp(cleanEmail, cleanPassword);
     if (error) {
       setError(error.message);
     } else {

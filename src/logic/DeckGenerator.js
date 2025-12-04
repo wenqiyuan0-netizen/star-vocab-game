@@ -39,10 +39,10 @@ function getDailyStats() {
 }
 
 export const DeckGenerator = {
-  generateDeck: (globalWordDb) => {
+  generateDeck: (globalWordDb, providedSettings) => {
     const now = Date.now();
     const dailyStats = getDailyStats();
-    const settings = getSettings();
+    const settings = providedSettings || getSettings();
     const MIN_DECK_SIZE = 5;
     
     const dueWordsCount = globalWordDb.filter(w => w.state !== 'new' && w.dueDate <= now).length;
@@ -175,7 +175,7 @@ export const DeckGenerator = {
   },
 
   // 获取或生成今日计划
-  getOrGeneratePlan: (globalWordDb) => {
+  getOrGeneratePlan: (globalWordDb, providedSettings) => {
     const today = new Date().toDateString();
     const dailyStats = getDailyStats();
     
@@ -195,7 +195,7 @@ export const DeckGenerator = {
     } catch {}
 
     // 生成新计划
-    const { deck, mode } = DeckGenerator.generateDeck(globalWordDb);
+    const { deck, mode } = DeckGenerator.generateDeck(globalWordDb, providedSettings);
     
     // 保存
     const plan = {

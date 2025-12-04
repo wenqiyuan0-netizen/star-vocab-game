@@ -327,9 +327,26 @@ export function ProfileView({
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-3"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
-           <div className="flex items-center gap-2 mb-1 opacity-90" style={{ color: highlightColor }}>
-              <Clock className="w-4 h-4" />
-              <span className="text-xs font-bold">Daily Goals</span>
+           <div className="flex items-center justify-between mb-1 opacity-90" style={{ color: highlightColor }}>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span className="text-xs font-bold">Daily Goals</span>
+              </div>
+              {/* Save Button for Daily Goals */}
+              <button
+                onClick={() => {
+                  // Force update settings which will trigger cloud sync and re-plan
+                  updateSettings({ 
+                    dailyNewLimit: safeSettings.dailyNewLimit,
+                    dailyReviewLimit: safeSettings.dailyReviewLimit
+                  });
+                  // Optional: Show a visual feedback or toast could go here
+                }}
+                className="text-[10px] px-2 py-1 rounded-lg font-bold bg-white/20 hover:bg-white/30 transition-colors"
+                title="保存并立即生效"
+              >
+                保存
+              </button>
            </div>
            <div className="space-y-3">
               <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.25) }}>
