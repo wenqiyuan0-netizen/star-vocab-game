@@ -95,6 +95,8 @@ export default function SpaceVocabGame() {
   const layoutRef = useRef({ uiScale: 1, isPortrait: false });
   const isPausedRef = useRef(false);
 
+  const cloudMergeRef = useRef(false);
+
   // V2 改动保留：增加了 dailyNewLimit 等设置项，这不影响 UI
   const settingsRef = useRef({
     speed: 2.5,
@@ -285,24 +287,44 @@ export default function SpaceVocabGame() {
 
   // Cloud Sync Initialization
   useEffect(() => {
-    if (cloudInitialized) {
-      if (cloudWords.length > 0) {
-        // Cloud has data, use it as truth
-        setGlobalWordDb(cloudWords);
-      } else {
-        // Cloud empty, check local storage to migrate
-        const localData = JSON.parse(localStorage.getItem('space_vocab_db'));
-        if (localData && localData.length > 0) {
-           console.log('Migrating local data to cloud...');
-           syncWordsBatch(localData);
-        } else {
-           // New user, sync defaults
-           console.log('Initializing cloud with defaults...');
-           syncWordsBatch(DEFAULT_WORDS);
+    if (!cloudInitialized) { loadCloudWords(); return; }
+    if (cloudMergeRef.current) return;
+    cloudMergeRef.current = true;
+
+    const localDataRaw = localStorage.getItem('space_vocab_db');
+    const localData = (() => { try { const j = JSON.parse(localDataRaw); return Array.isArray(j) ? j : []; } catch { return []; } })();
+
+    const sortFn = (a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' });
+    const keyOf = (w) => `${String(w.de || '').toLowerCase()}|${String(w.gender || '')}`;
+
+    if (Array.isArray(cloudWords) && cloudWords.length > 0) {
+      if (localData.length > cloudWords.length) {
+        const map = new Map();
+        for (const w of cloudWords) map.set(keyOf(w), w);
+        for (const w of localData) {
+          const k = keyOf(w);
+          const ex = map.get(k);
+          if (!ex) { map.set(k, w); continue; }
+          const merged = { ...ex, ...w };
+          if ((w.interval || 0) > (ex.interval || 0)) merged.interval = w.interval;
+          if ((w.step || 0) > (ex.step || 0)) merged.step = w.step;
+          if ((w.easeFactor || 0) > (ex.easeFactor || 0)) merged.easeFactor = w.easeFactor;
+          map.set(k, merged);
         }
+        const mergedList = Array.from(map.values()).sort(sortFn);
+        setGlobalWordDb(mergedList);
+        syncWordsBatch(mergedList);
+      } else {
+        setGlobalWordDb(cloudWords);
       }
     } else {
-      loadCloudWords();
+      if (localData.length > 0) {
+        setGlobalWordDb(localData.sort(sortFn));
+        syncWordsBatch(localData);
+      } else {
+        setGlobalWordDb(DEFAULT_WORDS);
+        syncWordsBatch(DEFAULT_WORDS);
+      }
     }
   }, [cloudInitialized, loadCloudWords, cloudWords, syncWordsBatch]);
 

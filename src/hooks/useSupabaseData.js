@@ -18,7 +18,8 @@ export function useSupabaseData() {
     try {
       const { data, error } = await supabase
         .from('user_words')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id);
       
       if (error) throw error;
 
@@ -99,13 +100,13 @@ export function useSupabaseData() {
 
       if (error) throw error;
 
-      // Refresh local state
       const syncedWords = data.map(dbWordToAppWord);
-      // We should probably merge this with existing words state
-      // For simplicity, let's just reload everything or intelligently merge
-      // Reloading is safer to ensure consistency
-      await loadWords();
-      
+      setWords(prev => {
+        const keyOf = (w) => `${String(w.de || '').toLowerCase()}|${String(w.gender || '')}`;
+        const map = new Map(prev.map(w => [keyOf(w), w]));
+        for (const w of syncedWords) map.set(keyOf(w), w);
+        return Array.from(map.values()).sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
+      });
       return syncedWords;
     } catch (err) {
       console.error('Error batch syncing:', err);
