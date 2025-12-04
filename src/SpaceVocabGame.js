@@ -96,6 +96,7 @@ export default function SpaceVocabGame() {
   const isPausedRef = useRef(false);
 
   const cloudMergeRef = useRef(false);
+  const lastSyncedSettingsRef = useRef(null);
 
   // V2 改动保留：增加了 dailyNewLimit 等设置项，这不影响 UI
   const settingsRef = useRef({
@@ -138,7 +139,28 @@ export default function SpaceVocabGame() {
         }
       }
 
-      userProfileRef.current = {
+      // Sync Settings & Wallpaper from Cloud
+      if (cloudProfile.settings) {
+        // 1. Game Settings (Daily Goals, etc.)
+        if (cloudProfile.settings.gameSettings) {
+           updateSettings(cloudProfile.settings.gameSettings);
+        }
+        // 2. Wallpaper
+         if (cloudProfile.settings.wallpaper) {
+            setWallpaper(cloudProfile.settings.wallpaper);
+            localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
+            // Also update system wallpaper for consistency if needed
+            localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
+         }
+         
+         // Update reference to avoid echo-back
+         lastSyncedSettingsRef.current = JSON.stringify({
+             gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
+             wallpaper: cloudProfile.settings.wallpaper || wallpaper
+         });
+       }
+ 
+       userProfileRef.current = {
         totalXP: cloudProfile.totalXP,
         level: cloudProfile.level,
         checkInDates: cloudProfile.checkInDates || [],
@@ -459,7 +481,22 @@ export default function SpaceVocabGame() {
 
   useEffect(() => {
     localStorage.setItem('space_vocab_settings', JSON.stringify(settingsRef.current));
-  }, [settingsState]);
+
+    // Cloud Sync for Settings & Wallpaper
+    if (cloudInitialized && updateCloudProfile) {
+        const currentSettings = {
+            gameSettings: settingsRef.current,
+            wallpaper: wallpaper
+        };
+        const json = JSON.stringify(currentSettings);
+        
+        // Only sync if different from what we last loaded/saved
+        if (lastSyncedSettingsRef.current !== json) {
+            lastSyncedSettingsRef.current = json;
+            updateCloudProfile({ settings: currentSettings });
+        }
+    }
+  }, [settingsState, wallpaper, cloudInitialized, updateCloudProfile]);
 
   useEffect(() => {
     if (gameState !== 'dashboard' || globalWordDb.length === 0) return;
