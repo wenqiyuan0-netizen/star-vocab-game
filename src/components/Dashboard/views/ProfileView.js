@@ -325,7 +325,7 @@ export function ProfileView({
         {/* --- Block 4: Limits (Medium, 6 cols) --- */}
         <div 
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-3"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
            <div className="flex items-center gap-2 mb-1 opacity-90" style={{ color: highlightColor }}>
               <Clock className="w-4 h-4" />
@@ -359,7 +359,7 @@ export function ProfileView({
         <button 
           onClick={() => setShowWallpaperSettings(true)}
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col items-center justify-center gap-3 text-center group transition-all hover:scale-[1.02]"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
            <div className="w-12 h-12 rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform" style={{ backgroundColor: withOpacity(highlightColor, 0.3), color: highlightColor }}>
               <Image className="w-6 h-6" />
