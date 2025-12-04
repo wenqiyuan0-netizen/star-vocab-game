@@ -1,70 +1,101 @@
-# Getting Started with Create React App
+# Star Vocab Game (星际词汇大作战) 🌌
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**Star Vocab Game** 是一款结合了街机射击游戏玩法与现代磨砂玻璃 (Glassmorphism) 视觉风格的互动式词汇学习应用。它采用了科学的间隔重复系统 (SRS) 来帮助用户高效记忆单词（当前专注于德语-中文）。在游戏中，你需要通过输入正确的翻译来摧毁下落的“单词陨石”，保卫你的基地。
 
-## Available Scripts
+![Star Vocab Screenshot](public/screenshot.png)
+*(注：此处可替换为实际截图)*
 
-In the project directory, you can run:
+## 🚀 功能特性
 
-### `npm start`
+- **沉浸式视觉体验**：
+  - **极致磨砂玻璃 UI**：全站采用高通透的 Glassmorphism 设计，配合动态模糊算法，营造极具科幻感的学习环境。
+  - **平滑主题切换**：基于 RGB 插值的色彩过渡引擎，实现壁纸与主题色的无缝切换，拒绝视觉突变。
+  - **自定义壁纸**：内置壁纸编辑器，支持上传图片并应用模糊、滤镜处理，打造专属学习背景。
+  - **动态交互**：流畅的粒子爆炸、按钮光晕及平滑的转场动画。
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **游戏化学习**：
+  - **街机射击玩法**：通过打字或选择答案来消除单词，体验紧张刺激的游戏乐趣。
+  - **物理碰撞引擎**：真实的物体碰撞与反弹效果，让学习过程不再枯燥。
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **智能记忆引擎**：
+  - **间隔重复 (SRS)**：内置基于 SM-2 算法的记忆引擎，根据你的掌握程度自动安排复习时间，最大化记忆效率。
+  - **智能复习队列**：优先推送即将遗忘的单词，兼顾新词学习与旧词巩固。
 
-### `npm test`
+- **AI 辅助 (Google Gemini)**：
+  - **智能例句生成**：集成 Gemini API，可为单词自动生成上下文相关的德语例句。
+  - **语音朗读 (TTS)**：支持浏览器原生语音合成，提供单词和例句的标准德语发音。
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **性能优化**：
+  - **移动端适配**：针对移动设备优化的模糊分级策略，在保持视觉效果的同时确保流畅度。
+  - **渲染优化**：精细管理的渲染管线，避免复杂玻璃特效导致的掉帧与闪烁。
 
-### `npm run build`
+- **数据自主管理**：
+  - **本地优先**：所有进度自动保存于 LocalStorage，无需联网即可游玩。
+  - **导入/导出**：支持 Base64 存档代码的导出与导入，方便跨设备迁移或备份。
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🛠 技术栈
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **前端核心**: React 19, Hooks API
+- **样式系统**: Tailwind CSS + CSS Modules (Glassmorphism Utility Classes)
+- **渲染引擎**: HTML5 Canvas API (用于高性能游戏画面)
+- **图标库**: Lucide React
+- **AI 集成**: Google Gemini API (`gemini-2.5-flash-preview`)
+- **构建工具**: Create React App
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 📦 安装与运行
 
-### `npm run eject`
+### 前置要求
+- Node.js (建议 v14 或更高版本)
+- npm 或 yarn
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 启动步骤
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. **克隆仓库**
+   ```bash
+   git clone <repository-url>
+   cd star-vocab-game
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+2. **安装依赖**
+   ```bash
+   npm install
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+3. **启动开发服务器**
+   ```bash
+   npm start
+   ```
+   应用将在 `http://localhost:3000` 运行。
 
-## Learn More
+## 🎮 使用指南
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 1. 游戏玩法
+- **目标**：阻止单词陨石撞击屏幕底部的基地。
+- **操作**：
+  - **单词模式**：输入屏幕上单词对应的中文翻译或德语原词。
+  - **连击机制**：连续正确回答将触发 Combo 加成，获得更高分数与视觉特效。
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 2. 个性化设置
+- **壁纸设置**：点击主页左上角菜单 -> 壁纸设置，上传你喜欢的图片，调节模糊度和滤镜，设为专属背景。
+- **AI 配置**：点击设置 (齿轮图标)，填入 Google Gemini API Key 以启用智能例句功能。
 
-### Code Splitting
+### 3. 数据管理
+- **备份**：前往 设置 -> 数据管理，复制存档代码。
+- **恢复**：粘贴存档代码以恢复游戏进度。
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🤝 贡献指南
 
-### Analyzing the Bundle Size
+欢迎提交 Issue 或 Pull Request 来改进本项目！我们特别关注以下方向的改进：
+- 新的游戏模式
+- 更多的词库支持
+- 性能优化
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+1. Fork 本项目
+2. 创建特性分支 (`git checkout -b feature/NewFeature`)
+3. 提交改动 (`git commit -m 'Add NewFeature'`)
+4. 推送到分支 (`git push origin feature/NewFeature`)
+5. 提交 Pull Request
 
-### Making a Progressive Web App
+## 📄 许可证
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+本项目采用 MIT 许可证。

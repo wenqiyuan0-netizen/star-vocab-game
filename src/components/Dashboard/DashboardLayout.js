@@ -1,0 +1,264 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Home, Book, User, Calendar } from 'lucide-react';
+import { HomeView } from './views/HomeView';
+import { LibraryView } from './views/LibraryView';
+import { ProfileView } from './views/ProfileView';
+import { TodayView } from './views/TodayView';
+import { useTheme } from '../../hooks/useTheme';
+import { withOpacity } from '../../utils/colorUtils';
+
+// 预解码和缓存背景图片
+const preloadImage = (url) => {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(null);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => resolve(url);
+    img.onerror = (e) => {
+      console.error("Failed to preload image:", url, e);
+      resolve(null);
+    };
+    img.src = url;
+  });
+};
+
+export function DashboardLayout(props) {
+  const [activeTab, setActiveTab] = useState('home');
+  const [previousTab, setPreviousTab] = useState('home');
+  const [slideDirection, setSlideDirection] = useState('none');
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [wallpaper, setWallpaper] = useState(null);
+  const [cachedWallpapers, setCachedWallpapers] = useState({});
+  const theme = useTheme();
+
+  const contentRefs = useRef({
+    home: React.createRef(),
+    today: React.createRef(),
+    library: React.createRef(),
+    profile: React.createRef()
+  });
+
+  const TABS = ['home', 'today', 'library', 'profile'];
+
+  // 预加载和解码所有壁纸
+  useEffect(() => {
+    const loadAllWallpapers = async () => {
+      const homeWall = localStorage.getItem('star-vocab-wallpaper-home');
+      const sysWall = localStorage.getItem('star-vocab-wallpaper-system');
+
+      const wallpapersToPreload = [homeWall, sysWall].filter(Boolean);
+
+      const preloaded = {};
+      for (const url of wallpapersToPreload) {
+        if (url && !cachedWallpapers[url]) {
+          const loadedUrl = await preloadImage(url);
+          if (loadedUrl) {
+            preloaded[url] = loadedUrl;
+          }
+        }
+      }
+
+      if (Object.keys(preloaded).length > 0) {
+        setCachedWallpapers(prev => ({ ...prev, ...preloaded }));
+      }
+
+      // 设置当前壁纸
+      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
+      setWallpaper(currentWallpaper);
+    };
+
+    loadAllWallpapers();
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onWallChange = () => {
+      const homeWall = localStorage.getItem('star-vocab-wallpaper-home');
+      const sysWall = localStorage.getItem('star-vocab-wallpaper-system');
+      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
+      setWallpaper(currentWallpaper);
+    };
+    window.addEventListener('wallpaper-changed', onWallChange);
+    return () => {
+      window.removeEventListener('wallpaper-changed', onWallChange);
+    };
+  }, [activeTab]);
+
+  const handleTabChange = (newTab) => {
+    if (newTab === activeTab || isAnimating) return;
+
+    const oldIndex = TABS.indexOf(activeTab);
+    const newIndex = TABS.indexOf(newTab);
+
+    setPreviousTab(activeTab);
+    // 如果去往右边的标签(index更大)，新页面从右边进来(slide-in-right)
+    // 如果去往左边的标签(index更小)，新页面从左边进来(slide-in-left)
+    setSlideDirection(newIndex > oldIndex ? 'right' : 'left');
+    setIsAnimating(true);
+    setActiveTab(newTab); // 立即更新，让新页面开始渲染并应用入场动画
+
+    // 动画完成后清理状态
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 300);
+  };
+
+  // 渲染所有内容视图，但控制显示和动画
+  const renderAllContent = () => {
+    const getViewAnimationClass = (tabName) => {
+      if (!isAnimating) return '';
+
+      // 如果是当前页，应用进场动画
+      if (activeTab === tabName) {
+        // 如果去右边的Tab (right)，意味着整体左移，新页从右边进来
+        return slideDirection === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left';
+      }
+
+      // 如果是旧页，应用出场动画
+      if (previousTab === tabName) {
+        // 如果去右边的Tab (right)，旧页向左移出
+        return slideDirection === 'right' ? 'animate-slide-out-left' : 'animate-slide-out-right';
+      }
+
+      return '';
+    };
+
+    const getViewStyle = (tabName) => {
+      const isActive = activeTab === tabName;
+      const isPrev = isAnimating && previousTab === tabName;
+
+      if (isActive || isPrev) {
+        return {
+          opacity: 1,
+          pointerEvents: isActive ? 'auto' : 'none', // 只有当前页可点击
+          zIndex: isActive ? 10 : 10, // 同层级，靠位置区分
+          display: 'block',
+          transform: 'translateX(0)' // 默认位置，动画会覆盖它
+        };
+      } else {
+        return {
+          opacity: 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+          display: 'none'
+        };
+      }
+    };
+
+    return (
+      <>
+        {/* Home View */}
+        <div
+          ref={contentRefs.current.home}
+          className={`absolute inset-0 ${getViewAnimationClass('home')}`}
+          style={getViewStyle('home')}
+        >
+          <HomeView
+            {...props}
+            onStartGame={props.onStartGame}
+            onNavigateToLibrary={() => handleTabChange('library')}
+          />
+        </div>
+
+        {/* Today View */}
+        <div
+          ref={contentRefs.current.today}
+          className={`absolute inset-0 ${getViewAnimationClass('today')}`}
+          style={getViewStyle('today')}
+        >
+          <TodayView {...props} />
+        </div>
+
+        {/* Library View */}
+        <div
+          ref={contentRefs.current.library}
+          className={`absolute inset-0 ${getViewAnimationClass('library')}`}
+          style={getViewStyle('library')}
+        >
+          <LibraryView {...props} />
+        </div>
+
+        {/* Profile View */}
+        <div
+          ref={contentRefs.current.profile}
+          className={`absolute inset-0 ${getViewAnimationClass('profile')}`}
+          style={getViewStyle('profile')}
+        >
+          <ProfileView {...props} />
+        </div>
+      </>
+    );
+  };
+
+  return (
+    <div
+      className="absolute inset-0 flex flex-col overflow-hidden z-[20]"
+      style={{
+        backgroundImage: wallpaper ? `url(${wallpaper})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      {/* 主内容区 - 所有视图同时存在，通过 opacity/transform 控制显示 */}
+      <div className="flex-1 overflow-hidden relative z-10">
+        {renderAllContent()}
+      </div>
+
+      {/* 底部导航栏 (Glassmorphism) */}
+      <div
+        className="glass-panel border-b-0 rounded-t-3xl pb-safe pt-2 z-50 relative transition-colors duration-500"
+        style={{
+          borderColor: withOpacity((Array.isArray(theme.contrast) && theme.contrast.length > 0 ? theme.contrast[0] : theme.primary), 0.2),
+          boxShadow: `0 -8px 32px ${withOpacity((Array.isArray(theme.contrast) && theme.contrast.length > 0 ? theme.contrast[0] : theme.primary), 0.06)}`
+        }}
+      >
+        <div className="flex justify-around items-center h-16">
+          <NavButton
+            icon={Home}
+            label="主页"
+            isActive={activeTab === 'home'}
+            onClick={() => handleTabChange('home')}
+            activeColor={theme.primary}
+          />
+          <NavButton
+            icon={Calendar}
+            label="今日"
+            isActive={activeTab === 'today'}
+            onClick={() => handleTabChange('today')}
+            activeColor={theme.primary}
+          />
+          <NavButton
+            icon={Book}
+            label="词库"
+            isActive={activeTab === 'library'}
+            onClick={() => handleTabChange('library')}
+            activeColor={theme.primary}
+          />
+          <NavButton
+            icon={User}
+            label="我的"
+            isActive={activeTab === 'profile'}
+            onClick={() => handleTabChange('profile')}
+            activeColor={theme.primary}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavButton({ icon: Icon, label, isActive, onClick, activeColor }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center w-16 space-y-1 transition-colors duration-200 ${isActive ? '' : 'text-gray-400 hover:text-gray-200'
+        }`}
+      style={{ color: isActive ? activeColor : undefined }}
+    >
+      <Icon className={`w-6 h-6 transition-transform ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+      <span className={`text-[10px] font-medium ${isActive ? 'font-bold' : ''}`}>{label}</span>
+    </button>
+  );
+}
