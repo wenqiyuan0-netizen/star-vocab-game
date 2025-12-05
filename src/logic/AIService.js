@@ -2,14 +2,21 @@ import { BACKEND_URL } from '../config'
 //AI Service
 class AIService {
   constructor() {
-    this.synth = window.speechSynthesis || null;
-    this.apiKey = '';
-    this.isSpeaking = false;
-  }
+    this.synth = window.speechSynthesis || null;
+    this.apiKey = '';
+    this.isSpeaking = false;
+    this.accessToken = null; // Store user's Supabase token
+    this.currentUtterance = null; // Keep reference to prevent GC
+  }
 
-  setApiKey(key) {
-    this.apiKey = key;
-  }
+  setApiKey(key) {
+    this.apiKey = key;
+  }
+
+  // Set the user's access token for authenticated requests
+  setAccessToken(token) {
+    this.accessToken = token;
+  }
 
   warmUp() {
     if (!this.synth) return;
@@ -21,20 +28,26 @@ class AIService {
   }
 
   speak(text, lang = 'de-DE') {
-    if (!this.synth) return;
-    this.synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.rate = 0.9;
-    const voices = this.synth.getVoices();
-    const betterVoice = voices.find(
-      v =>
-        v.lang === lang &&
-        (v.name.includes('Google') || v.name.includes('Anna') || v.name.includes('Siri'))
-    );
-    if (betterVoice) utterance.voice = betterVoice;
-    this.synth.speak(utterance);
-  }
+    if (!this.synth) return;
+    this.synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    this.currentUtterance = utterance; // Prevent GC
+    utterance.lang = lang;
+    utterance.rate = 0.9;
+    
+    const voices = this.synth.getVoices();
+    const betterVoice = voices.find(
+      v =>
+        v.lang === lang &&
+        (v.name.includes('Google') || v.name.includes('Anna') || v.name.includes('Siri'))
+    );
+    if (betterVoice) utterance.voice = betterVoice;
+    
+    utterance.onend = () => { this.currentUtterance = null; };
+    utterance.onerror = (e) => { console.error("TTS Error", e); this.currentUtterance = null; };
+    
+    this.synth.speak(utterance);
+  }
 
   stopAll() {
     if (this.synth) this.synth.cancel();
@@ -117,15 +130,24 @@ class AIService {
 
         console.log(`[AIService] Sending request to ${url}`, { bodyPayload });
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.accessToken) {
+          headers['Authorization'] = `Bearer ${this.accessToken}`;
+        }
+
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(bodyPayload),
         });
 
         if (!res.ok) {
-          const errText = await res.text();
-          console.error(`[AIService] API Error (${res.status}):`, errText);
+          // Handle 403 Forbidden (Feature Locked) specifically
+          if (res.status === 403) {
+            const errData = await res.json();
+            console.error(`[AIService] Feature Locked: ${errData.message}`);
+            throw new Error(errData.message || 'Level too low for AI features');
+          }
           // 429 → 重试
           if (res.status === 429) {
             const delay = Math.pow(2, i) * 800 + Math.random() * 500;

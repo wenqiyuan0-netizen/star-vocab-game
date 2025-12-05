@@ -9,6 +9,7 @@ export function useSupabaseProfile() {
     totalXP: 0,
     checkInDates: [],
     dailyStats: null,
+    dailyPlan: null,
     settings: {},
     name: '',
     avatar: null
@@ -35,6 +36,7 @@ export function useSupabaseProfile() {
           totalXP: data.total_xp || 0,
           checkInDates: data.check_in_dates || [],
           dailyStats: data.daily_stats || null,
+          dailyPlan: data.daily_plan || null,
           settings: data.settings || {},
           name: data.username || user.email.split('@')[0],
           avatar: data.avatar_url
@@ -59,6 +61,7 @@ export function useSupabaseProfile() {
     if (updates.totalXP !== undefined) dbUpdates.total_xp = updates.totalXP;
     if (updates.checkInDates !== undefined) dbUpdates.check_in_dates = updates.checkInDates;
     if (updates.dailyStats !== undefined) dbUpdates.daily_stats = updates.dailyStats;
+    if (updates.dailyPlan !== undefined) dbUpdates.daily_plan = updates.dailyPlan;
     if (updates.settings !== undefined) dbUpdates.settings = updates.settings;
     if (updates.name !== undefined) dbUpdates.username = updates.name;
     if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;

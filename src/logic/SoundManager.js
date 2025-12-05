@@ -7,19 +7,30 @@ export class SoundManager {
   }
 
   unlock() {
-    if (this.unlocked) return;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) {
-      if (!this.ctx) this.ctx = new AudioContextClass();
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-      const buffer = this.ctx.createBuffer(1, 1, 22050);
-      const source = this.ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(this.ctx.destination);
-      source.start(0);
-      this.unlocked = true;
-    }
-  }
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    if (!this.ctx) {
+      this.ctx = new AudioContextClass();
+    }
+
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(e => console.error("AudioContext resume failed", e));
+    }
+
+    if (this.unlocked) return;
+
+    try {
+      const buffer = this.ctx.createBuffer(1, 1, 22050);
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.ctx.destination);
+      source.start(0);
+      this.unlocked = true;
+    } catch (e) {
+      console.error("Audio unlock buffer failed", e);
+    }
+  }
 
   playTone(freq, type, startTime, duration, vol = 0.1) {
     if (!this.ctx) return;

@@ -4,6 +4,8 @@ import {
   PlusCircle, Save, Trash2, Eye, X, LogOut, Activity, RotateCcw, Download,
   Upload, Copy, Volume2, Info, BarChart2, Trophy
 } from 'lucide-react';
+import { ReviewClearanceModal } from './components/Modals/ReviewClearanceModal';
+import { detectReviewBacklog, activateClearanceMode, checkAndRestoreSettings } from './logic/ClearanceHelper';
 
 import { CalendarModal } from './components/ui/CalendarModal';
 import { GlassButton } from './components/ui/GlassButton';
@@ -26,6 +28,7 @@ import { getLocalDateString, calculateStreakFromDates } from './utils/dateUtils'
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { useSupabaseData } from './hooks/useSupabaseData';
 import { useSupabaseProfile } from './hooks/useSupabaseProfile';
+import { useAuth } from './contexts/AuthContext';
 
 // CustomModal (保持 V1 原样)
 const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
@@ -57,19 +60,27 @@ const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText 
 
 export default function SpaceVocabGame() {
   const theme = useTheme();
+  const { session } = useAuth();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [showSaveArea, setShowSaveArea] = useState(false);
   const [, forceUpdate] = useState({});
   const exampleServiceRef = useRef(exampleService);
 
-  const { 
-    words: cloudWords, 
-    loading: cloudLoading, 
-    initialized: cloudInitialized, 
-    loadWords: loadCloudWords, 
-    syncWord, 
-    syncWordsBatch, 
+  // Set access token for AI Service
+  useEffect(() => {
+    if (session?.access_token) {
+      aiService.setAccessToken(session.access_token);
+    }
+  }, [session]);
+
+  const {
+    words: cloudWords,
+    loading: cloudLoading,
+    initialized: cloudInitialized,
+    loadWords: loadCloudWords,
+    syncWord,
+    syncWordsBatch,
     deleteWord: deleteCloudWord,
     deleteWordsBatch: deleteCloudWordsBatch
   } = useSupabaseData();
@@ -105,7 +116,7 @@ export default function SpaceVocabGame() {
     spawnRate: 1600,
     maxOnScreen: 10,
     difficulty: 5,
-    ttsMode: 'none', 
+    ttsMode: 'none',
     speakDe: true,
     speakCn: false,
     apiKey: '',
@@ -133,11 +144,44 @@ export default function SpaceVocabGame() {
       // Sync dailyStats from cloud if available and matches today
       if (cloudProfile.dailyStats) {
         const todayStr = new Date().toDateString();
-        // Only overwrite if cloud data is for today. 
-        // If cloud data is old, we ignore it (local default is empty today).
+        // Smart Merge: Don't blindly overwrite local progress with cloud data
         if (cloudProfile.dailyStats.date === todayStr) {
-           dailyStatsRef.current = { ...cloudProfile.dailyStats };
-           localStorage.setItem('space_vocab_daily_stats', JSON.stringify(dailyStatsRef.current));
+          const cloud = cloudProfile.dailyStats;
+          const local = dailyStatsRef.current;
+
+          // If local is not initialized for today yet, or cloud is strictly better
+          if (local.date !== todayStr) {
+            dailyStatsRef.current = { ...cloud };
+          } else {
+            // Both are today: Merge to keep max progress
+            dailyStatsRef.current = {
+              date: todayStr,
+              newCount: Math.max(local.newCount || 0, cloud.newCount || 0),
+              reviewCount: Math.max(local.reviewCount || 0, cloud.reviewCount || 0),
+              isCheckedIn: local.isCheckedIn || cloud.isCheckedIn,
+              bonusXP: Math.max(local.bonusXP || 0, cloud.bonusXP || 0)
+            };
+          }
+          localStorage.setItem('space_vocab_daily_stats', JSON.stringify(dailyStatsRef.current));
+        }
+      }
+
+      // Sync Daily Plan (Deck) from Cloud
+      if (cloudProfile.dailyPlan) {
+        const todayStr = new Date().toDateString();
+        if (cloudProfile.dailyPlan.date === todayStr && cloudProfile.dailyPlan.deck && cloudProfile.dailyPlan.deck.length > 0) {
+          // Check local plan
+          try {
+            const localPlan = JSON.parse(localStorage.getItem('star_vocab_daily_plan'));
+            // If local plan is missing or old, or cloud plan is different (we prioritize cloud for consistency across devices)
+            // Note: If user JUST generated a plan locally and hasn't synced yet, this might overwrite.
+            // But since we are in "loading profile" phase, this usually happens on startup.
+            if (!localPlan || localPlan.date !== todayStr) {
+              localStorage.setItem('star_vocab_daily_plan', JSON.stringify(cloudProfile.dailyPlan));
+              // If we are in Dashboard, force deck reload might be needed? 
+              // The DeckGenerator checks LS, so it should be fine on next render/action.
+            }
+          } catch { }
         }
       }
 
@@ -147,33 +191,33 @@ export default function SpaceVocabGame() {
         let shouldApply = false;
 
         if (isFreshInstallRef.current) {
-           shouldApply = true;
-           isFreshInstallRef.current = false;
+          shouldApply = true;
+          isFreshInstallRef.current = false;
         } else {
-           const cloudTime = cloudSettings.updatedAt || 0;
-           const localTime = settingsRef.current.updatedAt || 0;
-           if (cloudTime > localTime) {
-               shouldApply = true;
-           }
+          const cloudTime = cloudSettings.updatedAt || 0;
+          const localTime = settingsRef.current.updatedAt || 0;
+          if (cloudTime > localTime) {
+            shouldApply = true;
+          }
         }
 
         if (shouldApply) {
-            // 1. Game Settings
-            if (cloudProfile.settings.gameSettings) {
-                updateSettings(cloudProfile.settings.gameSettings, true);
-            }
-            // 2. Wallpaper
-            if (cloudProfile.settings.wallpaper) {
-                setWallpaper(cloudProfile.settings.wallpaper);
-                localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
-                localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
-            }
+          // 1. Game Settings
+          if (cloudProfile.settings.gameSettings) {
+            updateSettings(cloudProfile.settings.gameSettings, true);
+          }
+          // 2. Wallpaper
+          if (cloudProfile.settings.wallpaper) {
+            setWallpaper(cloudProfile.settings.wallpaper);
+            localStorage.setItem('star-vocab-wallpaper-home', cloudProfile.settings.wallpaper);
+            localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
+          }
         }
-        
+
         // Update reference to what is IN THE CLOUD (so we can detect if we need to push our local changes)
         lastSyncedSettingsRef.current = JSON.stringify({
-            gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
-            wallpaper: cloudProfile.settings.wallpaper || wallpaper
+          gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
+          wallpaper: cloudProfile.settings.wallpaper || wallpaper
         });
       } else {
         // If cloud has NO settings, but we have local settings, we should sync UP.
@@ -185,9 +229,9 @@ export default function SpaceVocabGame() {
         totalXP: cloudProfile.totalXP,
         level: cloudProfile.level,
         checkInDates: cloudProfile.checkInDates || [],
-        streak: streak 
+        streak: streak
       };
-      
+
       // Force UI update to reflect loaded profile
       forceUpdate({});
     }
@@ -211,8 +255,8 @@ export default function SpaceVocabGame() {
       }
       const savedProfile = JSON.parse(localStorage.getItem('space_vocab_user_profile'));
       if (savedProfile) {
-        userProfileRef.current = { 
-          totalXP: savedProfile.totalXP || 0, 
+        userProfileRef.current = {
+          totalXP: savedProfile.totalXP || 0,
           level: calculateLevel(savedProfile.totalXP || 0),
           checkInDates: Array.isArray(savedProfile.checkInDates) ? savedProfile.checkInDates : [],
           streak: savedProfile.streak || 0
@@ -221,11 +265,11 @@ export default function SpaceVocabGame() {
 
       // Sync check-in status (legacy fix): if daily stats says checked in, ensure it's in profile
       if (dailyStatsRef.current.isCheckedIn) {
-         const todayISO = new Date().toISOString().split('T')[0];
-         if (!userProfileRef.current.checkInDates.includes(todayISO)) {
-            userProfileRef.current.checkInDates.push(todayISO);
-            localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
-         }
+        const todayISO = new Date().toISOString().split('T')[0];
+        if (!userProfileRef.current.checkInDates.includes(todayISO)) {
+          userProfileRef.current.checkInDates.push(todayISO);
+          localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
+        }
       }
     } catch { }
   }, []);
@@ -234,9 +278,9 @@ export default function SpaceVocabGame() {
     const oldLevel = userProfileRef.current.level;
     const currentTotalXP = userProfileRef.current.totalXP + newXP;
     const newLevel = calculateLevel(currentTotalXP);
-    
+
     let { checkInDates, streak } = userProfileRef.current;
-    
+
     if (newCheckIn) {
       const todayISO = getLocalDateString();
       if (!checkInDates.includes(todayISO)) {
@@ -244,7 +288,7 @@ export default function SpaceVocabGame() {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayISO = getLocalDateString(yesterday);
-        
+
         if (checkInDates.includes(yesterdayISO)) {
           streak += 1;
         } else {
@@ -258,13 +302,17 @@ export default function SpaceVocabGame() {
     localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
 
     // Cloud Sync
+    let currentDailyPlan = null;
+    try { currentDailyPlan = JSON.parse(localStorage.getItem('star_vocab_daily_plan')); } catch { }
+
     updateCloudProfile({
-        totalXP: currentTotalXP,
-        level: newLevel,
-        checkInDates: checkInDates,
-        dailyStats: dailyStatsRef.current
+      totalXP: currentTotalXP,
+      level: newLevel,
+      checkInDates: checkInDates,
+      dailyStats: dailyStatsRef.current,
+      dailyPlan: currentDailyPlan
     });
-    
+
     if (newLevel > oldLevel) {
       setMessage(`升级了！达到 Lv.${newLevel}！`);
       soundManager.playVictory();
@@ -292,7 +340,7 @@ export default function SpaceVocabGame() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState('');
-  
+
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const pendingBatchRef = useRef(new Set());
@@ -311,14 +359,14 @@ export default function SpaceVocabGame() {
         let dataToReturn = saved;
         // 自动修复旧数据缺失字段
         if (saved.length > 0 && (saved[0].step === undefined || saved[0].interval === undefined)) {
-            dataToReturn = saved.map(w => ({
+          dataToReturn = saved.map(w => ({
             ...w,
             state: w.familiarity > 0 ? 'review' : 'new',
             step: w.step || 0,
             interval: w.interval || 0,
             easeFactor: w.easeFactor || 2.5,
             dueDate: w.dueDate || 0,
-            }));
+          }));
         }
         return dataToReturn.sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       }
@@ -476,9 +524,14 @@ export default function SpaceVocabGame() {
     // 检查是否调整了每日目标，如果是，则清除今日计划缓存，以便下次开始游戏时重新生成
     // 并且如果当前正在菜单界面，我们可以尝试预加载新的计划（或者不预加载，等用户点开始时自动生成）
     const hasGoalChanged = newSettings.dailyNewLimit !== undefined || newSettings.dailyReviewLimit !== undefined;
-    
+
     if (hasGoalChanged) {
       localStorage.removeItem('star_vocab_daily_plan');
+      // Only clear cloud plan if this change came from USER interaction (not cloud sync)
+      // This prevents "Zombie Deck" resurrection where old cloud plan overwrites new local settings
+      if (!fromCloud && cloudInitialized && updateCloudProfile) {
+        updateCloudProfile({ dailyPlan: null });
+      }
     }
 
     const timestampUpdate = !fromCloud ? { updatedAt: Date.now() } : {};
@@ -496,10 +549,21 @@ export default function SpaceVocabGame() {
     if (typeof settingsRef.current.speed === 'number') {
       settingsRef.current.speed = Math.max(0.3, Math.min(3.0, settingsRef.current.speed));
     }
-    setSettingsState({ ...settingsRef.current });
+
+    // 使用函数式更新确保React正确触发重新渲染
+    setSettingsState(prev => ({ ...settingsRef.current }));
+
+    // 如果修改了每日目标，显示即时反馈
+    if (hasGoalChanged && !fromCloud) {
+      const newLimit = settingsRef.current.dailyNewLimit || 0;
+      const reviewLimit = settingsRef.current.dailyReviewLimit || 0;
+      const total = newLimit + reviewLimit;
+      setMessage(`每日目标已更新为 ${total} 个！`);
+      setTimeout(() => setMessage(null), 2000);
+    }
 
     // 强制 UI 更新
-    forceUpdate({}); 
+    forceUpdate({});
   };
 
   useEffect(() => {
@@ -510,26 +574,26 @@ export default function SpaceVocabGame() {
         // Migration: If local settings exist but have no timestamp, 
         // assume they are recent and valid, so give them a timestamp to beat stale cloud data (0).
         if (!s.updatedAt) {
-            s.updatedAt = Date.now();
+          s.updatedAt = Date.now();
         }
         updateSettings(s, true);
         if (settingsRef.current.difficulty == null) {
-            updateSettings({ difficulty: 5 }, true); // 简化逻辑，默认5
+          updateSettings({ difficulty: 5 }, true); // 简化逻辑，默认5
         }
       } else {
         // Initialize default settings if nothing in local storage
         isFreshInstallRef.current = true;
         updateSettings({
-            speed: 2.5,
-            spawnRate: 1600,
-            maxOnScreen: 10,
-            difficulty: 5,
-            dailyNewLimit: 5,
-            dailyReviewLimit: 10,
-            ttsMode: 'none',
-            speakDe: true,
-            speakCn: false,
-            updatedAt: 0
+          speed: 2.5,
+          spawnRate: 1600,
+          maxOnScreen: 10,
+          difficulty: 5,
+          dailyNewLimit: 5,
+          dailyReviewLimit: 10,
+          ttsMode: 'none',
+          speakDe: true,
+          speakCn: false,
+          updatedAt: 0
         }, true);
       }
     } catch { }
@@ -540,17 +604,17 @@ export default function SpaceVocabGame() {
 
     // Cloud Sync for Settings & Wallpaper
     if (cloudInitialized && updateCloudProfile) {
-        const currentSettings = {
-            gameSettings: settingsRef.current,
-            wallpaper: wallpaper
-        };
-        const json = JSON.stringify(currentSettings);
-        
-        // Only sync if different from what we last loaded/saved
-        if (lastSyncedSettingsRef.current !== json) {
-            lastSyncedSettingsRef.current = json;
-            updateCloudProfile({ settings: currentSettings });
-        }
+      const currentSettings = {
+        gameSettings: settingsRef.current,
+        wallpaper: wallpaper
+      };
+      const json = JSON.stringify(currentSettings);
+
+      // Only sync if different from what we last loaded/saved
+      if (lastSyncedSettingsRef.current !== json) {
+        lastSyncedSettingsRef.current = json;
+        updateCloudProfile({ settings: currentSettings });
+      }
     }
   }, [settingsState, wallpaper, cloudInitialized, updateCloudProfile]);
 
@@ -589,7 +653,7 @@ export default function SpaceVocabGame() {
     try {
       const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
       if (!saved || saved.date !== new Date().toDateString()) return false;
-      
+
       // 修复逻辑：从 globalWordDb 恢复最新单词数据，避免覆盖编辑或复活已删单词
       const dbMap = new Map(globalWordDb.map(w => [w.id, w]));
       const rehydratedDeck = saved.deck
@@ -617,6 +681,10 @@ export default function SpaceVocabGame() {
   const [customCancelAction, setCustomCancelAction] = useState(null);
   const [customConfirmText, setCustomConfirmText] = useState('确认');
   const [customCancelText, setCustomCancelText] = useState('取消');
+
+  // Review积压清理Modal状态
+  const [showClearanceModal, setShowClearanceModal] = useState(false);
+  const [clearanceInfo, setClearanceInfo] = useState(null);
 
   const showResumeDialog = () => {
     setConfirmMessage('检测到今日未完成的游戏进度。');
@@ -883,9 +951,9 @@ export default function SpaceVocabGame() {
           if (isExtremeSpeed) {
             // 极速豁免
           } else {
-            setGlobalWordDb(prev => prev.map(w => 
-              w.id === f.wordId.id 
-                ? processWordResult(w, { type: 'miss', isHighPressure }) 
+            setGlobalWordDb(prev => prev.map(w =>
+              w.id === f.wordId.id
+                ? processWordResult(w, { type: 'miss', isHighPressure })
                 : w
             ));
           }
@@ -894,8 +962,8 @@ export default function SpaceVocabGame() {
     });
 
     if (!isPaused) {
-       // ... 物理碰撞逻辑 (原封不动) ...
-       for (let i = 0; i < fragmentsRef.current.length; i++) {
+      // ... 物理碰撞逻辑 (原封不动) ...
+      for (let i = 0; i < fragmentsRef.current.length; i++) {
         for (let j = i + 1; j < fragmentsRef.current.length; j++) {
           const a = fragmentsRef.current[i];
           const b = fragmentsRef.current[j];
@@ -949,10 +1017,14 @@ export default function SpaceVocabGame() {
     particlesRef.current = particlesRef.current.filter(p => !p.markedForDeletion);
 
     if (selectedFragmentRef.current) {
-      const s = selectedFragmentRef.current;
-      ctx.beginPath(); ctx.moveTo(s.x, s.y);
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([8, 8]); ctx.lineWidth = 2;
-      ctx.arc(s.x, s.y, s.width * 0.6, 0, Math.PI * 2); ctx.stroke();
+      if (selectedFragmentRef.current.markedForDeletion) {
+        selectedFragmentRef.current = null;
+      } else {
+        const s = selectedFragmentRef.current;
+        ctx.beginPath(); ctx.moveTo(s.x, s.y);
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([8, 8]); ctx.lineWidth = 2;
+        ctx.arc(s.x, s.y, s.width * 0.6, 0, Math.PI * 2); ctx.stroke();
+      }
     }
     ctx.restore();
 
@@ -1017,8 +1089,8 @@ export default function SpaceVocabGame() {
           setTimeout(() => { if (myToken === ttsTokenRef.current) currentSentenceRef.current = null; }, 8000);
         }
       })();
-    } 
-    
+    }
+
     if (ttsMode === "word") {
       ttsTokenRef.current++;
       const myToken = ttsTokenRef.current;
@@ -1063,7 +1135,7 @@ export default function SpaceVocabGame() {
     localStorage.setItem('space_vocab_daily_stats', JSON.stringify(dailyStatsRef.current));
 
     const stats = sessionStatsRef.current.get(wordData.id) || { spawns: 1, misses: 0 };
-    
+
     // V2 Logic: High Pressure Bonus
     const currentSpeed = settingsRef.current.speed * adaptiveSpeedRef.current;
     const currentDensity = fragmentsRef.current.length;
@@ -1108,6 +1180,9 @@ export default function SpaceVocabGame() {
     let clickedFrag = null; const TOUCH_SLOP = 15;
     for (let i = fragmentsRef.current.length - 1; i >= 0; i--) {
       const f = fragmentsRef.current[i];
+      // Skip fragments that are dying or matched
+      if (f.isMatched || f.markedForDeletion) continue;
+
       const halfW = f.width / 2 + TOUCH_SLOP; const halfH = f.height / 2 + TOUCH_SLOP;
       if (x > f.x - halfW && x < f.x + halfW && y > f.y - halfH && y < f.y + halfH) { clickedFrag = f; break; }
     }
@@ -1151,13 +1226,13 @@ export default function SpaceVocabGame() {
   const parseInput = () => {
     const result = processImportInput(customInput, globalWordDb);
     if (result.message) { setMessage(result.message); setTimeout(() => setMessage(null), result.success ? 3000 : 2000); }
-    if (result.success) { 
-      setGlobalWordDb(result.updatedDb); 
+    if (result.success) {
+      setGlobalWordDb(result.updatedDb);
       if (result.newWords && result.newWords.length > 0) {
         syncWordsBatch(result.newWords);
       }
-      setCustomInput(''); 
-      
+      setCustomInput('');
+
       // 检查是否需要刷新今日计划 (当添加了新词且今日额度未满时)
       const stats = dailyStatsRef.current;
       const settings = settingsRef.current;
@@ -1168,7 +1243,7 @@ export default function SpaceVocabGame() {
     }
   };
 
-  const startGame = () => {
+  const _startGameLogic = useCallback(() => {
     try { soundManager.unlock(); } catch (e) { console.warn("Audio unlock failed:", e); }
     aiService.warmUp();
     isPausedRef.current = false;
@@ -1180,6 +1255,11 @@ export default function SpaceVocabGame() {
       localStorage.setItem('space_vocab_daily_stats', JSON.stringify(dailyStatsRef.current));
     }
     let { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb, settingsRef.current);
+
+    // Sync generated plan to cloud immediately
+    const currentPlan = { date: todayStr, mode, deck };
+    updateCloudProfile({ dailyPlan: currentPlan });
+
     // Only show Bonus Mode message if we are actually in bonus mode (cleared all due words)
     if (mode === 'bonus' && deck.length > 0) { setMessage("进入额外复习模式！"); setTimeout(() => setMessage(null), 2500); }
     if (deck.length < MIN_DECK_SIZE && globalWordDb.length > 0) {
@@ -1202,6 +1282,32 @@ export default function SpaceVocabGame() {
     aiService.stopAll();
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
     requestRef.current = requestAnimationFrame(update);
+  }, [globalWordDb, updateCloudProfile, update, settingsRef]);
+
+  const startGame = () => {
+    // 检查并自动恢复原设置（如果review已清理完）
+    const restored = checkAndRestoreSettings(globalWordDb, settingsRef.current, updateSettings);
+    if (restored) {
+      setMessage('Review已清理完成，已恢复原设置！');
+      setTimeout(() => setMessage(null), 3000);
+    }
+
+    // 检测review积压
+    const backlogInfo = detectReviewBacklog(globalWordDb, settingsRef.current);
+    if (backlogInfo.needsAdjustment) {
+      // 检查是否已经在清理模式中
+      try {
+        const existingMode = JSON.parse(localStorage.getItem('space_vocab_temp_clearance_settings'));
+        if (!existingMode || !existingMode.active) {
+          // 显示确认modal
+          setClearanceInfo(backlogInfo);
+          setShowClearanceModal(true);
+          return; // 暂停游戏启动，等待用户确认
+        }
+      } catch { }
+    }
+
+    _startGameLogic();
   };
 
   const handleDeleteWord = (id) => {
@@ -1316,6 +1422,28 @@ export default function SpaceVocabGame() {
 
       <CustomModal isOpen={showConfirmModal} title="操作确认" message={confirmMessage} onConfirm={confirmAction} onCancel={customCancelAction || (() => setShowConfirmModal(false))} confirmText={customConfirmText} cancelText={customCancelText} />
 
+      {/* Review积压清理确认Modal */}
+      {showClearanceModal && clearanceInfo && (
+        <ReviewClearanceModal
+          backlogInfo={clearanceInfo}
+          onConfirm={() => {
+            activateClearanceMode(clearanceInfo);
+            setShowClearanceModal(false);
+            setClearanceInfo(null);
+            setMessage('已启用智能清理模式！每日目标已临时调整');
+            setTimeout(() => setMessage(null), 3000);
+            // 继续启动游戏
+            _startGameLogic();
+          }}
+          onCancel={() => {
+            setShowClearanceModal(false);
+            setClearanceInfo(null);
+            // 继续正常启动游戏
+            _startGameLogic();
+          }}
+        />
+      )}
+
       {showExitModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center transform scale-100 animate-modal-pop">
@@ -1424,14 +1552,14 @@ export default function SpaceVocabGame() {
               </div>
               <h2 className="mb-2 text-3xl font-bold text-white">{gameState === 'win' ? '任务完成' : '连接中断'}</h2>
               <p className="mb-8 text-sm text-gray-400">{gameState === 'win' ? '你已成功记忆所有单词！' : '信号丢失，请重新建立连接。'}</p>
-              
+
               {gameState === 'win' && dailyStatsRef.current.newCount < settingsRef.current.dailyNewLimit && !globalWordDb.some(w => w.state === 'new') && (
                 <div className="mb-6 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-yellow-200 text-sm animate-pulse">
                   <div className="flex items-center justify-center gap-2 mb-1 font-bold text-yellow-400">
                     <AlertCircle className="w-4 h-4" />
                     <span>词库告急</span>
                   </div>
-                  <p className="opacity-80">剩余新词不足以完成今日目标，<br/>请前往词库添加更多单词。</p>
+                  <p className="opacity-80">剩余新词不足以完成今日目标，<br />请前往词库添加更多单词。</p>
                 </div>
               )}
 

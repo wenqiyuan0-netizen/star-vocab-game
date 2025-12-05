@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Search, Plus, Trash2, RotateCcw, X, Save, 
-  MoreHorizontal, FileText, CheckSquare, Square 
+import {
+  Search, Plus, Trash2, RotateCcw, X, Save,
+  MoreHorizontal, FileText, CheckSquare, Square
 } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { GlassButton } from '../../ui/GlassButton';
@@ -14,26 +14,26 @@ import { generateGenderColors, getBrightestVariant } from '../../../utils/colorU
 export function LibraryView({
   globalWordDb = [],
   customInput = '',
-  setCustomInput = () => {},
-  handleBulkAdd = () => {},
+  setCustomInput = () => { },
+  handleBulkAdd = () => { },
   selectionMode = false,
-  setSelectionMode = () => {},
+  setSelectionMode = () => { },
   selectedIds = new Set(),
-  setSelectedIds = () => {},
-  handleToggleSelect = () => {},
-  handleBulkDeleteRequest = () => {},
-  clearSelection = () => {},
-  handleDeleteWord = () => {},
-  handleResetWord = () => {},
+  setSelectedIds = () => { },
+  handleToggleSelect = () => { },
+  handleBulkDeleteRequest = () => { },
+  clearSelection = () => { },
+  handleDeleteWord = () => { },
+  handleResetWord = () => { },
   localCorpusService,
   // 悬停/交互相关
   hoveringId = null,
   loadingExampleId = null,
   examplesById = {},
-  handleMouseEnterWord = () => {},
-  handleMouseLeaveWord = () => {},
-  handleTouchStartWord = () => {},
-  handleTouchEndWord = () => {}
+  handleMouseEnterWord = () => { },
+  handleMouseLeaveWord = () => { },
+  handleTouchStartWord = () => { },
+  handleTouchEndWord = () => { }
 }) {
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,13 +61,13 @@ export function LibraryView({
       handleToggleSelect(w.id);
       return;
     }
-    
+
     setShowCard(true);
     setCardWord(w);
     let entry = null;
     try {
       entry = await exampleService.getDictEntry(w.de);
-    } catch {}
+    } catch { }
     setCardEntry(entry);
   };
 
@@ -113,7 +113,7 @@ export function LibraryView({
         setAiError('请先粘贴德语短文');
         return;
       }
-      
+
       // Check for API key
       const hasApiKey = aiService.apiKey && aiService.apiKey.trim();
       if (!hasApiKey) {
@@ -158,10 +158,10 @@ export function LibraryView({
         <h2 className="text-xl font-bold flex items-center gap-2">
           词库 <span className="text-sm font-normal text-gray-300 glass-panel px-2 py-0.5 rounded-full">{globalWordDb.length}</span>
         </h2>
-        
+
         <div className="flex items-center gap-2">
           <div className="relative group">
-            <button 
+            <button
               onClick={() => setShowAddPanel(!showAddPanel)}
               title="增加新词"
               className={`p-2 rounded-full glass-button transition ${!showAddPanel ? 'text-gray-400' : ''}`}
@@ -169,10 +169,10 @@ export function LibraryView({
             >
               <Plus className="w-5 h-5" />
             </button>
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap">增加新词</div>
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">增加新词</div>
           </div>
           <div className="relative group">
-            <button 
+            <button
               onClick={() => setSelectionMode(!selectionMode)}
               title={selectionMode ? '退出批量' : '批量管理'}
               className={`p-2 rounded-full glass-button transition ${!selectionMode ? 'text-gray-400' : ''}`}
@@ -180,7 +180,7 @@ export function LibraryView({
             >
               {selectionMode ? <X className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
             </button>
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap">{selectionMode ? '退出批量' : '批量管理'}</div>
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">{selectionMode ? '退出批量' : '批量管理'}</div>
           </div>
         </div>
       </div>
@@ -194,46 +194,58 @@ export function LibraryView({
                 value={articleInput}
                 onChange={handleArticleChange}
                 placeholder="粘贴德语短文（仅德语，最长 3000 字）"
-                className="w-full glass-button text-left cursor-text rounded-lg p-3 text-sm outline-none min-h-[100px] placeholder:text-gray-500"
-                style={{ '--tw-ring-color': theme.primary }}
+                className="w-full text-left cursor-text rounded-lg p-3 text-sm outline-none placeholder:text-gray-500 overflow-y-auto custom-scrollbar resize-none"
+                style={{
+                  backgroundColor: cardBgColor,
+                  color: theme.text,
+                  minHeight: '100px',
+                  maxHeight: articleInput.length > 500 ? '240px' : '140px',
+                  '--tw-ring-color': theme.primary
+                }}
               />
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">仅德语 | {articleInput.length}/{ARTICLE_LIMIT}</span>
-                  <div className="flex gap-2">
-                    {articleInput.length > 0 && (
-                       <GlassButton onClick={() => setArticleInput('')} tone="secondary" variant="ghost" size="sm" title="清空短文">
-                         <Trash2 className="w-4 h-4" />
-                       </GlassButton>
-                    )}
-                    <GlassButton onClick={handleAiExtract} tone="primary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
-                      {aiLoading ? '整理中...' : 'AI 生词整理'}
+                <div className="flex gap-2">
+                  {articleInput.length > 0 && (
+                    <GlassButton onClick={() => setArticleInput('')} tone="secondary" variant="ghost" size="sm" title="清空短文">
+                      <Trash2 className="w-4 h-4" />
                     </GlassButton>
-                    <GlassButton onClick={handleAddToCorpus} tone="secondary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
-                      写入例句库
-                    </GlassButton>
-                  </div>
+                  )}
+                  <GlassButton onClick={handleAiExtract} tone="primary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
+                    {aiLoading ? '整理中...' : 'AI 生词整理'}
+                  </GlassButton>
+                  <GlassButton onClick={handleAddToCorpus} tone="secondary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
+                    写入例句库
+                  </GlassButton>
                 </div>
-                {aiError && <span className="text-xs" style={{ color: theme.accent }}>{aiError}</span>}
               </div>
-              <div className="relative">
-                <textarea
-                  value={customInput}
-                  onChange={e => setCustomInput(e.target.value)}
-                  placeholder="输入单词... (格式: der Apfel, 苹果)"
-                  className="w-full glass-button text-left cursor-text rounded-lg p-3 text-sm outline-none min-h-[100px] placeholder:text-gray-500"
-                  style={{ '--tw-ring-color': theme.primary }}
-                />
-                {customInput.length > 0 && (
-                  <button 
-                    onClick={() => setCustomInput('')}
-                    className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                    title="清空单词"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="flex justify-between items-center">
+              {aiError && <span className="text-xs" style={{ color: theme.accent }}>{aiError}</span>}
+            </div>
+            <div className="relative">
+              <textarea
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value)}
+                placeholder="输入单词... (格式: der Apfel, 苹果)"
+                className="w-full text-left cursor-text rounded-lg p-3 pr-10 text-sm outline-none placeholder:text-gray-500 overflow-y-auto custom-scrollbar resize-none"
+                style={{
+                  backgroundColor: cardBgColor,
+                  color: theme.text,
+                  minHeight: '100px',
+                  maxHeight: customInput.length > 200 ? '240px' : '140px',
+                  '--tw-ring-color': theme.primary
+                }}
+              />
+              {customInput.length > 0 && (
+                <button
+                  onClick={() => setCustomInput('')}
+                  className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                  title="清空单词"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="flex justify-between items-center">
               <GlassButton
                 onClick={() => { handleBulkAdd(); setShowAddPanel(false); }}
                 disabled={!customInput.trim()}
@@ -251,7 +263,7 @@ export function LibraryView({
 
       {/* 批量操作栏 */}
       {selectionMode && (
-        <div 
+        <div
           className="border-b p-2 flex items-center justify-between px-4"
           style={{ backgroundColor: `${theme.accent}33`, borderColor: `${theme.accent}33` }}
         >
@@ -268,11 +280,11 @@ export function LibraryView({
       <div className="p-4 pb-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/80" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="搜索单词..." 
+            placeholder="搜索单词..."
             className="w-full glass-button bg-black/40 cursor-text rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2"
             style={{ '--tw-ring-color': theme.primary, borderColor: searchTerm ? theme.primary : undefined }}
           />
@@ -292,22 +304,21 @@ export function LibraryView({
               onMouseLeave={handleMouseLeaveWord}
               onTouchStart={() => handleTouchStartWord(w)}
               onTouchEnd={handleTouchEndWord}
-              className={`relative group flex items-center justify-between p-3 rounded-xl transition-all ${
-                selectionMode 
+              className={`relative group flex items-center justify-between p-3 rounded-xl transition-all ${selectionMode
                   ? (selectedIds.has(w.id) ? '' : 'glass-panel opacity-70')
                   : 'glass-panel hover:bg-white/5'
-              }`}
-              style={selectionMode && selectedIds.has(w.id) ? { 
-                backgroundColor: `${theme.primary}33`, 
+                }`}
+              style={selectionMode && selectedIds.has(w.id) ? {
+                backgroundColor: `${theme.primary}33`,
                 borderColor: `${theme.primary}80`,
                 borderWidth: '1px'
               } : {}}
             >
               <div className="flex items-center gap-3 overflow-hidden">
                 {selectionMode && (
-                  <div 
+                  <div
                     className={`w-4 h-4 rounded border flex items-center justify-center`}
-                    style={{ 
+                    style={{
                       borderColor: selectedIds.has(w.id) ? theme.primary : '#6b7280',
                       backgroundColor: selectedIds.has(w.id) ? theme.primary : 'transparent'
                     }}
@@ -315,22 +326,22 @@ export function LibraryView({
                     {selectedIds.has(w.id) && <CheckSquare className="w-3 h-3 text-white" />}
                   </div>
                 )}
-                
+
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="font-bold text-base truncate text-white">
                       {w.gender && (
-                          <span 
-                            className="text-xs opacity-90 mr-1 font-serif italic"
-                            style={{ 
-                                color: genderColors[w.gender.toLowerCase()] || 'inherit'
-                            }}
-                          >
-                              {w.gender}
-                          </span>
+                        <span
+                          className="text-xs opacity-90 mr-1 font-serif italic"
+                          style={{
+                            color: genderColors[w.gender.toLowerCase()] || 'inherit'
+                          }}
+                        >
+                          {w.gender}
+                        </span>
                       )}
                       <span style={{ color: w.gender && genderColors[w.gender.toLowerCase()] ? genderColors[w.gender.toLowerCase()] : 'inherit' }}>
-                          {w.de}
+                        {w.de}
                       </span>
                     </span>
                     {/* 简单的熟练度指示点 */}
@@ -347,7 +358,7 @@ export function LibraryView({
               {/* 悬停操作按钮 (非批量模式下) */}
               {!selectionMode && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-yellow-400" title="重置进度">
+                  <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-yellow-400" title="重置进度">
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id); }} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-red-400" title="删除">
@@ -382,12 +393,12 @@ export function LibraryView({
           word={{ w: cardWord, entry: cardEntry }}
           onClose={() => setShowCard(false)}
           onPrev={() => {
-             const idx = filteredWords.findIndex(x => x.id === cardWord.id);
-             if (idx > 0) handleWordClick(filteredWords[idx - 1]);
+            const idx = filteredWords.findIndex(x => x.id === cardWord.id);
+            if (idx > 0) handleWordClick(filteredWords[idx - 1]);
           }}
           onNext={() => {
-             const idx = filteredWords.findIndex(x => x.id === cardWord.id);
-             if (idx !== -1 && idx < filteredWords.length - 1) handleWordClick(filteredWords[idx + 1]);
+            const idx = filteredWords.findIndex(x => x.id === cardWord.id);
+            if (idx !== -1 && idx < filteredWords.length - 1) handleWordClick(filteredWords[idx + 1]);
           }}
           hasPrev={filteredWords.findIndex(x => x.id === cardWord.id) > 0}
           hasNext={filteredWords.findIndex(x => x.id === cardWord.id) < filteredWords.length - 1}
@@ -396,7 +407,7 @@ export function LibraryView({
         />
       )}
 
-      
+
     </div>
   );
 }

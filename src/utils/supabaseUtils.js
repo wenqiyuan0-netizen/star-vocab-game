@@ -20,7 +20,7 @@ export const appWordToDbWord = (appWord, userId) => {
     proficiency: appWord.proficiency || 0,
     graduated: appWord.graduated || false,
     last_review: appWord.lastReview ? new Date(appWord.lastReview).toISOString() : null,
-    // fsrs: appWord.fsrs || null // If we have extra FSRS state
+    fsrs: appWord.fsrs || null 
   };
 };
 
@@ -38,7 +38,7 @@ export const dbWordToAppWord = (dbWord) => {
     proficiency: dbWord.proficiency,
     graduated: dbWord.graduated,
     lastReview: dbWord.last_review ? new Date(dbWord.last_review).getTime() : null,
-    // ...other fields if needed
+    fsrs: dbWord.fsrs || null
   };
 };
 

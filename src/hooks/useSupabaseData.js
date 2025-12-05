@@ -48,16 +48,12 @@ export function useSupabaseData() {
   const syncWord = async (word) => {
     if (!user) return;
     try {
+      // Ensure gender is null if it's falsy (empty string, undefined, etc) to match DB unique constraint logic
+      // if we want to be strict. BUT our DB constraint is (user_id, de, gender).
+      // The fix we applied uses NULLS NOT DISTINCT, so 'word' and null are treated same.
+      // We just need to ensure we send consistent data.
       const dbPayload = appWordToDbWord(word, user.id);
       
-      // If the word has a temporary ID (not UUID) and we are syncing, 
-      // we should probably query by (user_id, de, gender) to avoid duplicates
-      // or just let Supabase handle the unique constraint if we didn't pass ID.
-      // However, appWordToDbWord passes ID only if UUID. 
-      // If it's not UUID, we omit ID, so Supabase creates a NEW row.
-      // BUT we have a unique constraint on (user_id, de, gender).
-      // So we should use onConflict.
-
       const { data, error } = await supabase
         .from('user_words')
         .upsert(dbPayload, { onConflict: 'user_id, de, gender' })
@@ -69,10 +65,11 @@ export function useSupabaseData() {
       // Update local state with the returned data (especially useful for getting the new UUID)
       const newAppWord = dbWordToAppWord(data);
       setWords(prev => {
-        const index = prev.findIndex(w => w.de === newAppWord.de && w.gender === newAppWord.gender);
+        // We match by ID if available, or by content if not
+        const index = prev.findIndex(w => w.id === newAppWord.id || (w.de === newAppWord.de && w.gender === newAppWord.gender));
         if (index !== -1) {
           const newWords = [...prev];
-          newWords[index] = { ...prev[index], ...newAppWord }; // Preserve any local-only props?
+          newWords[index] = { ...prev[index], ...newAppWord }; 
           return newWords;
         } else {
           return [...prev, newAppWord];
@@ -82,7 +79,6 @@ export function useSupabaseData() {
       return newAppWord;
     } catch (err) {
       console.error('Error syncing word:', err);
-      // Don't block UI, just log
       return null;
     }
   };
@@ -102,9 +98,21 @@ export function useSupabaseData() {
 
       const syncedWords = data.map(dbWordToAppWord);
       setWords(prev => {
-        const keyOf = (w) => `${String(w.de || '').toLowerCase()}|${String(w.gender || '')}`;
-        const map = new Map(prev.map(w => [keyOf(w), w]));
-        for (const w of syncedWords) map.set(keyOf(w), w);
+        // Create a map of existing words for faster lookup
+        // Key: ID if UUID, else content key
+        const map = new Map();
+        prev.forEach(w => {
+           if (w.id && w.id.length > 10) map.set(w.id, w); // UUID-ish check
+           else map.set(`${w.de}|${w.gender}`, w);
+        });
+
+        // Merge synced words
+        syncedWords.forEach(w => {
+           map.set(w.id, w);
+           // Also remove old temporary entry if it existed
+           map.delete(`${w.de}|${w.gender}`);
+        });
+        
         return Array.from(map.values()).sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       });
       return syncedWords;

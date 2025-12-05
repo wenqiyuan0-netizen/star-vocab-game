@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minimize2, Sparkles } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { generateGenderColors, withOpacity, getContrastColorFromTheme } from '../../../utils/colorUtils';
+import { aiService } from '../../../logic/AIService';
+import { useSupabaseProfile } from '../../../hooks/useSupabaseProfile';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -90,6 +92,30 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
 export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) => {
   const theme = useTheme();
   const [showAllExamples, setShowAllExamples] = useState(false);
+  const [aiExample, setAiExample] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const { profile } = useSupabaseProfile();
+
+  const handleGenerateExample = async (e) => {
+    e.stopPropagation();
+    setLoadingAi(true);
+    setAiError(null);
+    try {
+      const result = await aiService.generateExample(w.de, w.cn);
+      if (result) {
+        setAiExample({
+          sentence: result.de,
+          translation: result.cn
+        });
+      }
+    } catch (err) {
+      console.error("AI Gen Error:", err);
+      setAiError(err.message);
+    } finally {
+      setLoadingAi(false);
+    }
+  };
   
   // Helpers for colors
   const getArticleColor = (art) => {
@@ -203,9 +229,56 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
               <div className="flex flex-col gap-2 mt-1 flex-1 min-h-0">
                   <div className="flex items-center justify-between mb-1">
                       <span style={isFocus ? {...labelStyle, color: withOpacity(theme.text, 0.6)} : labelStyle} className="font-medium">示例</span>
+                      {isFocus && (
+                        <button 
+                          onClick={handleGenerateExample}
+                          disabled={loadingAi || (profile?.level || 0) < 5}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all ${loadingAi ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                          style={{
+                            backgroundColor: (profile?.level || 0) < 5 ? withOpacity(theme.text, 0.1) : withOpacity(theme.accent, 0.15),
+                            color: (profile?.level || 0) < 5 ? withOpacity(theme.text, 0.4) : theme.accent,
+                            border: `1px solid ${(profile?.level || 0) < 5 ? 'transparent' : withOpacity(theme.accent, 0.3)}`
+                          }}
+                          title={(profile?.level || 0) < 5 ? "需要达到 Lv.5 解锁 AI 造句" : "AI 生成例句"}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          {loadingAi ? '生成中...' : 'AI 造句'}
+                        </button>
+                      )}
                   </div>
                   
                   <div className="overflow-y-auto custom-scrollbar pr-2 space-y-3 flex-1">
+                    {/* AI Generated Example Display */}
+                    {aiExample && (
+                        <div 
+                            className="relative pl-4 border-l-2 mb-3 animate-fade-in"
+                            style={{ borderColor: theme.accent }}
+                        >
+                            <div 
+                                className="leading-relaxed font-serif tracking-wide mb-1 font-medium"
+                                style={{ 
+                                    color: theme.text,
+                                    fontSize: isFocus ? '1.1rem' : '0.9rem'
+                                }}
+                            >
+                                {aiExample.sentence}
+                            </div>
+                            <div 
+                                className="text-xs font-light"
+                                style={{ color: withOpacity(theme.text, 0.8) }}
+                            >
+                                {aiExample.translation}
+                            </div>
+                            <div className="text-[0.6rem] mt-1 opacity-50 uppercase tracking-widest" style={{ color: theme.accent }}>AI Generated</div>
+                        </div>
+                    )}
+
+                    {aiError && (
+                      <div className="text-xs px-2 py-1 rounded bg-red-50 text-red-500 mb-2 border border-red-100">
+                        {aiError}
+                      </div>
+                    )}
+
                     {displayExamples.map((ex, i) => (
                         <div 
                             key={i} 

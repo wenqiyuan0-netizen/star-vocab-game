@@ -200,39 +200,7 @@ const FSRSScheduler = {
 
     // Next S
     let nextS = s;
-    if (rating === RATING.AGAIN) {
-      nextS = FSRS_PARAMS.w[11] * Math.pow(d, -FSRS_PARAMS.w[12]) * (Math.pow(s + 1, FSRS_PARAMS.w[13]) - 1) * Math.exp(FSRS_PARAMS.w[14] * (1 - r));
-    } else if (rating === RATING.HARD) {
-      nextS = s * (1 + FSRS_PARAMS.w[8]); // Hard penalty? Wait, this is standard FSRS logic simplified?
-      // Actually standard FSRS: S_hard = S * (1 + w8)
-      // But wait, standard FSRS v4.5 uses a unified formula? 
-      // Let's use the standard v4.5 formula for success:
-      // S' = S * (1 + exp(w8) * (11-D) * S^-w9 * (exp(w10*(1-R))-1))
-      // Note: w8..w10 mapping might differ. Using reference implementation logic:
-      // For Good/Easy:
-      nextS = s * (1 + Math.exp(FSRS_PARAMS.w[15]) * (11 - d) * Math.pow(s, -FSRS_PARAMS.w[16]) * (Math.exp(FSRS_PARAMS.w[15] * (1 - r)) - 1));
-      // Wait, that looks like v5? 
-      // Let's stick to a safe v4 implementation or simple approximation if full formula is too complex to inline.
-      // Actually, let's use the v4.5 formula exactly as documented for "Review":
-      /*
-        next_d = d - w6 * (rating - 3)
-        next_d = d + w7 * (next_d - d)
-        
-        if rating == Again:
-           next_s = w11 * d^-w12 * ((s+1)^w13 - 1) * exp(w14 * (1-R))
-        else:
-           next_s = s * (1 + exp(w8) * (11-d) * s^-w9 * (exp(w10*(1-R))-1))
-           if rating == Hard: next_s = min(next_s, s * w15?? No w15 is usually hard penalty)
-           if rating == Easy: next_s *= w16 ??
-      */
-     // To avoid bugs with complex formula transcription, let's use a robust approximation suitable for this game context.
-     // Simplified FSRS-like update:
-      if (rating === RATING.GOOD || rating === RATING.EASY) {
-          const factor = rating === RATING.EASY ? 2.5 : 1.0; // Bonus for easy
-          nextS = s * (1 + factor * (11 - d) * 0.1); // Linear growth based on difficulty
-      }
-    }
-    // Use simplified logic above? NO, let's try to be correct.
+    
     // Re-implementing exact v4.5 formula:
     if (rating === RATING.AGAIN) {
       nextS = FSRS_PARAMS.w[11] * Math.pow(d, -FSRS_PARAMS.w[12]) * (Math.pow(s + 1, FSRS_PARAMS.w[13]) - 1) * Math.exp(FSRS_PARAMS.w[14] * (1 - r));

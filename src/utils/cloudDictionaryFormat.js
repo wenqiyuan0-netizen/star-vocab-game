@@ -6,7 +6,7 @@
  */
 
 /**
- * 云端词典词条格式（压缩版）
+ * 本地词典词条格式（压缩版）
  * @typedef {Object} CloudDictionaryEntry
  * @property {string} w - word: 单词
  * @property {string} p - pos: 词性
