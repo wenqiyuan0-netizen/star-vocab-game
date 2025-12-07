@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../../../infrastructure/supabaseClient';
+import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import { appWordToDbWord, dbWordToAppWord } from '../utils/supabaseUtils';
 import { DEFAULT_WORDS } from '../logic/constants';
 
@@ -20,7 +20,7 @@ export function useSupabaseData() {
         .from('user_words')
         .select('*')
         .eq('user_id', user.id);
-      
+
       if (error) throw error;
 
       if (data && data.length > 0) {
@@ -33,7 +33,7 @@ export function useSupabaseData() {
         // Check if we should migrate local storage or use defaults.
         // For now, we just return empty list and let the consumer decide, 
         // OR we can handle migration here.
-        setWords([]); 
+        setWords([]);
       }
     } catch (err) {
       console.error('Error loading words:', err);
@@ -53,7 +53,7 @@ export function useSupabaseData() {
       // The fix we applied uses NULLS NOT DISTINCT, so 'word' and null are treated same.
       // We just need to ensure we send consistent data.
       const dbPayload = appWordToDbWord(word, user.id);
-      
+
       const { data, error } = await supabase
         .from('user_words')
         .upsert(dbPayload, { onConflict: 'user_id, de, gender' })
@@ -69,13 +69,13 @@ export function useSupabaseData() {
         const index = prev.findIndex(w => w.id === newAppWord.id || (w.de === newAppWord.de && w.gender === newAppWord.gender));
         if (index !== -1) {
           const newWords = [...prev];
-          newWords[index] = { ...prev[index], ...newAppWord }; 
+          newWords[index] = { ...prev[index], ...newAppWord };
           return newWords;
         } else {
           return [...prev, newAppWord];
         }
       });
-      
+
       return newAppWord;
     } catch (err) {
       console.error('Error syncing word:', err);
@@ -88,7 +88,7 @@ export function useSupabaseData() {
     if (!user || wordsToSync.length === 0) return;
     try {
       const payload = wordsToSync.map(w => appWordToDbWord(w, user.id));
-      
+
       const { data, error } = await supabase
         .from('user_words')
         .upsert(payload, { onConflict: 'user_id, de, gender' })
@@ -102,17 +102,17 @@ export function useSupabaseData() {
         // Key: ID if UUID, else content key
         const map = new Map();
         prev.forEach(w => {
-           if (w.id && w.id.length > 10) map.set(w.id, w); // UUID-ish check
-           else map.set(`${w.de}|${w.gender}`, w);
+          if (w.id && w.id.length > 10) map.set(w.id, w); // UUID-ish check
+          else map.set(`${w.de}|${w.gender}`, w);
         });
 
         // Merge synced words
         syncedWords.forEach(w => {
-           map.set(w.id, w);
-           // Also remove old temporary entry if it existed
-           map.delete(`${w.de}|${w.gender}`);
+          map.set(w.id, w);
+          // Also remove old temporary entry if it existed
+          map.delete(`${w.de}|${w.gender}`);
         });
-        
+
         return Array.from(map.values()).sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       });
       return syncedWords;
@@ -142,7 +142,7 @@ export function useSupabaseData() {
     try {
       // Convert Set to Array if needed, though we expect array here
       const ids = Array.from(wordIds);
-      
+
       const { error } = await supabase
         .from('user_words')
         .delete()

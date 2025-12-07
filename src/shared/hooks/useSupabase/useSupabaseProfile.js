@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
-import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../../../infrastructure/supabaseClient';
+import { useAuth } from '../../../features/auth/contexts/AuthContext';
 
 export function useSupabaseProfile() {
   const { user } = useAuth();
@@ -54,7 +54,7 @@ export function useSupabaseProfile() {
 
   const updateProfile = async (updates) => {
     if (!user) return;
-    
+
     // Convert camelCase to snake_case for DB
     const dbUpdates = {};
     if (updates.level !== undefined) dbUpdates.level = updates.level;

@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useSupabaseProfile } from './useSupabaseProfile';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSupabaseProfile } from './useSupabase/useSupabaseProfile';
 
 /**
  * useSettings Hook

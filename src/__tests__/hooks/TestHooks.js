@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { useSettings } from './hooks/useSettings';
-import { useGameState } from './hooks/useGameState';
+import { useSettings } from '../../shared/hooks/useSettings';
+import { useGameState } from '../../shared/hooks/useGameState';
 
 function TestHooksIntegration() {
     const {
