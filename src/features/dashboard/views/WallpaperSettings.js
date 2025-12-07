@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image, Upload, Move, ZoomIn, Sun, Moon, Droplet, Layers, Save, X, Smartphone, Monitor, CheckCircle, Home, Zap } from 'lucide-react';
 import { extractPaletteFromImage } from '../../../utils/colorUtils';
-import { useTheme } from '../../../hooks/useTheme';
+import { useTheme } from '../../../shared/hooks/useTheme';
 
 export function WallpaperSettings({ type, onSave, onClose }) {
   const theme = useTheme();

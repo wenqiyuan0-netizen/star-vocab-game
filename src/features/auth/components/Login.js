@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import BrandLogo from '../ui/BrandLogo';
-import { useAuth } from '../../contexts/AuthContext';
+import BrandLogo from '../../../shared/components/ui/BrandLogo';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const { signIn, signUp } = useAuth();

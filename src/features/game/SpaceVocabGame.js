@@ -4,31 +4,31 @@ import {
   PlusCircle, Save, Trash2, Eye, X, LogOut, Activity, RotateCcw, Download,
   Upload, Copy, Volume2, Info, BarChart2, Trophy
 } from 'lucide-react';
-import { ReviewClearanceModal } from './components/Modals/ReviewClearanceModal';
-import { detectReviewBacklog, activateClearanceMode, checkAndRestoreSettings } from './logic/ClearanceHelper';
+import { ReviewClearanceModal } from '../learning/components/ReviewClearanceModal';
+import { detectReviewBacklog, activateClearanceMode, checkAndRestoreSettings } from '../learning/services/ClearanceHelper';
 
-import { CalendarModal } from './components/ui/CalendarModal';
-import { GlassButton } from './components/ui/GlassButton';
+import { CalendarModal } from '../../shared/components/ui/CalendarModal';
+import { GlassButton } from '../../shared/components/ui/GlassButton';
 
-import { LEARNING_STEPS, MIN_EASE_FACTOR, MAX_PRIORITY_QUEUE_SIZE, MIN_DECK_SIZE, DEFAULT_WORDS } from './logic/constants';
-import { aiService } from './logic/AIService';
-import { escapeRegex, decodeEntities, sanitizeCn, cleanGermanExample, sanitizeGermanSentence, getLines } from './logic/utils';
-import { exampleService } from './logic/ExampleService';
-import { soundManager } from './logic/SoundManager';
+import { LEARNING_STEPS, MIN_EASE_FACTOR, MAX_PRIORITY_QUEUE_SIZE, MIN_DECK_SIZE, DEFAULT_WORDS } from '../../logic/constants';
+import { aiService } from '../../shared/services/ai/AIService';
+import { escapeRegex, decodeEntities, sanitizeCn, cleanGermanExample, sanitizeGermanSentence, getLines } from '../../logic/utils';
+import { exampleService } from '../../shared/services/examples/ExampleService';
+import { soundManager } from '../../shared/services/audio/SoundManager';
 import { getThemeColor, StarFragment, Particle } from './logic/visualEntities';
 
-import { processImportInput } from './logic/wordProcessor';
-import { processWordResult } from './logic/srs';
-import { generateSaveCode, parseSaveCode, copyTextToClipboard } from './logic/persistence';
+import { processImportInput } from '../vocabulary/services/WordProcessor';
+import { processWordResult } from '../../logic/srs';
+import { generateSaveCode, parseSaveCode, copyTextToClipboard } from '../../infrastructure/persistence/localStorage';
 import { calculateSpawnPair } from './logic/spawner';
-import { LocalCorpusService, localCorpusService } from './logic/LocalCorpusService';
-import { DeckGenerator } from './logic/DeckGenerator';
-import { useTheme } from './hooks/useTheme';
-import { getLocalDateString, calculateStreakFromDates } from './utils/dateUtils';
-import { Dashboard } from './components/Dashboard/Dashboard';
-import { useSupabaseData } from './hooks/useSupabaseData';
-import { useSupabaseProfile } from './hooks/useSupabaseProfile';
-import { useAuth } from './contexts/AuthContext';
+import { LocalCorpusService, localCorpusService } from '../../shared/services/examples/LocalCorpusService';
+import { DeckGenerator } from '../learning/services/DeckGenerator';
+import { useTheme } from '../../shared/hooks/useTheme';
+import { getLocalDateString, calculateStreakFromDates } from '../../utils/dateUtils';
+import { Dashboard } from '../dashboard/components/Dashboard';
+import { useSupabaseData } from '../../shared/hooks/useSupabase/useSupabaseData';
+import { useSupabaseProfile } from '../../shared/hooks/useSupabase/useSupabaseProfile';
+import { useAuth } from '../auth/contexts/AuthContext';
 
 // CustomModal (保持 V1 原样)
 const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
