@@ -1,5 +1,5 @@
 // src/logic/wordProcessor.js
-import { sortWords } from './utils'; // 记得确保 utils 里有 sortWords
+import { sortWords } from '../../../logic/utils'; // 记得确保 utils 里有 sortWords
 
 export const processImportInput = (inputText, currentDb) => {
   if (!inputText || !inputText.trim()) {

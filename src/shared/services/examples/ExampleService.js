@@ -1,7 +1,7 @@
-import { aiService } from './AIService'; // 引用隔壁的 AI 服务
+import { aiService } from '../ai/AIService'; // 引用隔壁的 AI 服务
 import { localCorpusService } from './LocalCorpusService';
 
-import { sanitizeCn, cleanGermanExample } from './utils'; 
+import { sanitizeCn, cleanGermanExample } from '../../../logic/utils'; 
 class ExampleService {
   constructor(aiService) {
     this.aiService = aiService;

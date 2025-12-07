@@ -1,5 +1,5 @@
 
-import { aiService } from './AIService';
+import { aiService } from '../../../shared/services/ai/AIService';
 
 // 从 LocalStorage 读取配置和状态的辅助函数
 function getSettings() {

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, Save, Trash2, Filter, Sparkles, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
-import { useTheme } from '../../../hooks/useTheme';
+import { useTheme } from '../../../shared/hooks/useTheme';
 import { withOpacity, getBrightestVariant } from '../../../utils/colorUtils';
-import { DeckGenerator } from '../../../logic/DeckGenerator';
+import { DeckGenerator } from '../services/DeckGenerator';
 import { generateGenderColors } from '../../../utils/colorUtils';
-import { WordCardModal, FrontFace, BackFace } from './WordCard';
+import { WordCardModal, FrontFace, BackFace } from '../../vocabulary/components/WordCard';
 
 const genderToArticle = g => {
   if (!g) return '';

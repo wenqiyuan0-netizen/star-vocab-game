@@ -3,10 +3,10 @@ import {
   Search, Plus, Trash2, RotateCcw, X, Save,
   MoreHorizontal, FileText, CheckSquare, Square
 } from 'lucide-react';
-import { useTheme } from '../../../hooks/useTheme';
-import { GlassButton } from '../../ui/GlassButton';
-import { aiService } from '../../../logic/AIService';
-import { exampleService } from '../../../logic/ExampleService';
+import { useTheme } from '../../../shared/hooks/useTheme';
+import { GlassButton } from '../../../shared/components/ui/GlassButton';
+import { aiService } from '../../../shared/services/ai/AIService';
+import { exampleService } from '../../../shared/services/examples/ExampleService';
 import { sanitizeCn } from '../../../logic/utils';
 import { WordCardModal } from './WordCard';
 import { generateGenderColors, getBrightestVariant } from '../../../utils/colorUtils';

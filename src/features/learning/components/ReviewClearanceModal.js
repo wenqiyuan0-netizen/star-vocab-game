@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, TrendingDown, Calendar, CheckCircle } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme';
-import { withOpacity } from '../../utils/colorUtils';
+import { useTheme } from '../../../shared/hooks/useTheme';
+import { withOpacity } from '../../../utils/colorUtils';
 
 export function ReviewClearanceModal({
     backlogInfo,

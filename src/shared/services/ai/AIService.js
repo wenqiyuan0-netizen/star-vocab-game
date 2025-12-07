@@ -1,4 +1,4 @@
-import { BACKEND_URL } from '../config'
+import { BACKEND_URL } from '../../constants/config'
 //AI Service
 class AIService {
   constructor() {

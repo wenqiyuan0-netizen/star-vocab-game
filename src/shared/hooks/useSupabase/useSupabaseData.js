@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../infrastructure/supabaseClient';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
-import { appWordToDbWord, dbWordToAppWord } from '../utils/supabaseUtils';
-import { DEFAULT_WORDS } from '../logic/constants';
+import { appWordToDbWord, dbWordToAppWord } from '../../../utils/supabaseUtils';
+import { DEFAULT_WORDS } from '../../../logic/constants';
 
 export function useSupabaseData() {
   const { user } = useAuth();

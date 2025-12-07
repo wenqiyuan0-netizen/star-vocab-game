@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Home, Book, User, Calendar } from 'lucide-react';
-import { HomeView } from './views/HomeView';
-import { LibraryView } from './views/LibraryView';
-import { ProfileView } from './views/ProfileView';
-import { TodayView } from './views/TodayView';
-import { useTheme } from '../../hooks/useTheme';
-import { withOpacity } from '../../utils/colorUtils';
+import { HomeView } from '../views/HomeView';
+import { LibraryView } from '../../vocabulary/components/LibraryView';
+import { ProfileView } from '../../profile/components/ProfileView';
+import { TodayView } from '../../learning/components/TodayView';
+import { useTheme } from '../../../shared/hooks/useTheme';
+import { withOpacity } from '../../../utils/colorUtils';
 
 // 预解码和缓存背景图片
 const preloadImage = (url) => {

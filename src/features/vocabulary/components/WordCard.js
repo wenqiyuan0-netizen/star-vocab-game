@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Minimize2, Sparkles } from 'lucide-react';
-import { useTheme } from '../../../hooks/useTheme';
+import { useTheme } from '../../../shared/hooks/useTheme';
 import { generateGenderColors, withOpacity, getContrastColorFromTheme } from '../../../utils/colorUtils';
-import { aiService } from '../../../logic/AIService';
-import { useSupabaseProfile } from '../../../hooks/useSupabaseProfile';
+import { aiService } from '../../../shared/services/ai/AIService';
+import { useSupabaseProfile } from '../../../shared/hooks/useSupabase/useSupabaseProfile';
 
 const genderToArticle = g => {
   if (!g) return '';

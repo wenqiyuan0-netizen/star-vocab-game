@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Rocket, BookOpen, Sparkles, Star } from 'lucide-react';
-import BrandLogo from '../../ui/BrandLogo';
-import { useTheme } from '../../../hooks/useTheme';
-import { GlassButton } from '../../ui/GlassButton';
+import BrandLogo from '../../../shared/components/ui/BrandLogo';
+import { useTheme } from '../../../shared/hooks/useTheme';
+import { GlassButton } from '../../../shared/components/ui/GlassButton';
 
 export function HomeView({ 
   globalWordDb = [], 

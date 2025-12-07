@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
-import { withOpacity } from '../../utils/colorUtils';
-import { getLocalDateString } from '../../utils/dateUtils';
+import { withOpacity } from '../../../utils/colorUtils';
+import { getLocalDateString } from '../../../utils/dateUtils';
 import { CrayonCheckmark } from './CrayonCheckmark';
 
 export function CalendarModal({ isOpen, onClose, checkInDates = [], todayCompleted = false }) {

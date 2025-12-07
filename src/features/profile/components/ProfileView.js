@@ -4,15 +4,15 @@ import {
   Volume2, Key, Image, Sparkles, Bot,
   Clock, LogOut
 } from 'lucide-react';
-import AvatarMenu from '../../ui/AvatarMenu';
-import { WallpaperSettings } from './WallpaperSettings';
-import { GlassButton } from '../../ui/GlassButton';
-import { CalendarModal } from '../../ui/CalendarModal';
-import { useTheme } from '../../../hooks/useTheme';
+import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
+import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
+import { GlassButton } from '../../../shared/components/ui/GlassButton';
+import { CalendarModal } from '../../../shared/components/ui/CalendarModal';
+import { useTheme } from '../../../shared/hooks/useTheme';
 import { withOpacity, getOffToggleColor, parseColorToRgb } from '../../../utils/colorUtils';
 import { getLocalDateString } from '../../../utils/dateUtils';
-import { useAuth } from '../../../contexts/AuthContext';
-import { getEffectiveSettings } from '../../../logic/ClearanceHelper';
+import { useAuth } from '../../auth/contexts/AuthContext';
+import { getEffectiveSettings } from '../../learning/services/ClearanceHelper';
 
 // Helper component for expandable sections with animation
 const ExpandableSection = ({ isOpen, children, className = "" }) => (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { withOpacity, glassStyle } from '../../utils/colorUtils';
+import { withOpacity, glassStyle } from '../../../utils/colorUtils';
 
 export function GlassButton({
   tone = 'primary',
