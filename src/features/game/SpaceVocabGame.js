@@ -134,7 +134,13 @@ export default function SpaceVocabGame() {
     bonusXP: 0
   });
 
-  const userProfileRef = useRef({ totalXP: 0, level: 1, checkInDates: [], streak: 0 });
+  const userProfileRef = useRef((() => {
+    try {
+      const saved = localStorage.getItem('space_vocab_user_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { totalXP: 0, level: 1, checkInDates: [], streak: 0 };
+  })());
 
   // Sync Profile from Cloud
   useEffect(() => {
@@ -199,6 +205,7 @@ export default function SpaceVocabGame() {
           shouldApply = true;
           isFreshInstallRef.current = false;
         } else {
+          // FIX: Only sync DOWN if cloud settings are NEWER than local settings
           if (cloudSettingsTime > localSettingsTime) {
             shouldApply = true;
           }
@@ -216,29 +223,30 @@ export default function SpaceVocabGame() {
             localStorage.setItem('star-vocab-wallpaper-system', cloudProfile.settings.wallpaper);
           }
         }
-
-        // Update reference to what is IN THE CLOUD (so we can detect if we need to push our local changes)
-        lastSyncedSettingsRef.current = JSON.stringify({
-          gameSettings: cloudProfile.settings.gameSettings || settingsRef.current,
-          wallpaper: cloudProfile.settings.wallpaper || wallpaper
-        });
-      } else {
-        // If cloud has NO settings, but we have local settings, we should sync UP.
-        // But we don't want to do it immediately here to avoid race conditions.
-        // Instead, we just let the useEffect below handle it because lastSyncedSettingsRef is null.
       }
 
-      // FIX: Smart Merge for User Profile (XP/Level) to prevent overwrite by stale cloud data
-      userProfileRef.current = {
-        totalXP: Math.max(userProfileRef.current.totalXP || 0, cloudProfile.totalXP || 0),
-        level: Math.max(userProfileRef.current.level || 1, cloudProfile.level || 1),
-        checkInDates: [...new Set([...(userProfileRef.current.checkInDates || []), ...(cloudProfile.checkInDates || [])])],
-        streak: streak // streak is recalculated from merged dates at top of effect? No, it was calculated from cloudProfile only.
-      };
-      // Re-calculate streak from the MERGED dates
-      userProfileRef.current.streak = calculateStreakFromDates(userProfileRef.current.checkInDates);
+      // FIX: Smart Merge for User Profile (XP/Level)
+      // Always take the MAXIMUM value to prevent regression
+      const mergedTotalXP = Math.max(userProfileRef.current.totalXP || 0, cloudProfile.totalXP || 0);
+      const mergedLevel = Math.max(userProfileRef.current.level || 1, cloudProfile.level || 1);
+      
+      // Merge Check-in dates (Union of sets)
+      const mergedDates = [...new Set([...(userProfileRef.current.checkInDates || []), ...(cloudProfile.checkInDates || [])])];
+      
+      // Recalculate streak based on merged dates
+      const newStreak = calculateStreakFromDates(mergedDates);
 
-      // Force UI update to reflect loaded profile
+      userProfileRef.current = {
+        totalXP: mergedTotalXP,
+        level: mergedLevel,
+        checkInDates: mergedDates,
+        streak: newStreak
+      };
+      
+      // Persist merged profile to local storage immediately
+      localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
+
+      // Force UI update
       forceUpdate({});
     }
   }, [cloudProfile, profileLoading]);

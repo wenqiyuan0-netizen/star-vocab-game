@@ -98,22 +98,43 @@ export function useSupabaseData() {
 
       const syncedWords = data.map(dbWordToAppWord);
       setWords(prev => {
-        // Create a map of existing words for faster lookup
-        // Key: ID if UUID, else content key
-        const map = new Map();
+        const contentMap = new Map(); // de|gender -> word
+        const idMap = new Map();      // uuid -> word
+
+        // Helper: is UUID? (Supabase UUIDs are 36 chars)
+        const isUuid = (id) => id && id.length > 20; 
+
+        // 1. Index local words
         prev.forEach(w => {
-          if (w.id && w.id.length > 10) map.set(w.id, w); // UUID-ish check
-          else map.set(`${w.de}|${w.gender}`, w);
+          if (isUuid(w.id)) {
+            idMap.set(w.id, w);
+          } else {
+            // Temp ID or no ID - index by content to catch duplicates during merge
+            contentMap.set(`${w.de}|${w.gender}`, w);
+          }
         });
 
-        // Merge synced words
+        // 2. Merge synced words
         syncedWords.forEach(w => {
-          map.set(w.id, w);
-          // Also remove old temporary entry if it existed
-          map.delete(`${w.de}|${w.gender}`);
+          const key = `${w.de}|${w.gender}`;
+          
+          // If we have a local word with this content (temp ID), we replace it with the synced word
+          if (contentMap.has(key)) {
+            contentMap.delete(key); // Remove the temp/duplicate one
+          }
+          
+          // If we have a local word with this ID, we update it
+          // Or if it's a new word from server, we add it
+          idMap.set(w.id, w);
         });
 
-        return Array.from(map.values()).sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
+        // 3. Combine and return
+        const combined = [
+          ...idMap.values(),
+          ...contentMap.values()
+        ];
+        
+        return combined.sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       });
       return syncedWords;
     } catch (err) {
