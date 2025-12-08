@@ -868,13 +868,17 @@ export default function SpaceVocabGame() {
   const handleResetData = () => {
     setConfirmMessage('确定要清空所有数据并恢复默认设置吗？此操作不可撤销！');
     setConfirmAction(() => () => {
-      localStorage.clear();
-      setGlobalWordDb(DEFAULT_WORDS);
+      resetDataSilent();
       setShowConfirmModal(false);
       setMessage('所有数据已重置为默认。');
       setTimeout(() => setMessage(null), 2000);
     });
     setShowConfirmModal(true);
+  };
+
+  const resetDataSilent = () => {
+    localStorage.clear();
+    setGlobalWordDb(DEFAULT_WORDS);
   };
 
   // --- 游戏核心逻辑 ---
@@ -1649,6 +1653,7 @@ export default function SpaceVocabGame() {
             localCorpusService={localCorpusService}
             dailyStats={dailyStatsRef.current}
             userProfile={userProfileRef.current}
+            resetDataSilent={resetDataSilent}
             getXPForLevel={getXPForLevel}
           />
         )}

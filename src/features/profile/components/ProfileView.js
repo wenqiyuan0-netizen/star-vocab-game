@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Download, Award, Calendar,
   Volume2, Key, Image, Sparkles, Bot,
-  Clock, LogOut
+  Clock, LogOut, AlertTriangle
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
 import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
@@ -30,7 +30,7 @@ const ExpandableSection = ({ isOpen, children, className = "" }) => (
 
 
 
-import { AlertTriangle } from 'lucide-react';
+
 
 // Delete Confirmation Modal
 const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
@@ -103,6 +103,7 @@ export function ProfileView({
   handleExportSave,
   setShowSaveModal,
   handleResetData,
+  resetDataSilent,
   dailyStats = { reviewCount: 0, newCount: 0 },
   userProfile,
   getXPForLevel
@@ -225,16 +226,15 @@ export function ProfileView({
 
   const handleConfirmDeleteAccount = async () => {
     try {
-      // 1. 调用重置数据逻辑 (清除本地)
-      if (handleResetData) {
+      // 1. 调用静默重置数据逻辑 (清除本地)
+      if (resetDataSilent) {
+        resetDataSilent();
+      } else if (handleResetData) {
+        // Fallback for safety, though it triggers UI
         handleResetData();
       }
       
-      // 2. 清除 Supabase 关联 (如果需要的话，比如删除云端数据)
-      // 注意：这里暂时只做退出登录和本地清理，如果需要删除云端账号需要调用 Admin API 或 Edge Function
-      // 根据用户需求“顶部的【注销】是全部删除”，我们理解为清除所有数据 + 退出
-      
-      // 3. 退出登录
+      // 2. 退出登录
       await signOut();
       
       setShowDeleteConfirm(false);
@@ -243,6 +243,8 @@ export function ProfileView({
       console.error('Delete account failed:', error);
     }
   };
+
+
 
   if (showWallpaperSettings) {
     return <WallpaperSettings onSave={handleWallpaperSave} onClose={() => setShowWallpaperSettings(false)} />;
@@ -255,7 +257,8 @@ export function ProfileView({
           avatarUrl={avatarUrl}
           displayName={displayName}
           onChangeAvatar={handleChangeAvatar}
-          onLogout={handleDeleteAccountRequest}
+          onDeleteAccount={handleDeleteAccountRequest}
+          onLogout={handleLogout}
         />
       </div>
       
