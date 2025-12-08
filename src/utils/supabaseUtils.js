@@ -20,7 +20,9 @@ export const appWordToDbWord = (appWord, userId) => {
     proficiency: appWord.proficiency || 0,
     graduated: appWord.graduated || false,
     last_review: appWord.lastReview ? new Date(appWord.lastReview).toISOString() : null,
-    fsrs: appWord.fsrs || null 
+    fsrs: appWord.fsrs || null,
+    is_deleted: appWord.isDeleted || false,
+    local_updated_at: appWord.localUpdatedAt ? new Date(appWord.localUpdatedAt).toISOString() : new Date().toISOString()
   };
 };
 
@@ -38,7 +40,9 @@ export const dbWordToAppWord = (dbWord) => {
     proficiency: dbWord.proficiency,
     graduated: dbWord.graduated,
     lastReview: dbWord.last_review ? new Date(dbWord.last_review).getTime() : null,
-    fsrs: dbWord.fsrs || null
+    fsrs: dbWord.fsrs || null,
+    isDeleted: dbWord.is_deleted || false,
+    localUpdatedAt: dbWord.local_updated_at ? new Date(dbWord.local_updated_at).getTime() : 0
   };
 };
 

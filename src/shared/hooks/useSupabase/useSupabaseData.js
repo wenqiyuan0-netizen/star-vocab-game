@@ -25,14 +25,14 @@ export function useSupabaseData() {
 
       if (data && data.length > 0) {
         const appWords = data.map(dbWordToAppWord);
+        // We do NOT filter out deleted words here, because we need to propagate deletions to local storage
+        // The consumer (SpaceVocabGame) will handle filtering for UI
+        
         // Sort by German word for consistency
         appWords.sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
         setWords(appWords);
       } else {
         // No data in DB. 
-        // Check if we should migrate local storage or use defaults.
-        // For now, we just return empty list and let the consumer decide, 
-        // OR we can handle migration here.
         setWords([]);
       }
     } catch (err) {
@@ -48,11 +48,10 @@ export function useSupabaseData() {
   const syncWord = async (word) => {
     if (!user) return;
     try {
-      // Ensure gender is null if it's falsy (empty string, undefined, etc) to match DB unique constraint logic
-      // if we want to be strict. BUT our DB constraint is (user_id, de, gender).
-      // The fix we applied uses NULLS NOT DISTINCT, so 'word' and null are treated same.
-      // We just need to ensure we send consistent data.
-      const dbPayload = appWordToDbWord(word, user.id);
+      // Ensure we propagate soft delete state if present
+      // Set local_updated_at to now to mark this as the latest version
+      const wordWithUpdate = { ...word, localUpdatedAt: Date.now() };
+      const dbPayload = appWordToDbWord(wordWithUpdate, user.id);
 
       const { data, error } = await supabase
         .from('user_words')
@@ -87,7 +86,9 @@ export function useSupabaseData() {
   const syncWordsBatch = async (wordsToSync) => {
     if (!user || wordsToSync.length === 0) return;
     try {
-      const payload = wordsToSync.map(w => appWordToDbWord(w, user.id));
+      // Mark all as updated now
+      const now = Date.now();
+      const payload = wordsToSync.map(w => appWordToDbWord({ ...w, localUpdatedAt: now }, user.id));
 
       const { data, error } = await supabase
         .from('user_words')
@@ -145,35 +146,61 @@ export function useSupabaseData() {
   const deleteWord = async (wordId) => {
     if (!user) return;
     try {
-      const { error } = await supabase
+      // SOFT DELETE IMPLEMENTATION
+      // Instead of DELETE, we UPDATE is_deleted = true
+      
+      // First find the word in local state to get its content (for composite key safety)
+      const targetWord = words.find(w => w.id === wordId);
+      if (!targetWord) return;
+
+      const softDeletePayload = {
+        is_deleted: true,
+        local_updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
         .from('user_words')
-        .delete()
-        .eq('id', wordId);
+        .update(softDeletePayload)
+        .eq('id', wordId)
+        .select()
+        .single();
 
       if (error) throw error;
 
-      setWords(prev => prev.filter(w => w.id !== wordId));
+      // Update local state: Don't remove it, just mark as deleted (Tombstone)
+      setWords(prev => prev.map(w => 
+        w.id === wordId ? { ...w, isDeleted: true, localUpdatedAt: Date.now() } : w
+      ));
+      
     } catch (err) {
-      console.error('Error deleting word:', err);
+      console.error('Error deleting word (soft):', err);
     }
   };
 
   const deleteWordsBatch = async (wordIds) => {
     if (!user || !Array.isArray(wordIds) || wordIds.length === 0) return;
     try {
-      // Convert Set to Array if needed, though we expect array here
       const ids = Array.from(wordIds);
+      
+      const softDeletePayload = {
+        is_deleted: true,
+        local_updated_at: new Date().toISOString()
+      };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_words')
-        .delete()
-        .in('id', ids);
+        .update(softDeletePayload)
+        .in('id', ids)
+        .select();
 
       if (error) throw error;
 
-      setWords(prev => prev.filter(w => !ids.includes(w.id)));
+      // Update local state: Mark all as deleted
+      setWords(prev => prev.map(w => 
+        ids.includes(w.id) ? { ...w, isDeleted: true, localUpdatedAt: Date.now() } : w
+      ));
     } catch (err) {
-      console.error('Error deleting words batch:', err);
+      console.error('Error deleting words batch (soft):', err);
     }
   };
 
