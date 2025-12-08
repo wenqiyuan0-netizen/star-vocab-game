@@ -143,10 +143,27 @@ export function ProfileView({
     } catch { }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      localStorage.setItem('space_vocab_authed', 'false');
-    } catch { }
+      // 1. Sign out from Supabase
+      if (signOut) {
+        await signOut();
+      }
+
+      // 2. Clear all local storage keys related to the app
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('space_vocab_') || key.startsWith('star-vocab-') || key.startsWith('star_vocab_'))) {
+            allKeys.push(key);
+        }
+      }
+      allKeys.forEach(key => localStorage.removeItem(key));
+    } catch (e) {
+      console.error("Logout cleanup failed", e);
+    }
+    
+    // 3. Reload to reset state
     window.location.reload();
   };
 
