@@ -448,6 +448,7 @@ export default function SpaceVocabGame() {
     // 2. Build Maps
     const mergedMap = new Map();
     const cloudIds = new Set();
+    const processedCloudIds = new Set();
 
     // Always trust Cloud data first (Server Truth for existing records)
     if (Array.isArray(cloudWords)) {
@@ -473,6 +474,7 @@ export default function SpaceVocabGame() {
       const cloudVer = mergedMap.get(k) || (w.id ? cloudWords.find(cw => cw.id === w.id) : null);
 
       if (inCloud && cloudVer) {
+        if (cloudVer.id) processedCloudIds.add(cloudVer.id);
         // CONFLICT RESOLUTION
         // 1. Cloud is DELETED (Tombstone)
         if (cloudVer.isDeleted) {
@@ -521,6 +523,18 @@ export default function SpaceVocabGame() {
         wordsToPush.push(w);
       }
     });
+
+    // 4. ADD REMAINING CLOUD WORDS (That are not in local)
+    // Fix for sync issue: Ensure new cloud words are added even if local is empty/different
+    if (Array.isArray(cloudWords)) {
+      cloudWords.forEach(cw => {
+        const k = keyOf(cw);
+        // Add if not processed by ID AND not already in map (by content)
+        if ((!cw.id || !processedCloudIds.has(cw.id)) && !mergedMap.has(k)) {
+           mergedMap.set(k, cw);
+        }
+      });
+    }
 
     const mergedList = Array.from(mergedMap.values())
       .filter(w => !w.isDeleted) // Filter out tombstones for UI
