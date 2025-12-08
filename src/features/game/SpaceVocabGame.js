@@ -246,10 +246,20 @@ export default function SpaceVocabGame() {
       // Persist merged profile to local storage immediately
       localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
 
+      // FIX: Bidirectional Sync - If local state is ahead of cloud (e.g. played offline), push it back to cloud
+      if (mergedTotalXP > (cloudProfile.totalXP || 0) || 
+          mergedDates.length > (cloudProfile.checkInDates?.length || 0)) {
+          updateCloudProfile({
+            totalXP: mergedTotalXP,
+            level: mergedLevel,
+            checkInDates: mergedDates
+          });
+      }
+
       // Force UI update
       forceUpdate({});
     }
-  }, [cloudProfile, profileLoading]);
+  }, [cloudProfile, profileLoading, updateCloudProfile]);
 
   const calculateLevel = (xp) => {
     if (xp < 0) return 1;
@@ -622,10 +632,20 @@ export default function SpaceVocabGame() {
         gameSettings: settingsRef.current,
         wallpaper: wallpaper
       };
-      const json = JSON.stringify(currentSettings);
+      let json = JSON.stringify(currentSettings);
 
       // Only sync if different from what we last loaded/saved
       if (lastSyncedSettingsRef.current !== json) {
+        // Ensure timestamp is updated so other devices accept this change
+        // This is crucial for wallpaper changes which don't naturally update gameSettings.updatedAt
+        const now = Date.now();
+        if ((settingsRef.current.updatedAt || 0) < now) {
+            settingsRef.current.updatedAt = now;
+            currentSettings.gameSettings.updatedAt = now;
+            json = JSON.stringify(currentSettings);
+            localStorage.setItem('space_vocab_settings', JSON.stringify(settingsRef.current));
+        }
+
         lastSyncedSettingsRef.current = json;
         updateCloudProfile({ settings: currentSettings });
       }
@@ -965,11 +985,14 @@ export default function SpaceVocabGame() {
           if (isExtremeSpeed) {
             // 极速豁免
           } else {
-            setGlobalWordDb(prev => prev.map(w =>
-              w.id === f.wordId.id
-                ? processWordResult(w, { type: 'miss', isHighPressure })
-                : w
-            ));
+            setGlobalWordDb(prev => prev.map(w => {
+              if (w.id === f.wordId.id) {
+                const updated = processWordResult(w, { type: 'miss', isHighPressure });
+                syncWord(updated);
+                return updated;
+              }
+              return w;
+            }));
           }
         }
       }
