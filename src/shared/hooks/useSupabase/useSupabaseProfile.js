@@ -82,10 +82,45 @@ export function useSupabaseProfile() {
     }
   };
 
-  // Initialize
+  // Initialize & Realtime Subscription
   useEffect(() => {
     if (user) {
       loadProfile();
+
+      // Subscribe to realtime changes
+      const channel = supabase
+        .channel(`public:profiles:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Profile updated from remote:', payload);
+            const newData = payload.new;
+            if (newData) {
+              setProfile(prev => ({
+                ...prev,
+                level: newData.level ?? prev.level,
+                totalXP: newData.total_xp ?? prev.totalXP,
+                checkInDates: newData.check_in_dates ?? prev.checkInDates,
+                dailyStats: newData.daily_stats ?? prev.dailyStats,
+                dailyPlan: newData.daily_plan ?? prev.dailyPlan,
+                settings: newData.settings ?? prev.settings,
+                name: newData.username ?? prev.name,
+                avatar: newData.avatar_url ?? prev.avatar
+              }));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, loadProfile]);
 
