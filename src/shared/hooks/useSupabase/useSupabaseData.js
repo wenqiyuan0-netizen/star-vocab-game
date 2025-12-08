@@ -78,6 +78,7 @@ export function useSupabaseData() {
       return newAppWord;
     } catch (err) {
       console.error('Error syncing word:', err);
+      setError(err.message);
       return null;
     }
   };
@@ -140,6 +141,7 @@ export function useSupabaseData() {
       return syncedWords;
     } catch (err) {
       console.error('Error batch syncing:', err);
+      setError(err.message);
     }
   };
 
@@ -174,6 +176,7 @@ export function useSupabaseData() {
       
     } catch (err) {
       console.error('Error deleting word (soft):', err);
+      setError(err.message);
     }
   };
 
@@ -201,6 +204,7 @@ export function useSupabaseData() {
       ));
     } catch (err) {
       console.error('Error deleting words batch (soft):', err);
+      setError(err.message);
     }
   };
 

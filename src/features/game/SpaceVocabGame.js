@@ -89,8 +89,8 @@ export default function SpaceVocabGame() {
   useEffect(() => {
     if (cloudError) {
       console.error("Cloud Sync Error:", cloudError);
-      // Optional: Show a subtle notification or just log it
-      // setMessage(`同步失败: ${cloudError}`); 
+      // Show error to user so they know why sync isn't working
+      setMessage(`同步失败: ${cloudError}`); 
     }
   }, [cloudError]);
 
