@@ -1,5 +1,6 @@
-// src/logic/wordProcessor.js
-import { sortWords } from '../../../logic/utils'; // 记得确保 utils 里有 sortWords
+// src/features/vocabulary/services/WordProcessor.js
+import { sortWords } from '../../../logic/utils';
+import { extractArticleFromWord } from '../../../utils/genderUtils';
 
 export const processImportInput = (inputText, currentDb) => {
   if (!inputText || !inputText.trim()) {
@@ -9,9 +10,6 @@ export const processImportInput = (inputText, currentDb) => {
   const lines = inputText.split('\n');
   const newWords = [];
   let duplicateCount = 0;
-
-  const GENDERS = ['der', 'die', 'das'];
-  const ARTICLE_TO_GENDER = { der: 'm', die: 'f', das: 'n' };
 
   // 建立指纹库
   const existingFingerprints = new Set(
@@ -31,14 +29,16 @@ export const processImportInput = (inputText, currentDb) => {
     let pos = null;
     let deClean = deRaw;
 
-    const tokens = deRaw.split(/\s+/);
-    
-    // 词性/性别判断逻辑
-    if (tokens.length >= 2 && GENDERS.includes(tokens[0].toLowerCase())) {
-      gender = ARTICLE_TO_GENDER[tokens[0].toLowerCase()];
-      deClean = tokens.slice(1).join(' ');
+    // 使用统一的提取函数，支持所有格式：der/die/das/m/f/n
+    const extracted = extractArticleFromWord(deRaw);
+
+    if (extracted.gender) {
+      // 提取到了性别信息
+      gender = extracted.gender; // 已经是标准化的 m/f/n
+      deClean = extracted.base;
       pos = 'noun';
     } else {
+      // 未提取到性别，根据首字母大写判断
       if (deClean[0] === deClean[0].toUpperCase()) {
         pos = 'nounPossible';
         gender = null;
@@ -51,7 +51,7 @@ export const processImportInput = (inputText, currentDb) => {
     // 核心降重逻辑
     if (existingFingerprints.has(deClean.toLowerCase())) {
       duplicateCount++;
-      return; 
+      return;
     }
 
     if (deClean && cn) {
@@ -79,16 +79,16 @@ export const processImportInput = (inputText, currentDb) => {
     if (duplicateCount > 0) {
       msg += ` (自动过滤了 ${duplicateCount} 个重复词)`;
     }
-    return { 
-      success: true, 
-      updatedDb: updatedDb, 
+    return {
+      success: true,
+      updatedDb: updatedDb,
       newWords: newWords,
-      message: msg 
+      message: msg
     };
   } else if (duplicateCount > 0) {
-    return { 
-      success: false, 
-      message: `未导入，所有 ${duplicateCount} 个词均已存在` 
+    return {
+      success: false,
+      message: `未导入，所有 ${duplicateCount} 个词均已存在`
     };
   }
 

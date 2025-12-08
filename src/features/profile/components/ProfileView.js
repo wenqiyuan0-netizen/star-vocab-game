@@ -30,6 +30,73 @@ const ExpandableSection = ({ isOpen, children, className = "" }) => (
 
 
 
+import { AlertTriangle } from 'lucide-react';
+
+// Delete Confirmation Modal
+const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 shadow-2xl backdrop-blur-xl"
+        style={{
+          backgroundColor: withOpacity(theme.background, 0.95),
+          border: `1px solid ${withOpacity(theme.primary, 0.3)}`
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div
+            className="p-4 rounded-full"
+            style={{
+              backgroundColor: withOpacity(theme.accent, 0.15),
+              color: theme.accent
+            }}
+          >
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          
+          <div>
+            <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>确认注销账号？</h3>
+            <p className="text-sm opacity-70 leading-relaxed" style={{ color: theme.text }}>
+              此操作将<span className="font-bold text-red-500">删除所有本地数据</span>并退出登录。<br/>
+              云端数据可能保留，取决于同步状态。
+            </p>
+          </div>
+
+          <div className="flex gap-3 w-full mt-4">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors"
+              style={{ 
+                backgroundColor: withOpacity(theme.text, 0.05),
+                color: withOpacity(theme.text, 0.8)
+              }}
+            >
+              取消
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-transform active:scale-95"
+              style={{ 
+                backgroundColor: theme.accent, // Use accent color (usually red/orange for danger)
+                boxShadow: `0 4px 12px ${withOpacity(theme.accent, 0.3)}`
+              }}
+            >
+              确认注销
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function ProfileView({
   settingsState = {},
   updateSettings,
@@ -44,6 +111,7 @@ export function ProfileView({
   const [showWallpaperSettings, setShowWallpaperSettings] = useState(false);
   const [showAiSettings, setShowAiSettings] = useState(!!safeSettings.apiKey);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const theme = useTheme();
   const { user, signOut } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('space_vocab_avatar'));
@@ -145,26 +213,35 @@ export function ProfileView({
 
   const handleLogout = async () => {
     try {
-      // 1. Sign out from Supabase
-      if (signOut) {
-        await signOut();
-      }
-
-      // 2. Clear all local storage keys related to the app
-      const allKeys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('space_vocab_') || key.startsWith('star-vocab-') || key.startsWith('star_vocab_'))) {
-            allKeys.push(key);
-        }
-      }
-      allKeys.forEach(key => localStorage.removeItem(key));
-    } catch (e) {
-      console.error("Logout cleanup failed", e);
+      await signOut();
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
-    
-    // 3. Reload to reset state
-    window.location.reload();
+  };
+
+  const handleDeleteAccountRequest = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    try {
+      // 1. 调用重置数据逻辑 (清除本地)
+      if (handleResetData) {
+        handleResetData();
+      }
+      
+      // 2. 清除 Supabase 关联 (如果需要的话，比如删除云端数据)
+      // 注意：这里暂时只做退出登录和本地清理，如果需要删除云端账号需要调用 Admin API 或 Edge Function
+      // 根据用户需求“顶部的【注销】是全部删除”，我们理解为清除所有数据 + 退出
+      
+      // 3. 退出登录
+      await signOut();
+      
+      setShowDeleteConfirm(false);
+      window.location.reload();
+    } catch (error) {
+      console.error('Delete account failed:', error);
+    }
   };
 
   if (showWallpaperSettings) {
@@ -178,9 +255,16 @@ export function ProfileView({
           avatarUrl={avatarUrl}
           displayName={displayName}
           onChangeAvatar={handleChangeAvatar}
-          onLogout={handleLogout}
+          onLogout={handleDeleteAccountRequest}
         />
       </div>
+      
+      <DeleteConfirmModal 
+        isOpen={showDeleteConfirm}
+        onConfirm={handleConfirmDeleteAccount}
+        onCancel={() => setShowDeleteConfirm(false)}
+        theme={theme}
+      />
       {/* Profile Header */}
       <div className="flex items-center space-x-4 mb-8">
         <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg relative"
@@ -488,7 +572,7 @@ export function ProfileView({
         {/* --- Block 7: Actions (Full Width) --- */}
         <div className="col-span-12 mt-4 space-y-3">
           <GlassButton
-            onClick={() => signOut()}
+            onClick={handleLogout}
             tone="primary"
             variant="homeSecondary"
             size="lg"
