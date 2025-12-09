@@ -60,7 +60,7 @@ const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText 
 
 export default function SpaceVocabGame() {
   const theme = useTheme();
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [showSaveArea, setShowSaveArea] = useState(false);
@@ -611,10 +611,28 @@ export default function SpaceVocabGame() {
 
   useEffect(() => {
     const loadWallpaper = () => {
-      const homeWall = localStorage.getItem('star-vocab-wallpaper-home');
-      const sysWall = localStorage.getItem('star-vocab-wallpaper-system');
+      let homeWall = localStorage.getItem('star-vocab-wallpaper-home');
+      let sysWall = localStorage.getItem('star-vocab-wallpaper-system');
+      
+      // Clear legacy default wallpapers
+      if (sysWall && (sysWall.includes('logo512.png') || /alphacoders\.com/i.test(sysWall))) {
+        localStorage.removeItem('star-vocab-wallpaper-system');
+        sysWall = null;
+      }
+      if (homeWall && (homeWall.includes('logo512.png') || /alphacoders\.com/i.test(homeWall))) {
+        localStorage.removeItem('star-vocab-wallpaper-home');
+        homeWall = null;
+      }
+
       const saved = sysWall || homeWall;
-      setWallpaper(saved || "https://images3.alphacoders.com/134/1342579.png");
+      
+      // Fallback to default wallpaper from config when none is stored
+      try {
+        const { DEFAULT_WALLPAPER_URL } = require('../../shared/constants/config');
+        setWallpaper(saved || DEFAULT_WALLPAPER_URL || null);
+      } catch {
+        setWallpaper(saved || null);
+      }
     };
     loadWallpaper();
     window.addEventListener('storage', loadWallpaper);
@@ -933,11 +951,58 @@ export default function SpaceVocabGame() {
 
   const handleResetData = () => {
     setConfirmMessage('确定要清空所有数据并恢复默认设置吗？此操作不可撤销！');
-    setConfirmAction(() => () => {
-      resetDataSilent();
+    setConfirmAction(() => async () => {
+      try {
+        if (cloudWords.length > 0) {
+          const ids = cloudWords.map(w => w.id).filter(Boolean);
+          if (ids.length > 0) await deleteCloudWordsBatch(ids);
+        }
+        if (updateCloudProfile) {
+          await updateCloudProfile({ totalXP: 0, level: 1, checkInDates: [], dailyStats: null, dailyPlan: null, settings: null });
+        }
+        localStorage.clear();
+        setGlobalWordDb(DEFAULT_WORDS);
+        setShowConfirmModal(false);
+        setMessage('所有数据已重置为默认。');
+        setTimeout(() => setMessage(null), 2000);
+        window.dispatchEvent(new Event('wallpaper-changed'));
+        window.location.reload();
+      } catch (e) {
+        setShowConfirmModal(false);
+        setMessage('重置失败: ' + e.message);
+        setTimeout(() => setMessage(null), 3000);
+      }
+    });
+    setShowConfirmModal(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    setConfirmMessage('警告：此操作将永久删除云端数据、清空本地缓存并注销账户。无法撤销！\n(Background images and settings will also be reset)');
+    setConfirmAction(() => async () => {
+      setMessage('正在销毁数据...');
       setShowConfirmModal(false);
-      setMessage('所有数据已重置为默认。');
-      setTimeout(() => setMessage(null), 2000);
+      try {
+        // 1. Delete all cloud words
+        if (cloudWords.length > 0) {
+          const allIds = cloudWords.map(w => w.id);
+          await deleteCloudWordsBatch(allIds);
+        }
+        // 2. Reset Profile
+        if (updateCloudProfile) {
+          await updateCloudProfile({
+            totalXP: 0, level: 1, checkInDates: [], dailyStats: null, dailyPlan: null, settings: null
+          });
+        }
+        // 3. Clear Local
+        localStorage.clear();
+        // 4. Sign Out
+        if (signOut) await signOut();
+        // 5. Reload
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        setMessage('注销失败: ' + err.message);
+      }
     });
     setShowConfirmModal(true);
   };
@@ -945,6 +1010,7 @@ export default function SpaceVocabGame() {
   const resetDataSilent = () => {
     localStorage.clear();
     setGlobalWordDb(DEFAULT_WORDS);
+    window.location.reload();
   };
 
   // --- 游戏核心逻辑 ---
@@ -1739,6 +1805,7 @@ export default function SpaceVocabGame() {
           handleExportSave={handleExportSave}
           setShowSaveModal={setShowSaveModal}
           handleResetData={handleResetData}
+          handleDeleteAccount={handleDeleteAccount}
           localCorpusService={localCorpusService}
           dailyStats={dailyStatsRef.current}
           userProfile={userProfileRef.current}

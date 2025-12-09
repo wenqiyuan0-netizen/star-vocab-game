@@ -31,8 +31,14 @@ export function AuthProvider({ children }) {
   }, [])
 
   // Auth functions
-  const signUp = (email, password) => {
-    return supabase.auth.signUp({ email, password })
+  const signUp = (email, password, metaData = {}) => {
+    return supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: metaData
+      }
+    })
   }
 
   const signIn = (email, password) => {

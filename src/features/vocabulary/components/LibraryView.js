@@ -10,6 +10,7 @@ import { exampleService } from '../../../shared/services/examples/ExampleService
 import { sanitizeCn } from '../../../logic/utils';
 import { WordCardModal } from './WordCard';
 import { generateGenderColors, getBrightestVariant } from '../../../utils/colorUtils';
+import { genderToArticle } from '../../../utils/genderUtils';
 
 export function LibraryView({
   globalWordDb = [],
@@ -202,6 +203,8 @@ export function LibraryView({
                   maxHeight: articleInput.length > 500 ? '240px' : '140px',
                   '--tw-ring-color': theme.primary
                 }}
+                autoComplete="off"
+                name="articleInput"
               />
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">仅德语 | {articleInput.length}/{ARTICLE_LIMIT}</span>
@@ -234,6 +237,8 @@ export function LibraryView({
                   maxHeight: customInput.length > 200 ? '240px' : '140px',
                   '--tw-ring-color': theme.primary
                 }}
+                autoComplete="off"
+                name="bulkVocabInput"
               />
               {customInput.length > 0 && (
                 <button
@@ -281,12 +286,16 @@ export function LibraryView({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/80" />
           <input
-            type="text"
+            type="search"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="搜索单词..."
             className="w-full glass-button bg-black/40 cursor-text rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2"
             style={{ '--tw-ring-color': theme.primary, borderColor: searchTerm ? theme.primary : undefined }}
+            name="librarySearch"
+            autoComplete="off"
+            inputMode="search"
+            enterKeyHint="search"
           />
         </div>
       </div>
@@ -337,7 +346,7 @@ export function LibraryView({
                             color: genderColors[w.gender.toLowerCase()] || 'inherit'
                           }}
                         >
-                          {w.gender}
+                          {genderToArticle(w.gender)}
                         </span>
                       )}
                       <span style={{ color: w.gender && genderColors[w.gender.toLowerCase()] ? genderColors[w.gender.toLowerCase()] : 'inherit' }}>

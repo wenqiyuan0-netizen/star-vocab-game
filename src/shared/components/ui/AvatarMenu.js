@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Image as ImageIcon, LogOut, ChevronDown, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout, onDeleteAccount }) {
+export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const fileRef = useRef(null);
@@ -52,16 +52,7 @@ export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onL
             <ImageIcon className="w-4 h-4" />
             <span className="text-sm">自定义头像</span>
           </button>
-          <button
-            onClick={() => {
-              setOpen(false);
-              onDeleteAccount && onDeleteAccount();
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/10 text-red-600"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="text-sm">注销</span>
-          </button>
+          
           <button
             onClick={() => {
               setOpen(false);
@@ -84,4 +75,3 @@ export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onL
     </div>
   );
 }
-

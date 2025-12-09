@@ -55,7 +55,7 @@ export function useSupabaseData() {
 
       const { data, error } = await supabase
         .from('user_words')
-        .upsert(dbPayload, { onConflict: 'user_id, de, gender' })
+        .upsert(dbPayload, { onConflict: 'user_id, de_norm' })
         .select()
         .single();
 
@@ -64,8 +64,7 @@ export function useSupabaseData() {
       // Update local state with the returned data (especially useful for getting the new UUID)
       const newAppWord = dbWordToAppWord(data);
       setWords(prev => {
-        // We match by ID if available, or by content if not
-        const index = prev.findIndex(w => w.id === newAppWord.id || (w.de === newAppWord.de && w.gender === newAppWord.gender));
+        const index = prev.findIndex(w => w.id === newAppWord.id || (w.de && newAppWord.de && w.de.toLowerCase() === newAppWord.de.toLowerCase()));
         if (index !== -1) {
           const newWords = [...prev];
           newWords[index] = { ...prev[index], ...newAppWord };
@@ -93,14 +92,14 @@ export function useSupabaseData() {
 
       const { data, error } = await supabase
         .from('user_words')
-        .upsert(payload, { onConflict: 'user_id, de, gender' })
+        .upsert(payload, { onConflict: 'user_id, de_norm' })
         .select();
 
       if (error) throw error;
 
       const syncedWords = data.map(dbWordToAppWord);
       setWords(prev => {
-        const contentMap = new Map(); // de|gender -> word
+        const contentMap = new Map();
         const idMap = new Map();      // uuid -> word
 
         // Helper: is UUID? (Supabase UUIDs are 36 chars)
@@ -111,22 +110,17 @@ export function useSupabaseData() {
           if (isUuid(w.id)) {
             idMap.set(w.id, w);
           } else {
-            // Temp ID or no ID - index by content to catch duplicates during merge
-            contentMap.set(`${w.de}|${w.gender}`, w);
+            const key = (w.de || '').toLowerCase();
+            contentMap.set(key, w);
           }
         });
 
         // 2. Merge synced words
         syncedWords.forEach(w => {
-          const key = `${w.de}|${w.gender}`;
-          
-          // If we have a local word with this content (temp ID), we replace it with the synced word
+          const key = (w.de || '').toLowerCase();
           if (contentMap.has(key)) {
-            contentMap.delete(key); // Remove the temp/duplicate one
+            contentMap.delete(key);
           }
-          
-          // If we have a local word with this ID, we update it
-          // Or if it's a new word from server, we add it
           idMap.set(w.id, w);
         });
 

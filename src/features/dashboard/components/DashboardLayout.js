@@ -6,6 +6,7 @@ import { ProfileView } from '../../profile/components/ProfileView';
 import { TodayView } from '../../learning/components/TodayView';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { withOpacity } from '../../../utils/colorUtils';
+import { DEFAULT_WALLPAPER_URL } from '../../../shared/constants/config';
 
 // 预解码和缓存背景图片
 const preloadImage = (url) => {
@@ -46,8 +47,26 @@ export function DashboardLayout(props) {
   // 预加载和解码所有壁纸
   useEffect(() => {
     const loadAllWallpapers = async () => {
-      const homeWall = localStorage.getItem('star-vocab-wallpaper-home');
-      const sysWall = localStorage.getItem('star-vocab-wallpaper-system');
+      let homeWallStored = localStorage.getItem('star-vocab-wallpaper-home');
+      let sysWallStored = localStorage.getItem('star-vocab-wallpaper-system');
+
+      // Clear legacy default wallpapers
+      if (sysWallStored && (sysWallStored.includes('logo512.png') || /alphacoders\.com/i.test(sysWallStored))) {
+        localStorage.removeItem('star-vocab-wallpaper-system');
+        sysWallStored = null;
+      }
+      if (homeWallStored && (homeWallStored.includes('logo512.png') || /alphacoders\.com/i.test(homeWallStored))) {
+        localStorage.removeItem('star-vocab-wallpaper-home');
+        homeWallStored = null;
+      }
+
+      const homeWall = homeWallStored || DEFAULT_WALLPAPER_URL;
+      const sysWall = sysWallStored || DEFAULT_WALLPAPER_URL;
+
+      if (!sysWallStored) {
+        localStorage.setItem('star-vocab-wallpaper-system', sysWall);
+        window.dispatchEvent(new Event('wallpaper-changed'));
+      }
 
       const wallpapersToPreload = [homeWall, sysWall].filter(Boolean);
 

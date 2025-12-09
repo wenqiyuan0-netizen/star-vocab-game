@@ -5,7 +5,8 @@ import { useTheme } from '../../hooks/useTheme';
 export function SettingsView({
   settingsState,
   updateSettings,
-  handleResetData
+  handleResetData,
+  handleDeleteAccount
 }) {
   const theme = useTheme();
   return (
@@ -206,12 +207,23 @@ export function SettingsView({
               <p className="text-xs text-gray-500 mt-2">用于生成例句，密钥仅存储在本地浏览器中</p>
             </div>
 
-            <div className="pt-4 border-t border-slate-700">
+            <div className="pt-4 border-t border-slate-700 space-y-3">
                <button
                 onClick={handleResetData}
                 className="w-full py-3 text-sm font-bold text-red-400 bg-red-900/10 border border-red-900/30 rounded-lg hover:bg-red-900/20 transition"
               >
                 重置所有数据
+              </button>
+
+              <button
+                onClick={() => {
+                   if (handleDeleteAccount) handleDeleteAccount();
+                   else alert("此功能在此视图暂不可用，请前往个人中心尝试");
+                }}
+                className="w-full py-3 text-sm font-bold text-red-500 bg-red-950/30 border border-red-500/50 rounded-lg hover:bg-red-900/40 transition flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                注销账户并销毁数据
               </button>
             </div>
           </div>

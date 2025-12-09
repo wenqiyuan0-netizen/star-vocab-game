@@ -3,7 +3,7 @@ WITH duplicates AS (
   SELECT
     id,
     ROW_NUMBER() OVER (
-      PARTITION BY user_id, de, gender
+      PARTITION BY user_id, lower(de)
       ORDER BY 
         COALESCE(proficiency, 0) DESC, 
         COALESCE(step, 0) DESC, 
@@ -16,17 +16,19 @@ WHERE id IN (
   SELECT id FROM duplicates WHERE rn > 1
 );
 
--- 2. Drop the old constraint (this will drop the index too usually)
+-- 2. Add normalized column for case-insensitive uniqueness
+ALTER TABLE public.user_words 
+  ADD COLUMN IF NOT EXISTS de_norm text GENERATED ALWAYS AS (lower(de)) STORED;
+
+-- 3. Drop the old constraint and index
 ALTER TABLE public.user_words DROP CONSTRAINT IF EXISTS user_words_user_id_de_gender_key;
--- Drop index just in case it wasn't dropped by constraint
 DROP INDEX IF EXISTS user_words_user_id_de_gender_key;
 
--- 3. Create new index with NULLS NOT DISTINCT
-CREATE UNIQUE INDEX user_words_user_id_de_gender_key 
-ON public.user_words (user_id, de, gender) 
-NULLS NOT DISTINCT;
+-- 4. Create new unique index on normalized column
+CREATE UNIQUE INDEX IF NOT EXISTS user_words_user_id_de_norm_key 
+ON public.user_words (user_id, de_norm);
 
--- 4. Add constraint back
+-- 5. Add constraint alias using the new index (optional)
 ALTER TABLE public.user_words 
-ADD CONSTRAINT user_words_user_id_de_gender_key 
-UNIQUE USING INDEX user_words_user_id_de_gender_key;
+ADD CONSTRAINT user_words_user_id_de_norm_key 
+UNIQUE USING INDEX user_words_user_id_de_norm_key;

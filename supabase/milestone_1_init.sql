@@ -19,6 +19,7 @@ create table if not exists public.user_words (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
   de text not null,           -- German word
+  de_norm text generated always as (lower(de)) stored,
   cn text,                    -- Chinese definition
   gender text,                -- der/die/das
   state text default 'new',   -- learning state
@@ -33,8 +34,6 @@ create table if not exists public.user_words (
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   
-  -- Ensure a user doesn't have duplicate entries for the same word+gender
-  unique (user_id, de, gender)
 );
 
 -- 4. Create Daily Stats Table (For heatmaps/activity tracking)
@@ -101,6 +100,7 @@ using ( auth.uid() = user_id );
 -- 7. Create Indexes for Performance
 create index if not exists idx_user_words_user on public.user_words(user_id);
 create index if not exists idx_user_words_due on public.user_words(user_id, due_date);
+create unique index if not exists user_words_user_id_de_norm_key on public.user_words(user_id, de_norm);
 create index if not exists idx_daily_stats_user_date on public.daily_stats(user_id, date);
 
 -- 8. Set up Triggers for automatic Profile creation on Sign Up

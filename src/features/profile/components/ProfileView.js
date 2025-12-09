@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Download, Award, Calendar,
   Volume2, Key, Image, Sparkles, Bot,
-  Clock, LogOut, AlertTriangle
+  Clock, AlertTriangle
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
 import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
@@ -103,6 +103,7 @@ export function ProfileView({
   handleExportSave,
   setShowSaveModal,
   handleResetData,
+  handleDeleteAccount,
   resetDataSilent,
   dailyStats = { reviewCount: 0, newCount: 0 },
   userProfile,
@@ -221,7 +222,11 @@ export function ProfileView({
   };
 
   const handleDeleteAccountRequest = () => {
-    setShowDeleteConfirm(true);
+    if (handleDeleteAccount) {
+      handleDeleteAccount();
+    } else {
+      setShowDeleteConfirm(true);
+    }
   };
 
   const handleConfirmDeleteAccount = async () => {
@@ -257,7 +262,6 @@ export function ProfileView({
           avatarUrl={avatarUrl}
           displayName={displayName}
           onChangeAvatar={handleChangeAvatar}
-          onDeleteAccount={handleDeleteAccountRequest}
           onLogout={handleLogout}
         />
       </div>
@@ -575,18 +579,6 @@ export function ProfileView({
         {/* --- Block 7: Actions (Full Width) --- */}
         <div className="col-span-12 mt-4 space-y-3">
           <GlassButton
-            onClick={handleLogout}
-            tone="primary"
-            variant="homeSecondary"
-            size="lg"
-            fullWidth
-            className="rounded-2xl shadow-lg shadow-black/10"
-            leadingIcon={LogOut}
-          >
-            退出登录
-          </GlassButton>
-
-          <GlassButton
             onClick={() => setShowSaveModal(true)}
             tone="secondary"
             variant="homeSecondary"
@@ -607,6 +599,18 @@ export function ProfileView({
             className="rounded-2xl opacity-60"
           >
             重置所有游戏数据
+          </GlassButton>
+
+          <GlassButton
+            onClick={handleDeleteAccountRequest}
+            tone="secondary"
+            variant="homeSecondary"
+            size="md"
+            fullWidth
+            className="rounded-2xl opacity-80 text-red-400 hover:text-red-300 hover:bg-red-900/20 border-red-900/30"
+            leadingIcon={AlertTriangle}
+          >
+            注销账户 (Delete Account)
           </GlassButton>
         </div>
 

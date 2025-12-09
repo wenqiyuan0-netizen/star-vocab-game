@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
+import { extractPaletteFromImage } from '../../utils/colorUtils'
+import { DEFAULT_WALLPAPER_URL } from '../constants/config'
 
 const DEFAULT_THEME = {
-  primary: '#ccb6f2ff',
-  secondary: '#abbed7ff',
-  accent: '#d398b3ff',
-  background: '#737e98ff',
-  text: '#ffffff',
-  overlay: '#b4a4cdff',
+  primary: '#ffffff',
+  secondary: '#ffffff',
+  accent: '#ffffff',
+  background: '#ffffff',
+  text: '#000000',
+  overlay: '#ffffff',
   analogous: [],
   mid: [],
   contrast: [],
@@ -89,6 +91,48 @@ export function ThemeProvider({ children }) {
       if (mm) mm.removeEventListener('change', onStorage)
       window.removeEventListener('theme-changed', onStorage)
       window.removeEventListener('wallpaper-changed', onStorage)
+    }
+  }, [])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('star-vocab-theme-palette')
+    if (!saved) {
+      const storedWall = localStorage.getItem('star-vocab-wallpaper-system')
+      const url = storedWall || DEFAULT_WALLPAPER_URL
+      if (!storedWall) {
+        localStorage.setItem('star-vocab-wallpaper-system', url)
+        window.dispatchEvent(new Event('wallpaper-changed'))
+      }
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        extractPaletteFromImage(img).then(palette => {
+          localStorage.setItem('star-vocab-theme-palette', JSON.stringify(palette))
+          const mode = pickMode(palette)
+          const current = palette.variants && palette.variants[mode] ? palette.variants[mode] : { analogous: [], mid: [], contrast: [], complementary: [] }
+          setTheme({
+            primary: palette.primary,
+            secondary: palette.secondary,
+            accent: palette.accent,
+            background: palette.background,
+            text: palette.text || textOn(palette.background || palette.primary || DEFAULT_THEME.background),
+            overlay: palette.overlay,
+            analogous: palette.analogous || current.analogous,
+            mid: palette.mid || current.mid,
+            contrast: palette.contrast || current.contrast,
+            complementary: palette.complementary || current.complementary,
+            variants: palette.variants || DEFAULT_THEME.variants
+          })
+          window.dispatchEvent(new Event('theme-changed'))
+        })
+      }
+      img.onerror = () => {
+        // Fallback to default theme if image fails to load
+        localStorage.setItem('star-vocab-theme-palette', JSON.stringify(DEFAULT_THEME))
+        setTheme({ ...DEFAULT_THEME })
+        window.dispatchEvent(new Event('theme-changed'))
+      }
+      img.src = url
     }
   }, [])
 

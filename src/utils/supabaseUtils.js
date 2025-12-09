@@ -1,17 +1,25 @@
+import { normalizeGender } from './genderUtils';
+
 // Helper to convert between App word format and Supabase DB format
 
+// Polyfill for UUID generation in non-secure contexts
+const generateUuid = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4 generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const appWordToDbWord = (appWord, userId) => {
-  return {
-    // If ID is a simple string like 'w1' (default words) or local random string,
-    // we might want to let Supabase generate a UUID if it's a new insert.
-    // However, for updates, we need the ID.
-    // Strategy: If ID is a valid UUID, keep it. If not, and we are upserting, 
-    // we might need to handle it carefully. For now, we pass ID if it exists.
-    id: isValidUuid(appWord.id) ? appWord.id : undefined, 
+  const dbWord = {
     user_id: userId,
     de: appWord.de,
     cn: appWord.cn,
-    gender: appWord.gender,
+    gender: normalizeGender(appWord.gender) || null,
     state: appWord.state,
     step: appWord.step,
     interval: appWord.interval,
@@ -24,6 +32,12 @@ export const appWordToDbWord = (appWord, userId) => {
     is_deleted: appWord.isDeleted || false,
     local_updated_at: appWord.localUpdatedAt ? new Date(appWord.localUpdatedAt).toISOString() : new Date().toISOString()
   };
+
+  if (isValidUuid(appWord.id)) {
+    dbWord.id = appWord.id;
+  }
+
+  return dbWord;
 };
 
 export const dbWordToAppWord = (dbWord) => {

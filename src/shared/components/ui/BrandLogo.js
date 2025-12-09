@@ -5,32 +5,19 @@ export function BrandLogo({ size = 64 }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 128 128"
+      viewBox="0 0 360 220"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <defs>
-        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7C3AED"/>
-          <stop offset="100%" stopColor="#22D3EE"/>
-        </linearGradient>
-        <linearGradient id="g2" x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#22D3EE"/>
-          <stop offset="100%" stopColor="#7C3AED"/>
-        </linearGradient>
-      </defs>
-      <rect x="8" y="8" width="112" height="112" rx="28" fill="#0B1020"/>
-      <g transform="translate(16,24)">
-        <rect x="0" y="18" width="60" height="60" rx="16" fill="url(#g1)" transform="rotate(-12 30 48)" opacity="0.95"/>
-        <rect x="36" y="0" width="60" height="60" rx="16" fill="url(#g2)" transform="rotate(12 66 30)" opacity="0.95"/>
-        <circle cx="30" cy="48" r="9" fill="#FFFFFF" opacity="0.95"/>
-        <circle cx="66" cy="30" r="9" fill="#FFFFFF" opacity="0.95"/>
-        <path d="M52 40 L58 28 L64 40" fill="none" stroke="#FFE08A" strokeWidth="5" strokeLinecap="round"/>
-      </g>
-      <circle cx="108" cy="20" r="5" fill="#FFE08A"/>
-      <circle cx="18" cy="108" r="4" fill="#22D3EE"/>
+      {/* Beige V (Left) */}
+      <path d="M20,50 L65,50 L100,130 L135,50 L180,50 L100,210 Z" fill="#EAE0C8" />
+
+      {/* Purple V (Middle) */}
+      <path d="M100,50 L145,50 L180,130 L225,20 L270,20 L180,210 Z" fill="#9B8DA0" />
+
+      {/* Brown P Loop (Right) */}
+      <path d="M270,20 L310,20 C340,20 340,110 310,110 L228,110 L242,70 L310,70 C320,70 320,50 310,50 L258,50 L225,20 Z" fill="#6F4E41" />
     </svg>
   );
 }
 
 export default BrandLogo;
-

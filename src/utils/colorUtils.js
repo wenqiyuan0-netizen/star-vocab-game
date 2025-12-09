@@ -376,7 +376,11 @@ export function generateGenderColors(theme, forDarkBackground = false) {
   return {
     der: colors[0],
     die: colors[1],
-    das: colors[2]
+    das: colors[2],
+    // Aliases for gender codes
+    m: colors[0],
+    f: colors[1],
+    n: colors[2]
   };
 }
 

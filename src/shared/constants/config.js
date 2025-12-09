@@ -9,3 +9,10 @@ const getBackendUrl = () => {
 
 export const BACKEND_URL = getBackendUrl()
 
+const getDefaultWallpaperUrl = () => {
+  const base = process.env.PUBLIC_URL || ''
+  // Use the new default wallpaper
+  return `${base}/wallpapers/default.jpg`
+}
+
+export const DEFAULT_WALLPAPER_URL = getDefaultWallpaperUrl()
