@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import SpaceVocabGame from "../features/game/SpaceVocabGame";
 import "./App.css";
-import LoginForm from "../features/auth/components/LoginForm";
+import { LoginForm } from "../features/auth/components";
 import { ThemeProvider } from "../shared/hooks/useTheme";
 import { useAuth } from "../features/auth/contexts/AuthContext";
 import SplashScreen from "../shared/components/SplashScreen";

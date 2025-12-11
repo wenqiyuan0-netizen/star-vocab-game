@@ -112,13 +112,10 @@ export function DashboardLayout(props) {
     const newIndex = TABS.indexOf(newTab);
 
     setPreviousTab(activeTab);
-    // 如果去往右边的标签(index更大)，新页面从右边进来(slide-in-right)
-    // 如果去往左边的标签(index更小)，新页面从左边进来(slide-in-left)
+  
     setSlideDirection(newIndex > oldIndex ? 'right' : 'left');
     setIsAnimating(true);
-    setActiveTab(newTab); // 立即更新，让新页面开始渲染并应用入场动画
-
-    // 动画完成后清理状态
+    setActiveTab(newTab);
     setTimeout(() => {
       setIsAnimating(false);
     }, 300);

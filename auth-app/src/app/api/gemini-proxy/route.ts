@@ -1,15 +1,32 @@
 import { NextRequest } from 'next/server'
 import { createSupabaseClient } from '@/lib/supabaseServer'
 
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 30
+const MAX_PROMPT_LEN = 4000
+type RateState = { count: number; ts: number }
+const rateState = new Map<string, RateState>()
+const checkLimit = (id: string) => {
+  const now = Date.now()
+  const s = rateState.get(id)
+  if (!s || now - s.ts > RATE_LIMIT_WINDOW_MS) {
+    rateState.set(id, { count: 1, ts: now })
+    return true
+  }
+  if (s.count >= RATE_LIMIT_MAX) return false
+  s.count += 1
+  return true
+}
+
 const getCorsHeaders = (req: NextRequest) => {
   const origin = req.headers.get('origin') || ''
-  
-  // Define allowed origins
   const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
-  const isVercel = origin.endsWith('.vercel.app')
-  const isCustomDomain = process.env.NEXT_PUBLIC_APP_URL ? origin === process.env.NEXT_PUBLIC_APP_URL : false
-  
-  const isAllowed = isLocalhost || isVercel || isCustomDomain
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const extra = (process.env.NEXT_PUBLIC_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const isAllowed = isLocalhost || (!!appUrl && origin === appUrl) || extra.includes(origin)
 
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : 'null',
@@ -69,8 +86,22 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  const allowed = checkLimit(user.id)
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+
   try {
     const { prompt, model, apiKey: clientKey } = await req.json()
+    if (typeof prompt !== 'string' || !prompt || prompt.length > MAX_PROMPT_LEN) {
+      return new Response(JSON.stringify({ error: 'invalid_prompt' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
     const apiKey = clientKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'missing_api_key' }), {
@@ -78,7 +109,7 @@ export async function POST(req: NextRequest) {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
-    const m = model || 'gemini-2.5-flash-preview-09-2025'
+    const m = typeof model === 'string' && model.length < 128 ? model : 'gemini-2.5-flash-preview-09-2025'
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`
     const upstream = await fetch(url, {
       method: 'POST',
@@ -97,4 +128,3 @@ export async function POST(req: NextRequest) {
     })
   }
 }
-

@@ -29,7 +29,7 @@ const gradeInteraction = (context) => {
 
   // 2. 错误处理
   if (type === 'error') return { rating: RATING.AGAIN };
-  
+
   if (type === 'miss') {
     // 高压下的 Miss 视为 "Hard" (轻微惩罚)，否则视为 "Again" (重置)
     return { rating: isHighPressure ? RATING.HARD : RATING.AGAIN };
@@ -47,7 +47,7 @@ const gradeInteraction = (context) => {
   if (isSpecialPerfect) {
     return { rating: RATING.EASY, isSpecialJump: true };
   }
-  
+
   // 区分 Good 和 Easy (用于 SM-2 内部微调)
   // 虽然 FSRS 主要看 Rating，但 Legacy SM-2 对 Quality (0-5) 很敏感
   // 这里我们映射一下：
@@ -56,7 +56,7 @@ const gradeInteraction = (context) => {
   // 
   // 为了简化，我们暂时统一返回 GOOD，但在 meta 中携带 quality 供 LegacyScheduler 使用
   const legacyQuality = (isInstant || isFast) ? 4 : 3;
-  
+
   return { rating: RATING.GOOD, legacyQuality };
 };
 
@@ -184,7 +184,7 @@ const FSRSScheduler = {
   // FSRS Core Formulas
   init(rating) {
     // rating: 1(Again)..4(Easy) -> index 0..3
-    const rIndex = rating - 1; 
+    const rIndex = rating - 1;
     return {
       s: FSRS_PARAMS.w[rIndex],
       d: FSRS_PARAMS.w[4] - FSRS_PARAMS.w[5] * rIndex,
@@ -200,35 +200,35 @@ const FSRSScheduler = {
 
     // Next S
     let nextS = s;
-    
+
     // Re-implementing exact v4.5 formula:
     if (rating === RATING.AGAIN) {
       nextS = FSRS_PARAMS.w[11] * Math.pow(d, -FSRS_PARAMS.w[12]) * (Math.pow(s + 1, FSRS_PARAMS.w[13]) - 1) * Math.exp(FSRS_PARAMS.w[14] * (1 - r));
     } else {
-       // For Hard(2), Good(3), Easy(4)
-       // w8=1.49, w9=0.14, w10=0.94
-       const w8 = FSRS_PARAMS.w[8], w9 = FSRS_PARAMS.w[9], w10 = FSRS_PARAMS.w[10];
-       // Note: parameters index might be shifted in some docs. 
-       // Assuming w8 is index 8.
-       
-       // Standard formula:
-       // next_s = s * (1 + Math.exp(w8) * (11 - d) * Math.pow(s, -w9) * (Math.exp(w10 * (1 - r)) - 1));
-       
-       let y = 1 + Math.exp(w8) * (11 - d) * Math.pow(s, -w9) * (Math.exp(w10 * (1 - r)) - 1);
-       
-       if (rating === RATING.HARD) y = Math.min(y, FSRS_PARAMS.w[15] || 1.2); // Hard penalty constraint?
-       if (rating === RATING.EASY) y *= (FSRS_PARAMS.w[16] || 2.0); // Easy bonus
-       
-       nextS = s * y;
+      // For Hard(2), Good(3), Easy(4)
+      // w8=1.49, w9=0.14, w10=0.94
+      const w8 = FSRS_PARAMS.w[8], w9 = FSRS_PARAMS.w[9], w10 = FSRS_PARAMS.w[10];
+      // Note: parameters index might be shifted in some docs. 
+      // Assuming w8 is index 8.
+
+      // Standard formula:
+      // next_s = s * (1 + Math.exp(w8) * (11 - d) * Math.pow(s, -w9) * (Math.exp(w10 * (1 - r)) - 1));
+
+      let y = 1 + Math.exp(w8) * (11 - d) * Math.pow(s, -w9) * (Math.exp(w10 * (1 - r)) - 1);
+
+      if (rating === RATING.HARD) y = Math.min(y, FSRS_PARAMS.w[15] || 1.2); // Hard penalty constraint?
+      if (rating === RATING.EASY) y *= (FSRS_PARAMS.w[16] || 2.0); // Easy bonus
+
+      nextS = s * y;
     }
-    
+
     return { s: nextS, d: nextD };
   },
 
   process(word, rating, meta) {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
-    
+
     // 1. Migration / Initialization
     if (!word.fsrs) {
       // Convert SM-2 to FSRS
@@ -240,17 +240,17 @@ const FSRSScheduler = {
         r: 0
       };
       if (word.state === 'new') {
-         // Real init
-         const init = this.init(rating);
-         word.fsrs.s = init.s;
-         word.fsrs.d = init.d;
+        // Real init
+        const init = this.init(rating);
+        word.fsrs.s = init.s;
+        word.fsrs.d = init.d;
       }
     }
 
     let { s, d } = word.fsrs;
     const lastReview = word.lastReview || now;
     const elapsedDays = Math.max(0, (now - lastReview) / oneDay);
-    
+
     // Retrievability
     const r = Math.pow(1 + 19 * elapsedDays / s, -1);
 
@@ -260,30 +260,37 @@ const FSRSScheduler = {
     let nextD = d, nextS = s;
 
     if (word.state === 'new') {
-        const init = this.init(rating);
-        nextS = init.s;
-        nextD = init.d;
+      const init = this.init(rating);
+      nextS = init.s;
+      nextD = init.d;
     } else {
-        const next = this.next(d, s, r, rating);
-        nextS = next.s;
-        nextD = next.d;
+      const next = this.next(d, s, r, rating);
+      nextS = next.s;
+      nextD = next.d;
     }
-    
+
     // Update Interval
-    const nextInterval = Math.min(FSRS_PARAMS.maximum_interval, Math.max(1, Math.round(9 * nextS * (1 / FSRS_PARAMS.request_retention - 1))));
+    // Update Interval
+    // Get requested retention from meta or default
+    const userRetention = meta.requestRetention || 0.9;
+    // Clamp retention to safe range [0.80, 0.97] to prevent infinite loops or excessive forgetfulness
+    const safeRetention = Math.max(0.80, Math.min(0.97, userRetention));
+
+    // Original Formula with dynamic retention
+    const nextInterval = Math.min(FSRS_PARAMS.maximum_interval, Math.max(1, Math.round(9 * nextS * (1 / safeRetention - 1))));
 
     // State transition
     let newState = 'review';
     if (rating === RATING.AGAIN) {
-        newState = 'learning'; // FSRS "Relearning" is often simplified to short intervals
-        // In FSRS 4.5, Again resets S but D increases.
-        // We treat it as short interval but keep tracking S/D.
+      newState = 'learning'; // FSRS "Relearning" is often simplified to short intervals
+      // In FSRS 4.5, Again resets S but D increases.
+      // We treat it as short interval but keep tracking S/D.
     }
 
     // Special Jump handling override
     if (meta.isSpecialJump) {
-       nextS = 15; // Boost stability manually
-       nextD = 1;  // Min difficulty
+      nextS = 15; // Boost stability manually
+      nextD = 1;  // Min difficulty
     }
 
     return applyGraduationFlag({
@@ -303,7 +310,7 @@ const FSRSScheduler = {
 export const processWordResult = (word, context) => {
   // 1. 评分
   const { rating, legacyQuality, isSpecialJump } = gradeInteraction(context);
-  
+
   // 2. 如果无评分 (如极速豁免)，直接返回
   if (rating === null) return word;
 
@@ -331,4 +338,12 @@ export const applyGraduationFlag = (word) => {
   const proficiency = computeProficiency(word);
   const graduated = proficiency >= 85 && (word.interval || 0) >= 21;
   return { ...word, proficiency, graduated };
+};
+
+export const computeRetrievability = (word, now = Date.now()) => {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const s = word?.fsrs?.s || word.interval || 1;
+  const last = word.lastReview || now;
+  const elapsedDays = Math.max(0, (now - last) / oneDay);
+  return Math.pow(1 + 19 * elapsedDays / s, -1);
 };

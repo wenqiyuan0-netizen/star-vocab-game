@@ -55,27 +55,61 @@ export function useSupabaseProfile() {
   const updateProfile = async (updates) => {
     if (!user) return;
 
-    // Convert camelCase to snake_case for DB
+    // Separate updates
+    const { level, totalXP, ...metadataUpdates } = updates;
+
+    // 1. Prepare Metadata Updates (Standard UPDATE)
     const dbUpdates = {};
-    if (updates.level !== undefined) dbUpdates.level = updates.level;
-    if (updates.totalXP !== undefined) dbUpdates.total_xp = updates.totalXP;
-    if (updates.checkInDates !== undefined) dbUpdates.check_in_dates = updates.checkInDates;
-    if (updates.dailyStats !== undefined) dbUpdates.daily_stats = updates.dailyStats;
-    if (updates.dailyPlan !== undefined) dbUpdates.daily_plan = updates.dailyPlan;
-    if (updates.settings !== undefined) dbUpdates.settings = updates.settings;
-    if (updates.name !== undefined) dbUpdates.username = updates.name;
-    if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;
+    if (metadataUpdates.checkInDates !== undefined) dbUpdates.check_in_dates = metadataUpdates.checkInDates;
+    if (metadataUpdates.dailyStats !== undefined) dbUpdates.daily_stats = metadataUpdates.dailyStats;
+    if (metadataUpdates.dailyPlan !== undefined) dbUpdates.daily_plan = metadataUpdates.dailyPlan;
+    if (metadataUpdates.settings !== undefined) dbUpdates.settings = metadataUpdates.settings;
+    if (metadataUpdates.name !== undefined) dbUpdates.username = metadataUpdates.name;
+    if (metadataUpdates.avatar !== undefined) dbUpdates.avatar_url = metadataUpdates.avatar;
 
     // Optimistic update
     setProfile(prev => ({ ...prev, ...updates }));
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ ...dbUpdates, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+      const promises = [];
 
-      if (error) throw error;
+      // Execute Metadata Update
+      if (Object.keys(dbUpdates).length > 0) {
+        promises.push(
+          supabase
+            .from('profiles')
+            .update({ ...dbUpdates, updated_at: new Date().toISOString() })
+            .eq('id', user.id)
+        );
+      }
+
+      // Execute XP/Level Update (Secure RPC)
+      // We calculate the delta because our RPC is add_xp(amount)
+      // This is safer for concurrency and allows backend validation
+      if (totalXP !== undefined || level !== undefined) {
+        const currentXP = profile.totalXP || 0;
+        const targetXP = totalXP !== undefined ? totalXP : currentXP;
+        const xpDelta = targetXP - currentXP;
+
+        // Only call RPC if there is a positive change or a level change
+        // We allow 0 delta if level is changing (e.g. manual level up without XP? Unlikely but possible)
+        if (xpDelta > 0 || (level !== undefined && level !== profile.level)) {
+             promises.push(
+               supabase.rpc('add_xp', { 
+                 xp_amount: Math.max(0, xpDelta), 
+                 new_level: level 
+               })
+             );
+        }
+      }
+
+      const results = await Promise.all(promises);
+      
+      // Check for errors
+      results.forEach(({ error }) => {
+        if (error) throw error;
+      });
+
     } catch (err) {
       console.error('Error updating profile:', err);
       // Revert logic could go here

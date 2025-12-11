@@ -56,9 +56,10 @@ export function useSettings(cloudInitialized = false) {
         // 处理难度相关设置
         if (Object.prototype.hasOwnProperty.call(finalSettings, 'difficulty')) {
             const d = Math.max(1, Math.min(10, parseInt(finalSettings.difficulty)));
-            const speed = parseFloat((0.7 + (d - 1) * (2.3 / 9)).toFixed(1));
-            const maxOnScreen = Math.round(3 + (d - 1) * (7 / 9));
-            const spawnRate = Math.round(2200 - (d - 1) * (1300 / 9));
+            // Adjusted formula: Higher initial speed (1.2), Lower density (2), Slower spawn (3000ms)
+            const speed = parseFloat((1.2 + (d - 1) * (1.8 / 9)).toFixed(1));
+            const maxOnScreen = Math.round(2 + (d - 1) * (8 / 9));
+            const spawnRate = Math.round(3000 - (d - 1) * (2000 / 9));
 
             settingsRef.current = {
                 ...settingsRef.current,

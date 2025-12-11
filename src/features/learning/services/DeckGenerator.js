@@ -1,5 +1,6 @@
 
 import { aiService } from '../../../shared/services/ai/AIService';
+import { computeRetrievability } from '../../../logic/srs';
 
 // 从 LocalStorage 读取配置和状态的辅助函数
 function getSettings() {
@@ -125,14 +126,22 @@ export const DeckGenerator = {
 
       // 如果已经打卡（说明达到上限），但还在普通模式（说明还有Pending），则不再限制复习数量，允许清理积压
       if (dailyStats.isCheckedIn) {
-        remainingReview = Number.MAX_SAFE_INTEGER;
+        remainingReview = Math.max(remainingReview, Math.max(1, adaptedReviewLimit) * 2);
       }
 
       const dueWords = globalWordDb.filter(
         w => w.state !== 'new' && w.dueDate <= now
       );
-      // 限制复习词 (Hard Cap)
-      const selectedDueWords = dueWords.slice(0, remainingReview);
+      const sortedDueWords = [...dueWords].sort((a, b) => {
+        const ra = computeRetrievability(a, now);
+        const rb = computeRetrievability(b, now);
+        if (ra !== rb) return ra - rb;
+        const ia = a.interval || 0;
+        const ib = b.interval || 0;
+        if (ia !== ib) return ia - ib;
+        return (a.lastReview || 0) - (b.lastReview || 0);
+      });
+      const selectedDueWords = sortedDueWords.slice(0, remainingReview);
 
       const availableNewWords = globalWordDb.filter(
         w => w.state === 'new'

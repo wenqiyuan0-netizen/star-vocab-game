@@ -195,16 +195,9 @@ export function SettingsView({
           </h3>
           <div className="glass-panel rounded-xl p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Gemini API Key</label>
-              <input
-                type="password"
-                value={settingsState.apiKey || ''}
-                onChange={e => updateSettings({ apiKey: e.target.value })}
-                placeholder="在此粘贴您的 API Key"
-                className="w-full glass-button cursor-text rounded-lg px-4 py-2.5 text-sm focus:ring-1 transition"
-                style={{ '--tw-ring-color': theme.primary, borderColor: theme.primary }}
-              />
-              <p className="text-xs text-gray-500 mt-2">用于生成例句，密钥仅存储在本地浏览器中</p>
+              <p className="text-sm text-gray-300">
+                AI 服务已升级为服务器托管模式，无需手动配置 API Key。
+              </p>
             </div>
 
             <div className="pt-4 border-t border-slate-700 space-y-3">

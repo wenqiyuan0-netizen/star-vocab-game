@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Download, Award, Calendar,
   Volume2, Key, Image, Sparkles, Bot,
-  Clock, AlertTriangle
+  Clock, AlertTriangle , BrainCircuit
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
 import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
@@ -13,6 +13,12 @@ import { withOpacity, getOffToggleColor, parseColorToRgb } from '../../../utils/
 import { getLocalDateString } from '../../../utils/dateUtils';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import { getEffectiveSettings } from '../../learning/services/ClearanceHelper';
+
+
+// 引入 lucide-react 图标（如果没有引入的话）
+  // import { BrainCircuit } from 'lucide-react'; 
+
+
 
 // Helper component for expandable sections with animation
 const ExpandableSection = ({ isOpen, children, className = "" }) => (
@@ -35,7 +41,7 @@ const ExpandableSection = ({ isOpen, children, className = "" }) => (
 // Delete Confirmation Modal
 const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
   if (!isOpen) return null;
-  
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in"
@@ -60,11 +66,11 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
           >
             <AlertTriangle className="w-8 h-8" />
           </div>
-          
+
           <div>
             <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>确认注销账号？</h3>
             <p className="text-sm opacity-70 leading-relaxed" style={{ color: theme.text }}>
-              此操作将<span className="font-bold text-red-500">删除所有本地数据</span>并退出登录。<br/>
+              此操作将<span className="font-bold text-red-500">删除所有本地数据</span>并退出登录。<br />
               云端数据可能保留，取决于同步状态。
             </p>
           </div>
@@ -73,7 +79,7 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
             <button
               onClick={onCancel}
               className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors"
-              style={{ 
+              style={{
                 backgroundColor: withOpacity(theme.text, 0.05),
                 color: withOpacity(theme.text, 0.8)
               }}
@@ -83,7 +89,7 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
             <button
               onClick={onConfirm}
               className="flex-1 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-transform active:scale-95"
-              style={{ 
+              style={{
                 backgroundColor: theme.accent, // Use accent color (usually red/orange for danger)
                 boxShadow: `0 4px 12px ${withOpacity(theme.accent, 0.3)}`
               }}
@@ -185,6 +191,25 @@ export function ProfileView({
   // Assign lighter color to highlight elements (numbers, active toggles)
   const highlightColor = primaryBrightness > secondaryBrightness ? theme.primary : theme.secondary;
 
+  // --- 新增：滑块交互状态 ---
+  const [isDragging, setIsDragging] = useState(false);
+
+  // --- 新增：计算颜色逻辑 ---
+  // 拖拽时高亮，静止时稍微变暗（0.5透明度）
+  const activeColor = isDragging ? highlightColor : withOpacity(highlightColor, 0.5);
+  // 滑块圆球的颜色：静止时更淡一点，以免抢视觉
+  const thumbColor = isDragging ? highlightColor : withOpacity(highlightColor, 0.3);
+
+  // --- 新增：根据数值获取文案 ---
+  const currentRetentionValue = safeSettings.reviewRetention || 0.9;
+  const currentRetentionPercent = Math.round(currentRetentionValue * 100);
+  
+  const getRetentionText = (val) => {
+    if (val <= 0.85) return "轻松浏览";
+    if (val <= 0.90) return "标准平衡";
+    return "深度记忆";
+  };
+
 
   const handleWallpaperSave = (target, dataUrl, palette) => {
     try {
@@ -238,10 +263,10 @@ export function ProfileView({
         // Fallback for safety, though it triggers UI
         handleResetData();
       }
-      
+
       // 2. 退出登录
       await signOut();
-      
+
       setShowDeleteConfirm(false);
       window.location.reload();
     } catch (error) {
@@ -265,8 +290,8 @@ export function ProfileView({
           onLogout={handleLogout}
         />
       </div>
-      
-      <DeleteConfirmModal 
+
+      <DeleteConfirmModal
         isOpen={showDeleteConfirm}
         onConfirm={handleConfirmDeleteAccount}
         onCancel={() => setShowDeleteConfirm(false)}
@@ -510,7 +535,143 @@ export function ProfileView({
           </div>
         </div>
 
-        {/* --- Block 5: Wallpaper (Medium, 6 cols) --- */}
+        {/* --- Block 5: Personalization (Medium, 6 cols) - NEW --- */}
+        <div
+          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col gap-3"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+        >
+          <div className="flex items-center justify-between mb-0 opacity-90" style={{ color: highlightColor }}>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-xs font-bold">个性化</span>
+            </div>
+            <span className="text-[10px] font-bold opacity-80">{Math.round((safeSettings.reviewRetention || 0.9) * 100)}%</span>
+          </div>
+
+
+          <div className="relative z-10 space-y-3">
+            {/* 1. 标题栏 - 已移除 (BrainCircuit + Memory Strategy) */}
+            
+            {/* 2. 数值大屏展示 - 拖拽时轻微放大 */}
+            <div 
+              className="flex items-end gap-2 transition-all duration-300 mt-2"
+              style={{ transform: isDragging ? 'scale(1.02)' : 'scale(1)' }}
+            >
+              <span 
+                className="text-5xl font-black transition-colors duration-300" 
+                style={{ color: activeColor }}
+              >
+                {currentRetentionPercent}
+              </span>
+              <div className="flex flex-col mb-1.5">
+                <span className="text-sm font-bold opacity-60" style={{ color: activeColor }}>%</span>
+                <span className="text-[10px] font-medium opacity-50 whitespace-nowrap" style={{ color: activeColor }}>
+                  {getRetentionText(currentRetentionValue)}
+                </span>
+              </div>
+            </div>
+
+            {/* 3. 滑块区域 */}
+            <div className="relative pt-2 pb-1">
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                  .strategy-slider {
+                    -webkit-appearance: none;
+                    width: 100%;
+                    background: transparent;
+                    outline: none;
+                  }
+                  .strategy-slider::-webkit-slider-runnable-track {
+                    width: 100%;
+                    height: 8px;
+                    background: ${withOpacity(highlightColor, 0.1)};
+                    border-radius: 999px;
+                    transition: background 0.3s;
+                  }
+                  .strategy-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    height: 24px;
+                    width: 24px;
+                    border-radius: 50%;
+                    background: ${thumbColor};
+                    border: ${isDragging ? '3px' : '0px'} solid white;
+                    margin-top: -8px;
+                    box-shadow: 0 2px 10px ${withOpacity(highlightColor, isDragging ? 0.5 : 0)};
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    cursor: grab;
+                  }
+                  .strategy-slider::-webkit-slider-thumb:active {
+                    cursor: grabbing;
+                    transform: scale(1.1);
+                  }
+                `
+              }} />
+
+              <input
+                type="range"
+                min="80"
+                max="95"
+                step="1"
+                value={currentRetentionPercent}
+                onChange={e => updateSettings({ reviewRetention: parseInt(e.target.value) / 100 })}
+                onMouseDown={() => setIsDragging(true)}
+                onMouseUp={() => setIsDragging(false)}
+                onTouchStart={() => setIsDragging(true)}
+                onTouchEnd={() => setIsDragging(false)}
+                className="strategy-slider"
+              />
+
+              {/* 4. 底部两极标签 - 动态透明度 */}
+              <div 
+                className="flex justify-between mt-3 text-[10px] font-bold select-none transition-colors duration-300" 
+                style={{ color: highlightColor }}
+              >
+                <div 
+                  className="flex items-center gap-1 transition-opacity duration-300"
+                  style={{ opacity: currentRetentionPercent <= 85 ? (isDragging ? 1 : 0.8) : 0.3 }}
+                >
+                  {/* 低负担 Icon (Feather-like) */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+                    <line x1="16" y1="8" x2="2" y2="22" />
+                    <line x1="17.5" y1="15" x2="9" y2="15" />
+                  </svg>
+                  <div className="flex flex-col">
+                    <span>混个脸熟</span>
+                    <span className="font-normal opacity-70 scale-90 origin-left">低负担</span>
+                  </div>
+                </div>
+
+                <div 
+                  className="flex items-center gap-1 text-right transition-opacity duration-300"
+                  style={{ opacity: currentRetentionPercent >= 90 ? (isDragging ? 1 : 0.8) : 0.3 }}
+                >
+                  <div className="flex flex-col">
+                    <span>刻入灵魂</span>
+                    <span className="font-normal opacity-70 scale-90 origin-right">抗遗忘</span>
+                  </div>
+                  {/* 抗遗忘 Icon (Shield/Strong) */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+
+
+
+
+
+
+
+
+        </div>
+
+        {/* --- Block 6: Wallpaper (Medium, 6 cols) - MOVED --- */}
         <button
           onClick={() => setShowWallpaperSettings(true)}
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col items-center justify-center gap-3 text-center group transition-all hover:scale-[1.02]"
@@ -525,55 +686,43 @@ export function ProfileView({
           </div>
         </button>
 
-        {/* --- Block 6: AI Gemini (Full Width, Expandable) --- */}
+        {/* --- Block 7: AI Gemini (Medium, 6 cols) - REDESIGNED --- */}
         <div
-          className="col-span-12 glass-panel rounded-3xl p-5 transition-all duration-300"
+          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-2 overflow-hidden relative"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-colors duration-300"
-                style={{
-                  backgroundColor: showAiSettings ? highlightColor : getOffToggleColor(theme),
-                  color: showAiSettings ? theme.text : withOpacity(theme.text, 0.6)
-                }}
-              >
-                <Bot className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight" style={{ color: showAiSettings ? highlightColor : withOpacity(theme.text, 0.6) }}>AI 助手</h3>
-              </div>
+          <div className="flex items-center justify-between mb-1 opacity-90" style={{ color: highlightColor }}>
+            <div className="flex items-center gap-2">
+              <Bot className="w-4 h-4" />
+              <span className="text-xs font-bold">AI 助手</span>
             </div>
             <button
               onClick={() => setShowAiSettings(!showAiSettings)}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner`}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner`}
               style={{ backgroundColor: showAiSettings ? highlightColor : getOffToggleColor(theme) }}
             >
-              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${showAiSettings ? 'translate-x-6' : 'translate-x-1'
-                }`} />
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${showAiSettings ? 'translate-x-4' : 'translate-x-1'}`} />
             </button>
           </div>
 
-          <ExpandableSection isOpen={showAiSettings}>
-            <div className="mt-4 pt-4 border-t border-black/5 space-y-3" style={{ borderColor: withOpacity(theme.secondary, 0.08) }}>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" style={{ color: textColor }}>
-                  <Key className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  value={safeSettings.apiKey || ''}
-                  onChange={e => updateSettings({ apiKey: e.target.value })}
-                  placeholder="Paste Gemini API Key"
-                  className="w-full rounded-xl py-3 pl-10 pr-4 text-xs font-mono outline-none border-2 border-transparent focus:border-current transition-colors"
-                  style={{ color: highlightColor, backgroundColor: withOpacity(highlightColor, 0.12) }}
-                />
-              </div>
-              <p className="text-[10px] opacity-50 text-center">
-                配置 API Key 以解锁智能例句生成功能
-              </p>
+          <div className="mt-1 relative">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-50" style={{ color: textColor }}>
+              <Key className="w-3 h-3" />
             </div>
-          </ExpandableSection>
+            <input
+              type="password"
+              value={safeSettings.apiKey || ''}
+              readOnly={!showAiSettings}
+              disabled={!showAiSettings}
+              onChange={e => updateSettings({ apiKey: e.target.value })}
+              placeholder={showAiSettings ? "API Key..." : "OFF"}
+              className="w-full rounded-lg py-1.5 pl-7 pr-2 text-[10px] font-mono outline-none border border-transparent focus:border-current transition-colors disabled:opacity-50"
+              style={{ color: highlightColor, backgroundColor: withOpacity(highlightColor, 0.12) }}
+            />
+          </div>
+          <div className="text-[9px] opacity-40 truncate text-center" style={{ color: theme.text }}>
+            解锁智能例句生成
+          </div>
         </div>
 
         {/* --- Block 7: Actions (Full Width) --- */}

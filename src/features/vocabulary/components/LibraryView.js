@@ -50,6 +50,11 @@ export function LibraryView({
   const [cardWord, setCardWord] = useState(null);
   const [cardEntry, setCardEntry] = useState(null);
 
+  const modalWordData = React.useMemo(() => {
+    if (!cardWord) return null;
+    return { w: cardWord, entry: cardEntry };
+  }, [cardWord, cardEntry]);
+
   // 过滤单词
   const filteredWords = globalWordDb.filter(w => {
     if (!searchTerm) return true;
@@ -396,10 +401,10 @@ export function LibraryView({
         )}
       </div>
 
-      {showCard && cardWord && (
+      {showCard && modalWordData && (
         <WordCardModal
           cardBgColor={cardBgColor}
-          word={{ w: cardWord, entry: cardEntry }}
+          word={modalWordData}
           onClose={() => setShowCard(false)}
           onPrev={() => {
             const idx = filteredWords.findIndex(x => x.id === cardWord.id);

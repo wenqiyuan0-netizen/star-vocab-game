@@ -348,7 +348,7 @@ export const WordCardModal = ({
     // Reset flip state when word changes
     useEffect(() => {
         setFlipped(false);
-    }, [word]);
+    }, [word?.w?.id]);
 
     if (!word) return null;
 

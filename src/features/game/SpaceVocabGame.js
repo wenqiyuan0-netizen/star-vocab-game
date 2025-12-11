@@ -90,7 +90,7 @@ export default function SpaceVocabGame() {
     if (cloudError) {
       console.error("Cloud Sync Error:", cloudError);
       // Show error to user so they know why sync isn't working
-      setMessage(`同步失败: ${cloudError}`); 
+      setMessage(`同步失败: ${cloudError}`);
     }
   }, [cloudError]);
 
@@ -131,6 +131,7 @@ export default function SpaceVocabGame() {
     apiKey: '',
     dailyNewLimit: 5,      // V2 新增
     dailyReviewLimit: 10,  // V2 新增
+    reviewRetention: 0.90, // FSRS Target Retention (User Configurable)
     updatedAt: 0           // V2 Sync: Timestamp for conflict resolution
   });
 
@@ -298,7 +299,7 @@ export default function SpaceVocabGame() {
 
       // Sync check-in status (legacy fix): if daily stats says checked in, ensure it's in profile
       if (dailyStatsRef.current.isCheckedIn) {
-        const todayISO = new Date().toISOString().split('T')[0];
+        const todayISO = getLocalDateString();
         if (!userProfileRef.current.checkInDates.includes(todayISO)) {
           userProfileRef.current.checkInDates.push(todayISO);
           localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
@@ -469,7 +470,7 @@ export default function SpaceVocabGame() {
     localData.forEach(w => {
       const k = keyOf(w);
       const inCloud = mergedMap.has(k) || (w.id && cloudIds.has(w.id));
-      
+
       // Get cloud version if exists
       const cloudVer = mergedMap.get(k) || (w.id ? cloudWords.find(cw => cw.id === w.id) : null);
 
@@ -483,34 +484,34 @@ export default function SpaceVocabGame() {
           //   Check timestamps. If local is NEWER than cloud's updated_at (or local_updated_at),
           //   it means "Resurrection" (User added it back).
           //   Otherwise, accept deletion.
-          
+
           const cloudTime = cloudVer.localUpdatedAt || cloudVer.updatedAt || 0; // prefer local_updated_at logic if available
           const localTime = w.localUpdatedAt || w.updatedAt || 0;
 
           if (!w.isDeleted && localTime > cloudTime + 1000) { // 1s buffer
-             // Resurrection Wins: Keep local, mark as dirty to push
-             mergedMap.set(k, { ...w, id: cloudVer.id }); // Reuse ID
-             wordsToPush.push({ ...w, id: cloudVer.id });
+            // Resurrection Wins: Keep local, mark as dirty to push
+            mergedMap.set(k, { ...w, id: cloudVer.id }); // Reuse ID
+            wordsToPush.push({ ...w, id: cloudVer.id });
           } else {
-             // Deletion Wins: Mark local as deleted (Tombstone)
-             mergedMap.set(k, { ...cloudVer, isDeleted: true });
+            // Deletion Wins: Mark local as deleted (Tombstone)
+            mergedMap.set(k, { ...cloudVer, isDeleted: true });
           }
-        } 
+        }
         // 2. Cloud is ACTIVE
         else {
-           // If local is DELETED and newer -> Push Deletion
-           const cloudTime = cloudVer.localUpdatedAt || cloudVer.updatedAt || 0;
-           const localTime = w.localUpdatedAt || w.updatedAt || 0;
+          // If local is DELETED and newer -> Push Deletion
+          const cloudTime = cloudVer.localUpdatedAt || cloudVer.updatedAt || 0;
+          const localTime = w.localUpdatedAt || w.updatedAt || 0;
 
-           if (w.isDeleted && localTime > cloudTime + 1000) {
-              mergedMap.set(k, w);
-              wordsToPush.push(w);
-           } else {
-              // Standard Merge: Cloud usually wins for properties, but we keep local progress if newer
-              // For simplicity, we stick to: Cloud Wins for props, Local wins for SRS if strictly playing offline
-              // But here we just merge cloud into local key
-              mergedMap.set(k, { ...cloudVer, ...w, id: cloudVer.id, isDeleted: false });
-           }
+          if (w.isDeleted && localTime > cloudTime + 1000) {
+            mergedMap.set(k, w);
+            wordsToPush.push(w);
+          } else {
+            // Standard Merge: Cloud usually wins for properties, but we keep local progress if newer
+            // For simplicity, we stick to: Cloud Wins for props, Local wins for SRS if strictly playing offline
+            // But here we just merge cloud into local key
+            mergedMap.set(k, { ...cloudVer, ...w, id: cloudVer.id, isDeleted: false });
+          }
         }
       } else {
         // Local word NOT in Cloud.
@@ -518,7 +519,7 @@ export default function SpaceVocabGame() {
         // With Soft Delete, "Not in Cloud" means it's genuinely NEW (never synced), 
         // OR we are in a transition state where we haven't fetched tombstones yet (but we load ALL now).
         // So, if it's not in cloud array, it's a NEW local word.
-        
+
         mergedMap.set(k, w);
         wordsToPush.push(w);
       }
@@ -531,7 +532,7 @@ export default function SpaceVocabGame() {
         const k = keyOf(cw);
         // Add if not processed by ID AND not already in map (by content)
         if ((!cw.id || !processedCloudIds.has(cw.id)) && !mergedMap.has(k)) {
-           mergedMap.set(k, cw);
+          mergedMap.set(k, cw);
         }
       });
     }
@@ -544,10 +545,10 @@ export default function SpaceVocabGame() {
     // We store even tombstones in local storage to track deletions, 
     // BUT 'mergedList' above filtered them out for the game state.
     // Let's keep tombstones in DB but separate for Game.
-    
+
     // Actually, to persist tombstones, we need to save the FULL map values to localStorage
     const fullListToSave = Array.from(mergedMap.values());
-    
+
     setGlobalWordDb(mergedList); // UI only needs active words
     localStorage.setItem('space_vocab_db', JSON.stringify(fullListToSave));
     localStorage.setItem('space_vocab_last_sync', String(now));
@@ -606,14 +607,10 @@ export default function SpaceVocabGame() {
   const ttsTokenRef = useRef(0);
 
   useEffect(() => {
-    aiService.setApiKey(settingsState.apiKey);
-  }, [settingsState.apiKey]);
-
-  useEffect(() => {
     const loadWallpaper = () => {
       let homeWall = localStorage.getItem('star-vocab-wallpaper-home');
       let sysWall = localStorage.getItem('star-vocab-wallpaper-system');
-      
+
       // Clear legacy default wallpapers
       if (sysWall && (sysWall.includes('logo512.png') || /alphacoders\.com/i.test(sysWall))) {
         localStorage.removeItem('star-vocab-wallpaper-system');
@@ -625,7 +622,7 @@ export default function SpaceVocabGame() {
       }
 
       const saved = sysWall || homeWall;
-      
+
       // Fallback to default wallpaper from config when none is stored
       try {
         const { DEFAULT_WALLPAPER_URL } = require('../../shared/constants/config');
@@ -697,9 +694,10 @@ export default function SpaceVocabGame() {
 
     if (Object.prototype.hasOwnProperty.call(finalSettings, 'difficulty')) {
       const d = Math.max(1, Math.min(10, parseInt(finalSettings.difficulty)));
-      const speed = parseFloat((0.7 + (d - 1) * (2.3 / 9)).toFixed(1));
-      const maxOnScreen = Math.round(3 + (d - 1) * (7 / 9));
-      const spawnRate = Math.round(2200 - (d - 1) * (1300 / 9));
+      // Adjusted formula: Higher initial speed (1.2), Lower density (2), Slower spawn (3000ms)
+      const speed = parseFloat((1.2 + (d - 1) * (1.8 / 9)).toFixed(1));
+      const maxOnScreen = Math.round(2 + (d - 1) * (8 / 9));
+      const spawnRate = Math.round(3000 - (d - 1) * (2000 / 9));
       settingsRef.current = { ...settingsRef.current, ...finalSettings, difficulty: d, speed, maxOnScreen, spawnRate };
     } else {
       settingsRef.current = { ...settingsRef.current, ...finalSettings };
@@ -748,6 +746,7 @@ export default function SpaceVocabGame() {
           difficulty: 5,
           dailyNewLimit: 5,
           dailyReviewLimit: 10,
+          reviewRetention: 0.90,
           ttsMode: 'none',
           speakDe: true,
           speakCn: false,
@@ -1397,6 +1396,8 @@ export default function SpaceVocabGame() {
       const updated = processWordResult(w, {
         reactionTime,
         isHighPressure,
+        requestRetention: settingsRef.current.reviewRetention || 0.90, // Pass user strategic preference to SRS
+
         exposure: stats.spawns,
         type: 'match'
       });
@@ -1497,7 +1498,7 @@ export default function SpaceVocabGame() {
               syncedList.forEach(s => {
                 const k = `${String(s.de).toLowerCase()}|${String(s.gender).toLowerCase()}`;
                 if (map.has(k)) {
-                   map.set(k, { ...map.get(k), ...s });
+                  map.set(k, { ...map.get(k), ...s });
                 }
               });
               return Array.from(map.values()).sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
@@ -1662,6 +1663,7 @@ export default function SpaceVocabGame() {
                     <div className="mt-2 text-[10px] text-gray-400">速度: {Math.max(0.1, settingsState.speed).toFixed(1)}x · 同屏: {settingsState.maxOnScreen} · 刷新: {settingsState.spawnRate}ms</div>
                   </div>
                 </div>
+
                 <div className="space-y-3 border-t border-white/10 pt-4">
                   <div className="text-xs font-bold text-gray-500 uppercase">语音合成 (TTS)</div>
                   <div className="flex flex-col gap-2">
