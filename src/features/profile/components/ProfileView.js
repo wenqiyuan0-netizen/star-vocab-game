@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Download, Award, Calendar,
   Volume2, Key, Image, Sparkles, Bot,
-  Clock, AlertTriangle , BrainCircuit
+  Clock, AlertTriangle, BrainCircuit
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
 import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
@@ -16,7 +16,7 @@ import { getEffectiveSettings } from '../../learning/services/ClearanceHelper';
 
 
 // 引入 lucide-react 图标（如果没有引入的话）
-  // import { BrainCircuit } from 'lucide-react'; 
+// import { BrainCircuit } from 'lucide-react'; 
 
 
 
@@ -203,7 +203,7 @@ export function ProfileView({
   // --- 新增：根据数值获取文案 ---
   const currentRetentionValue = safeSettings.reviewRetention || 0.9;
   const currentRetentionPercent = Math.round(currentRetentionValue * 100);
-  
+
   const getRetentionText = (val) => {
     if (val <= 0.85) return "轻松浏览";
     if (val <= 0.90) return "标准平衡";
@@ -551,14 +551,14 @@ export function ProfileView({
 
           <div className="relative z-10 space-y-3">
             {/* 1. 标题栏 - 已移除 (BrainCircuit + Memory Strategy) */}
-            
+
             {/* 2. 数值大屏展示 - 拖拽时轻微放大 */}
-            <div 
+            <div
               className="flex items-end gap-2 transition-all duration-300 mt-2"
               style={{ transform: isDragging ? 'scale(1.02)' : 'scale(1)' }}
             >
-              <span 
-                className="text-5xl font-black transition-colors duration-300" 
+              <span
+                className="text-5xl font-black transition-colors duration-300"
                 style={{ color: activeColor }}
               >
                 {currentRetentionPercent}
@@ -622,11 +622,11 @@ export function ProfileView({
               />
 
               {/* 4. 底部两极标签 - 动态透明度 */}
-              <div 
-                className="flex justify-between mt-3 text-[10px] font-bold select-none transition-colors duration-300" 
+              <div
+                className="flex justify-between mt-3 text-[10px] font-bold select-none transition-colors duration-300"
                 style={{ color: highlightColor }}
               >
-                <div 
+                <div
                   className="flex items-center gap-1 transition-opacity duration-300"
                   style={{ opacity: currentRetentionPercent <= 85 ? (isDragging ? 1 : 0.8) : 0.3 }}
                 >
@@ -642,7 +642,7 @@ export function ProfileView({
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="flex items-center gap-1 text-right transition-opacity duration-300"
                   style={{ opacity: currentRetentionPercent >= 90 ? (isDragging ? 1 : 0.8) : 0.3 }}
                 >
