@@ -402,6 +402,17 @@ export function withOpacity(color, alpha = 1) {
   return color;
 }
 
+export function mixColors(color1, color2, weight) {
+  const c1 = parseColorToRgb(color1);
+  const c2 = parseColorToRgb(color2);
+  
+  const r = Math.round(c1[0] * (1 - weight) + c2[0] * weight);
+  const g = Math.round(c1[1] * (1 - weight) + c2[1] * weight);
+  const b = Math.round(c1[2] * (1 - weight) + c2[2] * weight);
+  
+  return `rgb(${r},${g},${b})`;
+}
+
 export function glassStyle(baseColor, alpha = 0.3, blurPx = 10, borderAlpha = 0.5) {
   const bg = withOpacity(baseColor, alpha);
   const border = withOpacity(baseColor, borderAlpha);

@@ -1051,7 +1051,19 @@ export default function SpaceVocabGame() {
     const spawnData = calculateSpawnPair(width, height, fragmentsRef.current);
     const pairId = Date.now() + Math.random();
 
-    const f1 = new StarFragment(spawnData.de.x, spawnData.de.y, wordData.de, 'de', wordData, pairId, () => layoutRef.current.uiScale);
+    // 修复：构建带冠词的德语显示文本
+    const genderToArticle = (g) => {
+      const x = String(g || '').toLowerCase();
+      if (x === 'm') return 'der';
+      if (x === 'f') return 'die';
+      if (x === 'n') return 'das';
+      if (x === 'der' || x === 'die' || x === 'das') return x;
+      return '';
+    };
+    const article = genderToArticle(wordData.gender);
+    const displayDe = article ? `${article} ${wordData.de}` : wordData.de;
+
+    const f1 = new StarFragment(spawnData.de.x, spawnData.de.y, displayDe, 'de', wordData, pairId, () => layoutRef.current.uiScale);
     f1.vx = spawnData.de.vx;
     f1.vy = spawnData.de.vy;
 
@@ -1081,9 +1093,23 @@ export default function SpaceVocabGame() {
     }
 
     const baseW = 390; const baseH = 844;
-    const scaleX = width / baseW; const scaleY = height / baseH;
-    const uiScale = Math.min(scaleX, scaleY, 1.8);
-    layoutRef.current = { uiScale, isPortrait: height >= width };
+    const isPortrait = height >= width;
+    
+    // 修复：横屏模式下使用不同的基准尺寸计算 uiScale，并整体放大 2.5 倍
+    let uiScale;
+    if (isPortrait) {
+      const scaleX = width / baseW; const scaleY = height / baseH;
+      uiScale = Math.min(scaleX, scaleY, 1.7);
+    } else {
+
+      const landscapeBaseH = 390; 
+
+      uiScale = (height / landscapeBaseH) * 1.0; 
+
+      uiScale = Math.min(uiScale, 1.5); 
+    }
+    
+    layoutRef.current = { uiScale, isPortrait };
 
     if (!lastFrameTimeRef.current) lastFrameTimeRef.current = time;
     const dt = Math.min(time - lastFrameTimeRef.current, 50);
@@ -1433,13 +1459,18 @@ export default function SpaceVocabGame() {
     soundManager.unlock();
     const canvas = canvasRef.current; if (!canvas) return;
     const x = clientX; const y = clientY;
-    let clickedFrag = null; const TOUCH_SLOP = 15;
+    let clickedFrag = null; const TOUCH_SLOP = 25; // Increased slop for better touch
     for (let i = fragmentsRef.current.length - 1; i >= 0; i--) {
       const f = fragmentsRef.current[i];
       // Skip fragments that are dying or matched
       if (f.isMatched || f.markedForDeletion) continue;
 
-      const halfW = f.width / 2 + TOUCH_SLOP; const halfH = f.height / 2 + TOUCH_SLOP;
+      const s = f.getScale ? f.getScale() : 1;
+      const realWidth = f.width * s;
+      const realHeight = f.height * s;
+
+      const halfW = realWidth / 2 + TOUCH_SLOP; 
+      const halfH = realHeight / 2 + TOUCH_SLOP;
       if (x > f.x - halfW && x < f.x + halfW && y > f.y - halfH && y < f.y + halfH) { clickedFrag = f; break; }
     }
     if (!clickedFrag) {

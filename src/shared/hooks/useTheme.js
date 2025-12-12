@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import { extractPaletteFromImage } from '../../utils/colorUtils'
+// Theme constants
 import { DEFAULT_WALLPAPER_URL } from '../constants/config'
 
 const DEFAULT_THEME = {

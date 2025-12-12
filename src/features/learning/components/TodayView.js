@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, Save, Trash2, Filter, Sparkles, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
-import { withOpacity, getBrightestVariant } from '../../../utils/colorUtils';
+import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
+import { withOpacity, getBrightestVariant, mixColors } from '../../../utils/colorUtils';
 import { DeckGenerator } from '../services/DeckGenerator';
 import { generateGenderColors } from '../../../utils/colorUtils';
 import { WordCardModal, FrontFace, BackFace } from '../../vocabulary/components/WordCard';
+import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -30,32 +32,23 @@ export function TodayView(props) {
   const theme = useTheme();
   const genderColors = useMemo(() => generateGenderColors(theme), [theme]);
   
-  // Fix: Use theme.primary (dominant color) instead of theme.background
-  // Fix: Tint towards white (0.9 mix factor means 90% white, 10% color)
   const cardBgColor = useMemo(() => getBrightestVariant(theme.primary, 0.9), [theme.primary]);
 
-  const [showImport, setShowImport] = useState(false);
-  const [dictRaw, setDictRaw] = useState('');
-  const [dictList, setDictList] = useState([]);
+  const [dictEntriesMap, setDictEntriesMap] = useState(new Map()); // 新增：按需加载的词条
   const [onlyMatched, setOnlyMatched] = useState(false);
   const [flippedIds, setFlippedIds] = useState(new Set());
-  const fileInputRef = useRef(null);
 
   // Focus Mode State
   const [viewMode, setViewMode] = useState('focus'); // 'focus' | 'grid'
-  const [focusIndex, setFocusIndex] = useState(0);
-
+  
   const normalizeBase = s => (s || '').trim().toLowerCase().replace(/^(der|die|das)\s+/, '');
 
   const globalWordDb = (props && Array.isArray(props.globalWordDb)) ? props.globalWordDb : [];
   
-  const [deckMode, setDeckMode] = useState('normal');
-  
-  const effectiveDeck = useMemo(() => {
-    if (!globalWordDb || globalWordDb.length === 0) return [];
-    const { deck, mode } = DeckGenerator.getOrGeneratePlan(globalWordDb, props.settingsState);
-    setDeckMode(mode);
-    return deck;
+  // Calculate deck and mode together to avoid side effects in useMemo
+  const { deck: effectiveDeck, mode: deckMode } = useMemo(() => {
+    if (!globalWordDb || globalWordDb.length === 0) return { deck: [], mode: 'normal' };
+    return DeckGenerator.getOrGeneratePlan(globalWordDb, props.settingsState);
   }, [globalWordDb, props.settingsState]);
 
   // Pseudo-random sequence for Focus Mode
@@ -64,55 +57,65 @@ export function TodayView(props) {
     return shuffleArray(indices);
   }, [effectiveDeck]);
 
+  const { 
+    currentIndex: focusIndex, 
+    setCurrentIndex: setFocusIndex, 
+    goNext: handleFocusNext, 
+    goPrev: handleFocusPrev,
+    hasNext: hasFocusNext,
+    hasPrev: hasFocusPrev
+  } = useFocusNavigation(playSequence.length);
+
   // Reset focus state when deck changes
   useEffect(() => {
-    setFocusIndex(0);
-    setViewMode('focus'); // Auto-enter focus mode on new deck
+    if (effectiveDeck.length > 0) {
+      setFocusIndex(0);
+      setViewMode('focus'); // Auto-enter focus mode on new deck
+    }
   }, [effectiveDeck]);
 
+  // 新逻辑：当 deck 变化时，异步加载其中单词的词典详情
   useEffect(() => {
-    const stored = localStorage.getItem('star_vocab_local_dict');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const arr = Array.isArray(parsed) ? parsed : [parsed];
-        setDictList(arr.filter(Boolean));
-      } catch {}
+    let active = true;
+    const loadDefinitions = async () => {
+        const newMap = new Map();
+        // 并行查询所有单词
+        const promises = effectiveDeck.map(async (w) => {
+            try {
+                const entry = await unifiedDictService.lookup(w.de);
+                if (entry && active) {
+                    newMap.set(normalizeBase(w.de), entry);
+                }
+            } catch (e) {
+                // ignore
+            }
+        });
+        
+        await Promise.all(promises);
+        if (active) {
+            setDictEntriesMap(newMap);
+        }
+    };
+    
+    if (effectiveDeck.length > 0) {
+        loadDefinitions();
     }
-  }, []);
+    
+    return () => { active = false; };
+  }, [effectiveDeck]);
 
-  useEffect(() => {
-    if (dictList.length > 0) return;
-    let cancelled = false;
-    fetch('/vocab-dict.json')
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (cancelled || !data) return;
-        const arr = Array.isArray(data) ? data : [data];
-        localStorage.setItem('star_vocab_local_dict', JSON.stringify(arr));
-        setDictList(arr.filter(Boolean));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [dictList.length]);
+  // 移除旧的 useEffect (L73-L97)
 
-  const dictIndex = useMemo(() => {
-    const m = new Map();
-    dictList.forEach(e => {
-      const base = e.base || e.word || (e.headword ? e.headword.replace(/^(der|die|das)\s+/, '') : '');
-      const key = normalizeBase(base);
-      if (key && !m.has(key)) m.set(key, e);
-    });
-    return m;
-  }, [dictList]);
+  // 移除 dictIndex useMemo (L99-L107)
 
   const cards = useMemo(() => {
     return effectiveDeck.map(w => {
       const key = normalizeBase(w.de);
-      const entry = dictIndex.get(key);
+      const entry = dictEntriesMap.get(key); // 从新 Map 获取
       return { w, entry };
     });
-  }, [effectiveDeck, dictIndex]);
+  }, [effectiveDeck, dictEntriesMap]);
+
 
   const matchedCount = useMemo(() => cards.filter(c => !!c.entry).length, [cards]);
   const visibleCards = useMemo(() => (onlyMatched ? cards.filter(c => !!c.entry) : cards), [cards, onlyMatched]);
@@ -141,50 +144,6 @@ export function TodayView(props) {
       setViewMode('focus');
   };
 
-  const handleFocusNext = (e) => {
-      e && e.stopPropagation && e.stopPropagation();
-      if (focusIndex < playSequence.length - 1) {
-          setFocusIndex(prev => prev + 1);
-      }
-  };
-
-  const handleFocusPrev = (e) => {
-      e && e.stopPropagation && e.stopPropagation();
-      if (focusIndex > 0) {
-          setFocusIndex(prev => prev - 1);
-      }
-  };
-
-  const saveDict = () => {
-    try {
-      const parsed = JSON.parse(dictRaw);
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      localStorage.setItem('star_vocab_local_dict', JSON.stringify(arr));
-      setDictList(arr.filter(Boolean));
-      setShowImport(false);
-    } catch {}
-  };
-
-  const clearDict = () => {
-    localStorage.removeItem('star_vocab_local_dict');
-    setDictList([]);
-    setDictRaw('');
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      localStorage.setItem('star_vocab_local_dict', JSON.stringify(arr));
-      setDictList(arr.filter(Boolean));
-      setShowImport(false);
-    } catch {}
-    e.target.value = '';
-  };
-
   // Focus Card Render Logic
   const currentFocusCard = useMemo(() => {
       if (playSequence.length === 0) return null;
@@ -193,9 +152,17 @@ export function TodayView(props) {
       const w = effectiveDeck[realIndex];
       if (!w) return null;
       const key = normalizeBase(w.de);
-      const entry = dictIndex.get(key);
+      const entry = dictEntriesMap.get(key);
       return { w, entry };
-  }, [playSequence, focusIndex, effectiveDeck, dictIndex]);
+  }, [playSequence, focusIndex, effectiveDeck, dictEntriesMap]);
+
+  // Calculate dynamic background for Focus Mode
+  const focusCardBg = useMemo(() => {
+    if (!currentFocusCard) return cardBgColor;
+    const g = currentFocusCard.w.gender;
+    const gc = g ? genderColors[g.toLowerCase()] : null;
+    return gc ? mixColors(cardBgColor, gc, 0.15) : cardBgColor;
+  }, [currentFocusCard, cardBgColor, genderColors]);
 
   return (
     <div className="h-full flex flex-col gap-4 p-4 relative">
@@ -206,15 +173,15 @@ export function TodayView(props) {
              onClose={() => setViewMode('grid')}
              onPrev={handleFocusPrev}
              onNext={handleFocusNext}
-             hasPrev={focusIndex > 0}
-             hasNext={focusIndex < playSequence.length - 1}
+             hasPrev={hasFocusPrev}
+             hasNext={hasFocusNext}
              currentIndex={focusIndex}
              totalCount={playSequence.length}
-             cardBgColor={cardBgColor}
+             cardBgColor={focusCardBg}
           />
       ) : (
         <>
-          <div className="glass-panel rounded-xl p-4 flex items-center justify之间">
+          <div className="glass-panel rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="font-bold text-lg" style={{ color: theme.text }}>今日词卡</span>
           {deckMode === 'bonus' && (
@@ -241,38 +208,6 @@ export function TodayView(props) {
         </div>
       </div>
 
-      {showImport && (
-        <div className="glass-panel rounded-xl p-4 animate-fade-in">
-          <div className="text-sm text-gray-300 mb-2">支持对象或数组格式，示例字段含 headword/base/pos/article/gender/plural/examples</div>
-          <textarea
-            value={dictRaw}
-            onChange={e => setDictRaw(e.target.value)}
-            placeholder='粘贴 JSON，如 [{"id":"abfall-001","headword":"der Abfall","base":"Abfall","pos":"noun","article":"der","gender":"m","plural":"Abfälle","examples":[{"de":"...","cn":"..."}]}]'
-            className="w-full min-h-[120px] glass-button text-left rounded-lg p-3 text-sm text-gray-200 focus:ring-2 transition-all resize-y placeholder-gray-500"
-            style={{ '--tw-ring-color': withOpacity(theme.primary, 0.5), borderColor: theme.primary }}
-          />
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={saveDict}
-              disabled={!dictRaw.trim()}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition border glass-button hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.2), color: theme.primary, borderColor: withOpacity(theme.primary, 0.3) }}
-            >
-              <Save className="w-4 h-4" />
-              保存词典
-            </button>
-            <button
-              onClick={clearDict}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition border glass-button hover:bg-white/10"
-              style={{ backgroundColor: `${theme.accent}33`, color: theme.accent, borderColor: `${theme.accent}4d` }}
-            >
-              <Trash2 className="w-4 h-4" />
-              清空词典
-            </button>
-          </div>
-        </div>
-      )}
-
       {effectiveDeck.length === 0 ? (
         <div className="glass-panel rounded-xl p-8 text-center text-gray-300">今日暂无卡池，请在“主页”开始游戏生成卡池</div>
       ) : (
@@ -281,6 +216,9 @@ export function TodayView(props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleCards.map(({ w, entry }) => {
                 const flipped = flippedIds.has(w.id);
+                const gColor = w.gender ? genderColors[w.gender.toLowerCase()] : null;
+                const finalBg = gColor ? mixColors(cardBgColor, gColor, 0.15) : cardBgColor;
+                
                 return (
                   <div
                     key={w.id}
@@ -289,7 +227,7 @@ export function TodayView(props) {
                     style={{
                       borderColor: withOpacity(theme.primary, 0.2),
                       minHeight: '200px',
-                      backgroundColor: withOpacity(cardBgColor, 1),
+                      backgroundColor: withOpacity(finalBg, 1),
                       isolation: 'isolate'
                     }}
                   >

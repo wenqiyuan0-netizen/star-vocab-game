@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import SpaceVocabGame from "../features/game/SpaceVocabGame";
 import "./App.css";
-import { LoginForm } from "../features/auth/components";
+import LoginForm from "../features/auth/components/LoginForm";
 import { ThemeProvider } from "../shared/hooks/useTheme";
 import { useAuth } from "../features/auth/contexts/AuthContext";
 import SplashScreen from "../shared/components/SplashScreen";
+import { UpdateNotification } from "../shared/components/ui/UpdateNotification";
 
 export default function App() {
     const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function App() {
 
     return (
         <ThemeProvider>
+            <UpdateNotification />
             {!user ? (
                 <LoginForm />
             ) : (

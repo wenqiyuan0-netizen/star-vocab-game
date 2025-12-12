@@ -3,8 +3,9 @@
 // 简单的重叠检测
 const checkOverlap = (x, y, existingFragments) => {
   for (const f of existingFragments) {
-    // 180/120 是原本代码里的防重叠阈值
-    if (Math.abs(f.x - x) < 180 && Math.abs(f.y - y) < 120) {
+    // 放大防重叠阈值，防止单词生成时过于拥挤
+    // 原值: 180, 120 -> 新值: 220, 150
+    if (Math.abs(f.x - x) < 220 && Math.abs(f.y - y) < 150) {
       return true; 
     }
   }

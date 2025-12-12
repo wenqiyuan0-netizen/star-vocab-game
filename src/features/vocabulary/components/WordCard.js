@@ -17,12 +17,26 @@ const genderToArticle = g => {
 
 export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
   const theme = useTheme();
-  const entryArticle = entry && (entry.article || (entry.gender ? genderToArticle(entry.gender) : ''));
-  const entryBase = entry && (entry.base || entry.word || (entry.headword ? entry.headword.replace(/^(der|die|das)\s+/, '') : ''));
-  const head = entry ? (entry.headword || (entryArticle ? `${entryArticle} ${entryBase}` : entryBase)) : (() => {
-    const art = genderToArticle(w.gender);
-    return art ? `${art} ${w.de}` : w.de;
-  })();
+  
+  // Helper to strip article
+  const stripArticle = (s) => (s || '').replace(/^(der|die|das)\s+/i, '').trim();
+
+  // 1. Determine Article
+  // Priority: entry.article > entry.gender > w.gender
+  const derivedArticle = (entry && entry.article) 
+    || (entry && entry.gender ? genderToArticle(entry.gender) : '') 
+    || (w.gender ? genderToArticle(w.gender) : '');
+    
+  // 2. Determine Base Word
+  // Priority: entry.base > entry.word > entry.headword (cleaned) > w.de (cleaned)
+  const derivedBase = (entry && (entry.base || entry.word)) 
+    || (entry && entry.headword ? stripArticle(entry.headword) : '')
+    || stripArticle(w.de);
+
+  // 3. Construct Head
+  const validArticle = ['der', 'die', 'das'].includes((derivedArticle || '').toLowerCase()) ? derivedArticle : '';
+  const head = validArticle ? `${validArticle} ${derivedBase}` : derivedBase;
+
   const plural = entry && (entry.plural || entry.pluralForm) ? (entry.plural || entry.pluralForm) : null;
   const pos = entry && (entry.pos || entry.partOfSpeech || entry.wordType) ? (entry.pos || entry.partOfSpeech || entry.wordType) : (w.pos || '');
   
@@ -54,7 +68,7 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
       >
         {hasArticle ? (
            <span>
-             <span className={isFocus ? 'font-serif italic mr-2 opacity-90' : 'font-serif italic mr-1'} style={{ color: articleColor(parts[0]) }}>{parts[0]}</span>
+             <span className={isFocus ? 'font-serif italic mr-2 opacity-90' : 'font-serif italic mr-1'}>{parts[0]}</span>
              <span className={isFocus ? '' : 'ml-1'}>{parts.slice(1).join(' ')}</span>
            </span>
         ) : head}

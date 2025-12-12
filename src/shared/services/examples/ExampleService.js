@@ -1,53 +1,83 @@
-import { aiService } from '../ai/AIService'; // 引用隔壁的 AI 服务
+import { aiService } from '../ai/AIService';
 import { localCorpusService } from './LocalCorpusService';
+import { unifiedDictService } from '../dictionary/UnifiedDictionaryService'; // 引入新服务
 
 import { sanitizeCn, cleanGermanExample } from '../../../logic/utils'; 
+
+import { localDictDB } from '../dictionary/LocalDictionaryDB'; // 引入DB
+
 class ExampleService {
   constructor(aiService) {
     this.aiService = aiService;
     this.cache = new Map();
-    this.dictData = null;
-    this.dictLoading = false;
   }
 
   async getExample(wordDe, wordCn, id) {
     const key = id || wordDe;
 
-    // 1. 查缓存
+    // 1. 查内存缓存
     if (this.cache.has(key)) return this.cache.get(key);
 
     let example = null;
-
-
-    // 2. 预处理搜索词
     const searchWord = wordDe.trim();
 
-    // 2.1 优先从本地语料库 (IndexedDB) 检索例句。
-    // 如果用户通过上传文章功能建立了本地语料库，这里会首先尝试从中查找匹配的例句。
-    // 如果找到，则直接返回本地例句，不再进行后续的网络请求，以实现最快响应。
+    // 2. 本地语料库 (最高优先级)
     try {
       const localEx = await this._fromLocalCorpus(searchWord);
       if (localEx) {
-        console.log(`[ExampleService] LocalCorpus HIT for "${searchWord}". Using local example.`);
+        console.log(`[ExampleService] LocalCorpus HIT for "${searchWord}"`);
         this.cache.set(key, localEx);
         return localEx;
-      } else {
-        console.log(`[ExampleService] LocalCorpus MISS for "${searchWord}". Falling back to network providers.`);
       }
     } catch (e) {
       console.warn('[ExampleService] Local corpus error:', e);
     }
 
-    // 3. 内置词典例句
+    // 3. 查独立例句库 (IndexedDB 'examples' store)
     try {
-      const dictEx = await this._fromLocalDict(searchWord);
-      if (dictEx) {
-        this.cache.set(key, dictEx);
-        return dictEx;
+      const dbExamples = await localDictDB.getExamples(searchWord);
+      if (dbExamples && dbExamples.length > 0) {
+        // 随机取一个，或者取第一个
+        // 假设结构 { sentence: '...', translation: '...' }
+        const ex = dbExamples[0];
+        if (ex.sentence) {
+            const formatted = { de: ex.sentence, cn: ex.translation || '' };
+            this.cache.set(key, formatted);
+            return formatted;
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[ExampleService] DB examples error:', e);
+    }
 
-    // 4. AI 兜底
+    // 4. 查统一词典 (新架构: Local DB -> Cloud -> Async Translation)
+    try {
+      const dictEntry = await unifiedDictService.lookup(searchWord);
+      if (dictEntry) {
+        // 尝试提取例句 (如果词典里有例句字段)
+        // 假设新词典结构可能有 examples 数组，或者是简单的 definition
+        
+        // 构造返回格式
+        const ex = {
+            // 如果词典里有例句数组
+            de: dictEntry.examples?.[0]?.de || dictEntry.sentence || '', 
+            cn: dictEntry.examples?.[0]?.cn || dictEntry.translation || dictEntry.definition_en || ''
+        };
+
+        // 如果提取到了有效例句
+        if (ex.de) {
+            this.cache.set(key, ex);
+            return ex;
+        }
+        
+        // 如果词典里只有释义没有例句，我们可能还是需要 AI 生成例句
+        // 但我们可以把词典的释义作为参考返回
+      }
+    } catch (e) {
+        console.error('[ExampleService] Dictionary lookup error:', e);
+    }
+
+    // 4. AI 兜底 (如果词典也没找到例句)
     if (!example) {
       example = await this._getAiFallback(wordDe, wordCn);
     }
@@ -65,109 +95,23 @@ class ExampleService {
   async _fromLocalCorpus(word) {
     const results = await localCorpusService.findExamples(word);
     if (results && results.length > 0) {
-      console.log(`[LocalCorpus] Found ${results.length} examples for ${word}`);
-      return results[0]; // Return the first one (already shuffled by service)
+      return results[0];
     }
     return null;
   }
 
-  async _ensureDictLoaded() {
-    if (this.dictData || this.dictLoading) return;
-    this.dictLoading = true;
-    try {
-      let arr = [];
-      try {
-        const stored = localStorage.getItem('star_vocab_local_dict');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          arr = Array.isArray(parsed) ? parsed : [parsed];
-        }
-      } catch {}
-      if (!arr || arr.length === 0) {
-        try {
-          const res = await fetch('/vocab-dict.json');
-          if (res && res.ok) {
-            const data = await res.json();
-            arr = Array.isArray(data) ? data : [data];
-          }
-        } catch {}
-      }
-      this.dictData = (arr || []).filter(Boolean);
-    } finally {
-      this.dictLoading = false;
-    }
-  }
-
-  _normBase(s) {
-    return (s || '').trim().toLowerCase().replace(/^(der|die|das)\s+/, '');
-  }
-
-  _articleToGender(a) {
-    const x = String(a || '').toLowerCase();
-    if (x === 'der') return 'm';
-    if (x === 'die') return 'f';
-    if (x === 'das') return 'n';
-    return '';
-  }
-
-  _genderToArticle(g) {
-    const x = String(g || '').toLowerCase();
-    if (x === 'm') return 'der';
-    if (x === 'f') return 'die';
-    if (x === 'n') return 'das';
-    return '';
-  }
-
-  _extractBase(e) {
-    const head = e.headword || '';
-    const base = e.base || e.word || head.replace(/^(der|die|das)\s+/, '');
-    return this._normBase(base);
-  }
-
-  _normalizeEntry(e) {
-    const base = this._extractBase(e);
-    const article = e.article || this._genderToArticle(e.gender) || (e.headword ? (e.headword.match(/^(der|die|das)\s+/)?.[0] || '').trim() : '');
-    const gender = e.gender || this._articleToGender(article);
-    const pos = e.pos || e.partOfSpeech || e.wordType || '';
-    const plural = e.plural || e.pluralForm || null;
-    const headword = e.headword || (article ? `${article} ${base}` : base);
-
-    let examples = [];
-    if (Array.isArray(e.examples)) {
-      examples = e.examples.map(x => {
-        if (!x) return null;
-        if (typeof x === 'string') return { de: x, cn: '' };
-        if (x.de || x.cn) return { de: x.de || '', cn: x.cn || '' };
-        if (x.sentence || x.translation) return { de: x.sentence || '', cn: x.translation || '' };
-        return null;
-      }).filter(Boolean);
-    }
-
-    return { id: e.id || base, headword, base, pos, article: article || '', gender: gender || '', plural, examples };
-  }
-
+  // (旧的 _ensureDictLoaded 和 _fromLocalDict 已被 unifiedDictService 取代，故删除或保留为空)
+  
+  /**
+   * 获取词典完整词条 (用于单词卡片详情页)
+   * 现在的实现直接代理给 UnifiedDictionaryService
+   */
   async getDictEntry(wordDe) {
-    await this._ensureDictLoaded();
-    if (!this.dictData || this.dictData.length === 0) return null;
-    const key = this._normBase(wordDe);
-    for (const e of this.dictData) {
-      const b = this._extractBase(e);
-      if (b && b === key) return this._normalizeEntry(e);
-    }
-    return null;
+    return await unifiedDictService.lookup(wordDe);
   }
 
-  async _fromLocalDict(word) {
-    const entry = await this.getDictEntry(word);
-    if (!entry) return null;
-    const ex = Array.isArray(entry.examples) && entry.examples.length > 0 ? entry.examples[0] : null;
-    if (ex && (ex.de || ex.sentence)) {
-      const de = ex.de || ex.sentence || '';
-      const cn = ex.cn || ex.translation || '';
-      return { de, cn };
-    }
-    return null;
-  }
+  // ... (保留辅助函数 _normBase 等，如果需要) ...
+
 
 
   // ---------- 2. AI Fallback ----------

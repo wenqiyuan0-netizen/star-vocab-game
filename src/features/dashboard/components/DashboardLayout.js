@@ -168,7 +168,7 @@ export function DashboardLayout(props) {
         {/* Home View */}
         <div
           ref={contentRefs.current.home}
-          className={`absolute inset-0 ${getViewAnimationClass('home')}`}
+          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('home')}`}
           style={getViewStyle('home')}
         >
           <HomeView
@@ -181,7 +181,7 @@ export function DashboardLayout(props) {
         {/* Today View */}
         <div
           ref={contentRefs.current.today}
-          className={`absolute inset-0 ${getViewAnimationClass('today')}`}
+          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('today')}`}
           style={getViewStyle('today')}
         >
           <TodayView {...props} />
@@ -190,7 +190,7 @@ export function DashboardLayout(props) {
         {/* Library View */}
         <div
           ref={contentRefs.current.library}
-          className={`absolute inset-0 ${getViewAnimationClass('library')}`}
+          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('library')}`}
           style={getViewStyle('library')}
         >
           <LibraryView {...props} />
@@ -199,7 +199,7 @@ export function DashboardLayout(props) {
         {/* Profile View */}
         <div
           ref={contentRefs.current.profile}
-          className={`absolute inset-0 ${getViewAnimationClass('profile')}`}
+          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('profile')}`}
           style={getViewStyle('profile')}
         >
           <ProfileView {...props} />

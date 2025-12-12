@@ -9,9 +9,11 @@ import { aiService } from '../../../shared/services/ai/AIService';
 import { exampleService } from '../../../shared/services/examples/ExampleService';
 import { sanitizeCn } from '../../../logic/utils';
 import { WordCardModal } from './WordCard';
-import { generateGenderColors, getBrightestVariant } from '../../../utils/colorUtils';
+import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
+import { generateGenderColors, getBrightestVariant, mixColors, withOpacity } from '../../../utils/colorUtils';
 import { genderToArticle } from '../../../utils/genderUtils';
 
+// Main Library View Component
 export function LibraryView({
   globalWordDb = [],
   customInput = '',
@@ -39,21 +41,46 @@ export function LibraryView({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const theme = useTheme();
-  // Use bright colors for dark background
-  const genderColors = React.useMemo(() => generateGenderColors(theme, true), [theme]);
+  
+  // 1. Gender Colors
+  // Light/Bright colors for Dark Background (Normal State)
+  const brightGenderColors = React.useMemo(() => generateGenderColors(theme, true), [theme]);
+  // Dark/Deep colors for Light Background (Hover State)
+  const darkGenderColors = React.useMemo(() => generateGenderColors(theme, false), [theme]);
+  // Pastel/Tinted White colors for Dark Background (New Normal State for Article/Noun)
+  // Logic: Mix White (90%) with Gender Color (10%)
+  const pastelGenderColors = React.useMemo(() => {
+    const colors = {};
+    Object.keys(brightGenderColors).forEach(key => {
+       colors[key] = mixColors('#ffffff', brightGenderColors[key], 0.15); // 15% tint
+    });
+    return colors;
+  }, [brightGenderColors]);
+
+  // Deep/Tinted Black colors for Light Background (New Hover State for Article/Noun)
+  // Logic: Mix Dark Gray (40%) with Dark Gender Color (60%) to get "Black tinted with gender color"
+  const deepGenderColors = React.useMemo(() => {
+    const colors = {};
+    Object.keys(darkGenderColors).forEach(key => {
+       colors[key] = mixColors('#1f2937', darkGenderColors[key], 0.4); 
+    });
+    return colors;
+  }, [darkGenderColors]);
+
+  // 2. Background Colors
+  // Normal: Dark Glassy (Referencing .glass-button style: rgba(0, 0, 0, 0.25))
+  const cardBaseColor = 'rgba(57, 57, 57, 0.25)'; 
+  // Hover: White with slight theme tint (Brighten effect), slightly more transparent/darker
+  // Changed from #ffffff to #fdfdfdff (Light Gray) and opacity 0.75 for a dimmer, more glassy look
+  const cardHoverColor = React.useMemo(() => withOpacity(mixColors('#e5e5e5', theme.primary, 0.05), 0.75), [theme]);
+  
   const cardBgColor = React.useMemo(() => getBrightestVariant(theme.primary, 0.9), [theme.primary]);
   const ARTICLE_LIMIT = 3000;
   const [articleInput, setArticleInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [showCard, setShowCard] = useState(false);
-  const [cardWord, setCardWord] = useState(null);
   const [cardEntry, setCardEntry] = useState(null);
-
-  const modalWordData = React.useMemo(() => {
-    if (!cardWord) return null;
-    return { w: cardWord, entry: cardEntry };
-  }, [cardWord, cardEntry]);
 
   // 过滤单词
   const filteredWords = globalWordDb.filter(w => {
@@ -62,19 +89,61 @@ export function LibraryView({
     return w.de.toLowerCase().includes(lower) || w.cn.toLowerCase().includes(lower);
   });
 
-  const handleWordClick = async (w) => {
+  // Focus Navigation Hook
+  const { 
+    currentIndex, 
+    setCurrentIndex, 
+    goNext, 
+    goPrev,
+    hasNext,
+    hasPrev 
+  } = useFocusNavigation(filteredWords.length);
+
+  // Derived cardWord from index
+  const cardWord = React.useMemo(() => {
+      if (!showCard || currentIndex < 0 || currentIndex >= filteredWords.length) return null;
+      return filteredWords[currentIndex];
+  }, [showCard, currentIndex, filteredWords]);
+
+  // Load entry when cardWord changes
+  React.useEffect(() => {
+      if (cardWord) {
+          let active = true;
+          const load = async () => {
+              setCardEntry(null); 
+              try {
+                  const entry = await exampleService.getDictEntry(cardWord.de);
+                  if (active) setCardEntry(entry);
+              } catch { }
+          };
+          load();
+          return () => { active = false; };
+      }
+  }, [cardWord]);
+
+  const modalWordData = React.useMemo(() => {
+    if (!cardWord) return null;
+    return { w: cardWord, entry: cardEntry };
+  }, [cardWord, cardEntry]);
+
+  // Calculate dynamic background for Focus Mode (same as TodayView)
+  const focusCardBg = React.useMemo(() => {
+    if (!modalWordData) return cardBgColor;
+    const g = modalWordData.w.gender;
+    const gc = g ? darkGenderColors[g.toLowerCase()] : null;
+    return gc ? mixColors(cardBgColor, gc, 0.15) : cardBgColor;
+  }, [modalWordData, cardBgColor, darkGenderColors]);
+
+  const handleWordClick = (w) => {
     if (selectionMode) {
       handleToggleSelect(w.id);
       return;
     }
-
-    setShowCard(true);
-    setCardWord(w);
-    let entry = null;
-    try {
-      entry = await exampleService.getDictEntry(w.de);
-    } catch { }
-    setCardEntry(entry);
+    const idx = filteredWords.findIndex(x => x.id === w.id);
+    if (idx !== -1) {
+        setCurrentIndex(idx);
+        setShowCard(true);
+    }
   };
 
 
@@ -318,22 +387,26 @@ export function LibraryView({
               onMouseLeave={handleMouseLeaveWord}
               onTouchStart={() => handleTouchStartWord(w)}
               onTouchEnd={handleTouchEndWord}
-              className={`relative group flex items-center justify-between p-3 rounded-xl transition-all ${selectionMode
-                  ? (selectedIds.has(w.id) ? '' : 'glass-panel opacity-70')
-                  : 'glass-panel hover:bg-white/5'
+              className={`relative group flex items-center justify-between p-3 rounded-xl transition-all duration-300 ${selectionMode
+                  ? (selectedIds.has(w.id) ? '' : 'opacity-70')
+                  : 'bg-[var(--card-bg)] hover:bg-[var(--card-hover-bg)] hover:-translate-y-0.5 hover:shadow-lg'
                 }`}
-              style={selectionMode && selectedIds.has(w.id) ? {
-                backgroundColor: `${theme.primary}33`,
-                borderColor: `${theme.primary}80`,
-                borderWidth: '1px'
-              } : {}}
+              style={{
+                '--card-bg': selectionMode && selectedIds.has(w.id) ? `${theme.primary}33` : cardBaseColor,
+                '--card-hover-bg': cardHoverColor,
+                borderColor: selectionMode && selectedIds.has(w.id) ? `${theme.primary}80` : 'rgba(255,255,255,0.2)',
+                borderWidth: '1px',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}
             >
               <div className="flex items-center gap-3 overflow-hidden">
                 {selectionMode && (
                   <div
                     className={`w-4 h-4 rounded border flex items-center justify-center`}
                     style={{
-                      borderColor: selectedIds.has(w.id) ? theme.primary : '#6b7280',
+                      borderColor: selectedIds.has(w.id) ? theme.primary : '#9ca3af',
                       backgroundColor: selectedIds.has(w.id) ? theme.primary : 'transparent'
                     }}
                   >
@@ -343,39 +416,58 @@ export function LibraryView({
 
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-bold text-base truncate text-white">
+                    <span 
+                      className={`font-bold text-base truncate transition-colors duration-200 ${
+                        selectionMode 
+                          ? 'text-gray-800' 
+                          : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
+                      }`}
+                      style={{
+                        '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#ffffff',
+                        '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#1f2937'
+                      }}
+                    >
                       {w.gender && (
                         <span
-                          className="text-xs opacity-90 mr-1 font-serif italic"
-                          style={{
-                            color: genderColors[w.gender.toLowerCase()] || 'inherit'
-                          }}
+                          className="text-xs opacity-90 mr-1 font-serif italic transition-colors duration-200"
                         >
                           {genderToArticle(w.gender)}
                         </span>
                       )}
-                      <span style={{ color: w.gender && genderColors[w.gender.toLowerCase()] ? genderColors[w.gender.toLowerCase()] : 'inherit' }}>
-                        {w.de}
+                      <span className="transition-colors duration-200">
+                         {w.de}
                       </span>
                     </span>
                     {/* 简单的熟练度指示点 */}
                     <div className="flex gap-0.5">
                       {[...Array(Math.min(5, w.familiarity || 0))].map((_, i) => (
-                        <div key={i} className="w-1 h-1 rounded-full bg-green-500/50"></div>
+                        <div key={i} className="w-1 h-1 rounded-full bg-green-600/50"></div>
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400 truncate">{w.cn}</p>
+                  <p 
+                    className={`text-sm truncate transition-colors duration-200 ${
+                      selectionMode 
+                        ? 'text-gray-600' 
+                        : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
+                    }`}
+                    style={{
+                      '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#d1d5db', // Fallback to light gray if no gender
+                      '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#4b5563'   // Fallback to dark gray
+                    }}
+                  >
+                    {w.cn}
+                  </p>
                 </div>
               </div>
 
               {/* 悬停操作按钮 (非批量模式下) */}
               {!selectionMode && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-yellow-400" title="重置进度">
+                  <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-yellow-600" title="重置进度">
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id); }} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-red-400" title="删除">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-red-600" title="删除">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -383,16 +475,16 @@ export function LibraryView({
 
               {/* 例句浮窗 */}
               {hoveringId === w.id && !selectionMode && (
-                <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 glass-panel p-3 rounded-lg text-sm pointer-events-none">
+                <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-white/95 backdrop-blur shadow-xl p-3 rounded-lg text-sm pointer-events-none border border-gray-100">
                   {loadingExampleId === w.id ? (
-                    <span className="text-gray-400 animate-pulse">正在生成例句...</span>
+                    <span className="text-gray-500 animate-pulse">正在生成例句...</span>
                   ) : examplesById[w.id] ? (
                     <>
-                      <p className="text-white font-medium mb-1">{examplesById[w.id].de}</p>
-                      <p className="text-gray-400 text-xs">{examplesById[w.id].cn}</p>
+                      <p className="text-slate-900 font-medium mb-1">{examplesById[w.id].de}</p>
+                      <p className="text-gray-600 text-xs">{examplesById[w.id].cn}</p>
                     </>
                   ) : (
-                    <span className="text-gray-500">暂无例句</span>
+                    <span className="text-gray-400">暂无例句</span>
                   )}
                 </div>
               )}
@@ -403,20 +495,14 @@ export function LibraryView({
 
       {showCard && modalWordData && (
         <WordCardModal
-          cardBgColor={cardBgColor}
+          cardBgColor={focusCardBg}
           word={modalWordData}
           onClose={() => setShowCard(false)}
-          onPrev={() => {
-            const idx = filteredWords.findIndex(x => x.id === cardWord.id);
-            if (idx > 0) handleWordClick(filteredWords[idx - 1]);
-          }}
-          onNext={() => {
-            const idx = filteredWords.findIndex(x => x.id === cardWord.id);
-            if (idx !== -1 && idx < filteredWords.length - 1) handleWordClick(filteredWords[idx + 1]);
-          }}
-          hasPrev={filteredWords.findIndex(x => x.id === cardWord.id) > 0}
-          hasNext={filteredWords.findIndex(x => x.id === cardWord.id) < filteredWords.length - 1}
-          currentIndex={filteredWords.findIndex(x => x.id === cardWord.id)}
+          onPrev={goPrev}
+          onNext={goNext}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          currentIndex={currentIndex}
           totalCount={filteredWords.length}
         />
       )}
