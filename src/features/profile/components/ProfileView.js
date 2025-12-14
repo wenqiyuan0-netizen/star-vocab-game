@@ -572,41 +572,15 @@ export function ProfileView({
             </div>
 
             {/* 3. 滑块区域 */}
-            <div className="relative pt-2 pb-1">
-              <style dangerouslySetInnerHTML={{
-                __html: `
-                  .strategy-slider {
-                    -webkit-appearance: none;
-                    width: 100%;
-                    background: transparent;
-                    outline: none;
-                  }
-                  .strategy-slider::-webkit-slider-runnable-track {
-                    width: 100%;
-                    height: 8px;
-                    background: ${withOpacity(highlightColor, 0.1)};
-                    border-radius: 999px;
-                    transition: background 0.3s;
-                  }
-                  .strategy-slider::-webkit-slider-thumb {
-                    -webkit-appearance: none;
-                    height: 24px;
-                    width: 24px;
-                    border-radius: 50%;
-                    background: ${thumbColor};
-                    border: ${isDragging ? '3px' : '0px'} solid white;
-                    margin-top: -8px;
-                    box-shadow: 0 2px 10px ${withOpacity(highlightColor, isDragging ? 0.5 : 0)};
-                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                    cursor: grab;
-                  }
-                  .strategy-slider::-webkit-slider-thumb:active {
-                    cursor: grabbing;
-                    transform: scale(1.1);
-                  }
-                `
-              }} />
-
+            <div
+              className="relative pt-2 pb-1"
+              style={{
+                '--slider-track-bg': withOpacity(highlightColor, 0.1),
+                '--slider-thumb-bg': thumbColor,
+                '--slider-thumb-border': isDragging ? '3px solid white' : '0px solid white',
+                '--slider-thumb-shadow': `0 2px 10px ${withOpacity(highlightColor, isDragging ? 0.5 : 0)}`
+              }}
+            >
               <input
                 type="range"
                 min="80"
