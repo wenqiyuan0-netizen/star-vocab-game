@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音频调试工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .primary {
+            background: #2196F3;
+        }
+        .primary:hover {
+            background: #0b7dda;
+        }
+        #output {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .word-card {
+            background: #f0f8ff;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .word-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .word-card .field {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
+        .word-card .field label {
+            font-weight: bold;
+            color: #666;
+            min-width: 100px;
+            display: inline-block;
+        }
+        .play-btn {
+            background: #FF5722;
+            padding: 8px 16px;
+            margin-top: 10px;
+        }
+        .play-btn:hover {
+            background: #E64A19;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            width: 300px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔊 音频调试工具</h1>
+        <p class="subtitle">检查词典中的音频数据和播放功能</p>
+
+        <div style="margin: 20px 0;">
+            <input type="text" id="wordInput" placeholder="输入单词 (例如: Haus)" value="Haus">
+            <button onclick="checkWord()" class="primary">🔍 检查单词</button>
+            <button onclick="checkDatabase()">📊 检查数据库统计</button>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = `[${timestamp}] ${message}\n`;
+            output.textContent += line;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            output.appendChild(statusDiv);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function createWordCard(entry, index) {
+            const card = document.createElement('div');
+            card.className = 'word-card';
+
+            const hasAudio = entry.audio || entry.audio_url;
+            const audioUrl = entry.audio || entry.audio_url;
+
+            card.innerHTML = `
+                <h3>#${index + 1}: ${entry.word} (${entry.pos})</h3>
+                <div class="field">
+                    <label>中文:</label> ${entry.translation_cn || '无'}
+                </div>
+                <div class="field">
+                    <label>IPA:</label> ${entry.ipa || '无'}
+                </div>
+                <div class="field">
+                    <label>audio 字段:</label> ${entry.audio || '❌ 无'}
+                </div>
+                <div class="field">
+                    <label>audio_url 字段:</label> ${entry.audio_url || '❌ 无'}
+                </div>
+                <div class="field">
+                    <label>复数:</label> ${entry.plural || '无'}
+                </div>
+                <div class="field">
+                    <label>冠词:</label> ${entry.article || '无'}
+                </div>
+                ${hasAudio ? `
+                    <button class="play-btn" onclick="playAudioUrl('${audioUrl}')">
+                        🔊 播放音频
+                    </button>
+                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                        音频URL: <a href="${audioUrl}" target="_blank">${audioUrl}</a>
+                    </div>
+                ` : '<div style="color: red; margin-top: 10px;">❌ 没有音频数据</div>'}
+            `;
+
+            output.appendChild(card);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function playAudioUrl(url) {
+            log(`正在播放音频: ${url}`);
+            const audio = new Audio(url);
+            audio.play()
+                .then(() => {
+                    log('✅ 音频播放成功');
+                    showStatus('✅ 音频播放成功！', 'success');
+                })
+                .catch(err => {
+                    log(`❌ 音频播放失败: ${err.message}`);
+                    showStatus(`❌ 音频播放失败: ${err.message}`, 'error');
+                    console.error('Audio playback error:', err);
+                });
+        }
+
+        async function checkWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            if (!word) {
+                alert('请输入单词');
+                return;
+            }
+
+            output.textContent = '';
+            log(`========== 检查单词: ${word} ==========\n`);
+
+            try {
+                const dbRequest = indexedDB.open('StarVocabDictionaryDB');
+
+                dbRequest.onsuccess = async (event) => {
+                    const db = event.target.result;
+                    log('✅ 数据库连接成功');
+
+                    if (!db.objectStoreNames.contains('entries')) {
+                        log('❌ 数据库中没有 entries 存储！');
+                        showStatus('❌ 词典未导入！请先导入词典', 'error');
+                        db.close();
+                        return;
+                    }
+
+                    const tx = db.transaction(['entries'], 'readonly');
+                    const store = tx.objectStore('entries');
+
+                    let index;
+                    try {
+                        index = store.index('word_lower');
+                    } catch (e) {
+                        index = store.index('word');
+                    }
+
+                    const request = index.getAll(word.toLowerCase());
+                    const entries = await new Promise((resolve, reject) => {
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+
+                    log(`\n找到 ${entries.length} 个词条:\n`);
+
+                    if (entries.length === 0) {
+                        showStatus(`❌ 未找到单词 "${word}"`, 'error');
+                        db.close();
+                        return;
+                    }
+
+                    let withAudio = 0;
+                    let withIPA = 0;
+
+                    entries.forEach((entry, index) => {
+                        if (entry.audio || entry.audio_url) withAudio++;
+                        if (entry.ipa) withIPA++;
+
+                        log(`词条 #${index + 1}:`);
+                        log(`  - 单词: ${entry.word}`);
+                        log(`  - 词性: ${entry.pos}`);
+                        log(`  - 中文: ${entry.translation_cn || '无'}`);
+                        log(`  - IPA: ${entry.ipa || '无'}`);
+                        log(`  - audio: ${entry.audio || '❌ 无'}`);
+                        log(`  - audio_url: ${entry.audio_url || '❌ 无'}`);
+                        log('');
+
+                        createWordCard(entry, index);
+                    });
+
+                    log(`\n📊 统计:`);
+                    log(`  - 总词条: ${entries.length}`);
+                    log(`  - 有音频: ${withAudio} (${Math.round(withAudio/entries.length*100)}%)`);
+                    log(`  - 有音标: ${withIPA} (${Math.round(withIPA/entries.length*100)}%)`);
+
+                    if (withAudio === 0) {
+                        showStatus('⚠️ 所有词条都没有音频数据！需要重新导入词典', 'warning');
+                    } else if (withAudio < entries.length) {
+                        showStatus(`⚠️ 部分词条缺少音频 (${withAudio}/${entries.length})`, 'warning');
+                    } else {
+                        showStatus('✅ 所有词条都有音频数据', 'success');
+                    }
+
+                    db.close();
+                };
+
+                dbRequest.onerror = () => {
+                    log('❌ 数据库连接失败');
+                    showStatus('❌ 数据库连接失败', 'error');
+                };
+
+            } catch (error) {
+                log(`❌ 检查失败: ${error.message}`);
+                showStatus(`❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkDatabase() {
+            output.textContent = '';
+            log('========== 数据库统计 ==========\n');
+
+            try {
+                const dbRequest = indexedDB.open('StarVocabDictionaryDB');
+
+                dbRequest.onsuccess = async (event) => {
+                    const db = event.target.result;
+                    log('✅ 数据库连接成功');
+                    log(`版本: ${db.version}\n`);
+
+                    if (!db.objectStoreNames.contains('entries')) {
+                        log('❌ 数据库中没有 entries 存储！');
+                        showStatus('❌ 词典未导入！', 'error');
+                        db.close();
+                        return;
+                    }
+
+                    const tx = db.transaction(['entries'], 'readonly');
+                    const store = tx.objectStore('entries');
+
+                    // 获取总数
+                    const countRequest = store.count();
+                    const total = await new Promise((resolve, reject) => {
+                        countRequest.onsuccess = () => resolve(countRequest.result);
+                        countRequest.onerror = () => reject(countRequest.error);
+                    });
+
+                    log(`📊 总词条数: ${total}`);
+
+                    // 采样检查音频数据
+                    log('\n正在采样检查音频数据...');
+                    const allRequest = store.getAll();
+                    const allEntries = await new Promise((resolve, reject) => {
+                        allRequest.onsuccess = () => resolve(allRequest.result);
+                        allRequest.onerror = () => reject(allRequest.error);
+                    });
+
+                    let withAudio = 0;
+                    let withIPA = 0;
+                    let withChinese = 0;
+                    let audioFieldCount = 0;
+                    let audioUrlFieldCount = 0;
+
+                    allEntries.forEach(entry => {
+                        if (entry.audio) audioFieldCount++;
+                        if (entry.audio_url) audioUrlFieldCount++;
+                        if (entry.audio || entry.audio_url) withAudio++;
+                        if (entry.ipa) withIPA++;
+                        if (entry.translation_cn) withChinese++;
+                    });
+
+                    log(`\n📈 数据完整性:`);
+                    log(`  - 有中文翻译: ${withChinese} / ${total} (${Math.round(withChinese/total*100)}%)`);
+                    log(`  - 有音标(IPA): ${withIPA} / ${total} (${Math.round(withIPA/total*100)}%)`);
+                    log(`  - 有音频: ${withAudio} / ${total} (${Math.round(withAudio/total*100)}%)`);
+                    log(`\n🔍 音频字段分布:`);
+                    log(`  - audio 字段: ${audioFieldCount} (${Math.round(audioFieldCount/total*100)}%)`);
+                    log(`  - audio_url 字段: ${audioUrlFieldCount} (${Math.round(audioUrlFieldCount/total*100)}%)`);
+
+                    if (withAudio === 0) {
+                        showStatus('❌ 数据库中没有任何音频数据！必须重新导入词典', 'error');
+                    } else if (withAudio < total * 0.5) {
+                        showStatus('⚠️ 音频数据不完整，建议重新导入词典', 'warning');
+                    } else {
+                        showStatus('✅ 音频数据看起来正常', 'success');
+                    }
+
+                    // 显示一些有音频的示例
+                    log('\n📝 有音频的示例单词:');
+                    const withAudioSamples = allEntries
+                        .filter(e => e.audio || e.audio_url)
+                        .slice(0, 5);
+
+                    withAudioSamples.forEach(e => {
+                        log(`  - ${e.word} (${e.pos}): ${e.audio || e.audio_url}`);
+                    });
+
+                    db.close();
+                };
+
+                dbRequest.onerror = () => {
+                    log('❌ 数据库连接失败');
+                    showStatus('❌ 数据库连接失败', 'error');
+                };
+
+            } catch (error) {
+                log(`❌ 检查失败: ${error.message}`);
+                showStatus(`❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动检查数据库统计
+        window.addEventListener('load', () => {
+            setTimeout(checkDatabase, 500);
+        });
+    </script>
+</body>
+</html>

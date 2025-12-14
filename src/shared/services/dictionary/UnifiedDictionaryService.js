@@ -7,7 +7,7 @@ class MockCloudAPI {
     async lookup(word) {
         // 模拟延迟
         await new Promise(r => setTimeout(r, 500));
-        
+
         // 模拟云端数据库中只有英文释义的情况
         // 实际场景：fetch('https://api.starvocab.com/dict?w=' + word)
         return {
@@ -33,34 +33,122 @@ class UnifiedDictionaryService {
     /**
      * 核心查询方法
      * @param {string} word - 要查询的单词
-     * @returns {Promise<Object|null>} - 返回词条对象
+     * @returns {Promise<Object|null>} - 返回词条对象 (优先返回有中文的)
      */
+    /**
+     * 合并多个词条为一个完整视图
+     * @param {Array} entries 
+     */
+    mergeEntries(entries) {
+        if (!entries || entries.length === 0) return null;
+        if (entries.length === 1) return entries[0];
+
+        // 1. 选出最佳的主词条 (优先选有词性的、有中文的)
+        let mainEntry = entries.find(e => e.pos && e.pos !== 'unknown' && e.translation) ||
+            entries.find(e => e.translation) ||
+            entries[0];
+
+        // 2. 也是深拷贝一份，避免修改原数据
+        const merged = { ...mainEntry };
+
+        // 3. 初始化合并容器
+        const sources = new Set();
+        const translations = new Set();
+        const examples = [];
+        const definitions = new Set();
+
+        if (merged.source) sources.add(this.formatSource(merged.source));
+        if (merged.translation) translations.add(merged.translation);
+        if (merged.definition_en) definitions.add(merged.definition_en);
+
+        // 4. 遍历所有词条进行合并
+        entries.forEach(e => {
+            // 合并来源
+            if (e.source) sources.add(this.formatSource(e.source));
+
+            // 合并中文翻译 (去重)
+            if (e.translation) {
+                // 简单的分号分割处理
+                e.translation.split(/[;；]/).forEach(t => {
+                    const cleanT = t.trim();
+                    if (cleanT) translations.add(cleanT);
+                });
+            }
+            if (e.translation_cn) {
+                e.translation_cn.split(/[;；]/).forEach(t => {
+                    const cleanT = t.trim();
+                    if (cleanT) translations.add(cleanT);
+                });
+            }
+
+            // 合并英文释义
+            if (e.definition_en) definitions.add(e.definition_en);
+
+            // 合并例句 (如果有) - 假设例句可能是 stored within 'examples' field or just implicit
+            // 如果词条对象里有例句数组
+            if (e.examples && Array.isArray(e.examples)) {
+                examples.push(...e.examples);
+            }
+        });
+
+        // 5. 应用合并结果
+
+        // 来源标签
+        merged.source_tags = Array.from(sources);
+
+        // 格式化合并后的翻译
+        merged.translation = Array.from(translations).join('; ');
+
+        // 英文释义(选最长的或者合并)
+        merged.definition_en = Array.from(definitions).join(' | ');
+
+        // 统一例句 (去重可能比较难，先全部放进去)
+        merged.examples = examples;
+
+        // 标记为已合并
+        merged._isMerged = true;
+        merged._entryCount = entries.length;
+
+        return merged;
+    }
+
+    formatSource(source) {
+        if (!source) return 'Unknown';
+        if (source.includes('common')) return '常用词表';
+        if (source.includes('goethe')) return '歌德词汇';
+        if (source.includes('cloud')) return '云端词典';
+        return source;
+    }
+
     async lookup(word) {
         const normalizedWord = word.trim();
-        const id = normalizedWord.toLowerCase();
 
-        // 1. 查本地数据库
+        // 0. 检查是否正在初始化词典
+        if (window._dictInitializing) {
+            console.log(`[Dict] Dictionary initializing, skipping query for ${word}`);
+            return null;
+        }
+
+        // 1. 查本地数据库 (使用 word_lower 索引)
         try {
-            const localEntry = await localDictDB.getEntry(id);
-            if (localEntry) {
-                // 如果本地有，且有中文（或者本来就是纯英文词典），直接返回
-                if (localEntry.has_chinese || localEntry.source.startsWith('local_')) {
-                    console.log(`[Dict] Local hit for ${word}`);
-                    return localEntry;
-                }
-                // 如果本地有但只有英文（之前缓存的云端结果），也可以返回，
-                // 但可以在后台尝试触发翻译（如果还没在队列里）
-                return localEntry;
+            const localEntries = await localDictDB.getEntriesByWord(normalizedWord);
+            if (localEntries && localEntries.length > 0) {
+                console.log(`[Dict] Local hit for ${word} (${localEntries.length} entries found)`);
+
+                // 执行合并逻辑
+                const mergedEntry = this.mergeEntries(localEntries);
+                return mergedEntry;
             }
         } catch (e) {
             console.error('[Dict] Local DB lookup failed:', e);
         }
 
+
         // 2. 查云端 (Fallback)
         console.log(`[Dict] Local miss for ${word}, querying cloud...`);
         try {
             const cloudResult = await this.cloudAPI.lookup(normalizedWord);
-            
+
             if (cloudResult && cloudResult.found) {
                 const entry = cloudResult.entry;
 
@@ -74,12 +162,12 @@ class UnifiedDictionaryService {
                     //    a. 存入本地缓存（用户下次查能立刻看到英文）
                     //    b. 加入待翻译队列
                     //    c. 返回英文版给用户（秒回体验）
-                    
+
                     console.log(`[Dict] Cloud returned English only. Queuing translation...`);
-                    
+
                     // 标记来源
                     entry.source = 'cloud_pending_translation';
-                    
+
                     // 并行执行：存缓存 + 加队列
                     await Promise.all([
                         localDictDB.saveEntry(entry),
@@ -119,10 +207,10 @@ class UnifiedDictionaryService {
                 try {
                     // 调用 AI 翻译
                     // const translated = await aiService.translate(item.word, context...);
-                    
+
                     // 模拟 AI 翻译结果
                     const mockTranslation = `[AI翻译] ${item.word} 的中文意思`;
-                    
+
                     // 更新词条
                     const updatedEntry = {
                         ...item,
@@ -133,19 +221,19 @@ class UnifiedDictionaryService {
 
                     // 1. 更新主词库
                     await localDictDB.saveEntry(updatedEntry);
-                    
+
                     // 2. 移出队列
                     await localDictDB.removeFromQueue([item.id]);
-                    
+
                     console.log(`[Dict] Translated and updated: ${item.word}`);
-                    
+
                 } catch (err) {
                     console.error(`[Dict] Failed to translate ${item.word}`, err);
                 }
             }
         } finally {
             this.isProcessingQueue = false;
-            
+
             // 如果队列里还有，继续处理
             const remaining = await localDictDB.getTranslationQueue(1);
             if (remaining.length > 0) {

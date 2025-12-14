@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>词典导入工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .danger {
+            background: #f44336;
+        }
+        .danger:hover {
+            background: #da190b;
+        }
+        #output {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 词典导入工具</h1>
+        <p class="subtitle">Star Vocab Game - Dictionary Import Tool</p>
+
+        <div style="margin: 20px 0;">
+            <button onclick="checkDictionary()">🔍 检查词典状态</button>
+            <button onclick="importDictionary()" class="danger">🔄 重新导入词典</button>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = `[${timestamp}] ${message}\n`;
+            output.textContent += line;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            output.appendChild(statusDiv);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function checkDictionary() {
+            output.textContent = '';
+            log('========== 开始检查词典 ==========');
+
+            try {
+                const dbRequest = indexedDB.open('StarVocabDictionaryDB');
+
+                dbRequest.onsuccess = async (event) => {
+                    const db = event.target.result;
+                    log('✅ IndexedDB 连接成功');
+                    log(`   数据库版本: ${db.version}`);
+                    log(`   Object Stores: ${Array.from(db.objectStoreNames).join(', ')}`);
+
+                    const version = localStorage.getItem('star_vocab_dict_version');
+                    log(`   词典版本标记: ${version || '(未设置)'}`);
+
+                    // 检查是否有 entries store
+                    if (!db.objectStoreNames.contains('entries')) {
+                        log('\n❌ 数据库中没有 entries 存储！');
+                        showStatus('❌ 词典数据库结构错误，请重新导入', 'error');
+                        db.close();
+                        return;
+                    }
+
+                    // 测试查询
+                    log('\n开始测试查询...');
+                    const tx = db.transaction(['entries'], 'readonly');
+                    const store = tx.objectStore('entries');
+                    const testWords = ['und', 'der', 'die', 'sein', 'haben'];
+
+                    let foundCount = 0;
+                    let withChinese = 0;
+
+                    for (const word of testWords) {
+                        try {
+                            let index;
+                            try {
+                                index = store.index('word_lower');
+                            } catch (e) {
+                                index = store.index('word');
+                            }
+
+                            const request = index.getAll(word.toLowerCase());
+                            const entries = await new Promise((resolve, reject) => {
+                                request.onsuccess = () => resolve(request.result);
+                                request.onerror = () => reject(request.error);
+                            });
+
+                            if (entries.length > 0) {
+                                foundCount++;
+                                const hasCn = entries.some(e => e.translation_cn);
+                                if (hasCn) withChinese++;
+                                log(`  ${hasCn ? '✅' : '⚠️'} ${word}: 找到 ${entries.length} 个词条${hasCn ? ' (有中文)' : ' (无中文)'}`);
+                            } else {
+                                log(`  ❌ ${word}: 未找到`);
+                            }
+                        } catch (e) {
+                            log(`  ⚠️ ${word}: 查询出错`);
+                        }
+                    }
+
+                    log(`\n总结: 找到 ${foundCount}/${testWords.length} 个测试单词`);
+                    log(`      其中 ${withChinese} 个有中文翻译`);
+
+                    if (foundCount === 0) {
+                        showStatus('❌ 词典未导入！请点击"重新导入词典"按钮', 'error');
+                    } else if (withChinese < foundCount) {
+                        showStatus('⚠️ 词典已导入但缺少中文翻译！请重新导入', 'warning');
+                    } else {
+                        showStatus('✅ 词典工作正常！', 'success');
+                    }
+
+                    db.close();
+                };
+
+                dbRequest.onerror = () => {
+                    log('❌ IndexedDB 连接失败');
+                    showStatus('❌ IndexedDB 连接失败', 'error');
+                };
+
+                dbRequest.onblocked = () => {
+                    log('⚠️ IndexedDB 被阻塞，请关闭其他标签页');
+                    showStatus('⚠️ IndexedDB 被阻塞', 'warning');
+                };
+
+            } catch (error) {
+                log(`❌ 检查失败: ${error.message}`);
+                showStatus(`❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function importDictionary() {
+            if (!confirm('确定要重新导入词典吗？这会清空现有数据并重新导入（约需要 5-10 秒）。')) {
+                return;
+            }
+
+            output.textContent = '';
+            log('========== 开始导入词典 ==========');
+
+            // 禁用按钮
+            document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+            try {
+                // 1. 清空数据库
+                log('步骤 1/4: 清空旧数据...');
+                await new Promise((resolve) => {
+                    const request = indexedDB.deleteDatabase('StarVocabDictionaryDB');
+                    request.onsuccess = () => {
+                        log('  ✅ 数据库已清空');
+                        resolve();
+                    };
+                    request.onerror = () => {
+                        log('  ⚠️ 清空失败，继续尝试...');
+                        resolve();
+                    };
+                    request.onblocked = () => {
+                        log('  ⚠️ 删除被阻塞，继续...');
+                        resolve();
+                    };
+                });
+
+                localStorage.removeItem('star_vocab_dict_version');
+
+                // 等待数据库完全关闭
+                log('  等待数据库完全关闭...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 2. 加载词典文件
+                log('步骤 2/4: 加载词典文件...');
+                const response = await fetch('/dict/common_2500.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                log(`  ✅ 加载成功: ${data.length} 个词条`);
+
+                // 3. 初始化数据库
+                log('步骤 3/4: 初始化数据库...');
+                const db = await new Promise((resolve, reject) => {
+                    let timeout = setTimeout(() => {
+                        log('  ⚠️ 数据库打开超时，可能需要关闭其他标签页');
+                        reject(new Error('数据库打开超时（10秒）'));
+                    }, 10000);
+
+                    const request = indexedDB.open('StarVocabDictionaryDB', 3);
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        log('  正在创建数据库结构...');
+
+                        if (!db.objectStoreNames.contains('entries')) {
+                            const store = db.createObjectStore('entries', { keyPath: 'id' });
+                            store.createIndex('word', 'word', { unique: false });
+                            store.createIndex('word_lower', 'word_lower', { unique: false });
+                            store.createIndex('source', 'source', { unique: false });
+                            store.createIndex('frequency', 'frequency', { unique: false });
+                            log('    ✓ entries store 已创建');
+                        }
+
+                        if (!db.objectStoreNames.contains('translation_queue')) {
+                            db.createObjectStore('translation_queue', { keyPath: 'id' });
+                            log('    ✓ translation_queue store 已创建');
+                        }
+                        if (!db.objectStoreNames.contains('examples')) {
+                            const store = db.createObjectStore('examples', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('word', 'word', { unique: false });
+                            log('    ✓ examples store 已创建');
+                        }
+                        if (!db.objectStoreNames.contains('translation_tasks')) {
+                            const store = db.createObjectStore('translation_tasks', { keyPath: 'id' });
+                            store.createIndex('entry_id', 'entry_id', { unique: false });
+                            store.createIndex('status', 'status', { unique: false });
+                            store.createIndex('created_at', 'created_at', { unique: false });
+                            log('    ✓ translation_tasks store 已创建');
+                        }
+                    };
+
+                    request.onsuccess = () => {
+                        clearTimeout(timeout);
+                        log('  ✅ 数据库已初始化');
+                        resolve(request.result);
+                    };
+
+                    request.onerror = () => {
+                        clearTimeout(timeout);
+                        log(`  ❌ 数据库初始化失败: ${request.error}`);
+                        reject(request.error);
+                    };
+
+                    request.onblocked = () => {
+                        clearTimeout(timeout);
+                        log('  ⚠️ 数据库被阻塞！');
+                        log('  请关闭所有使用此应用的其他标签页，然后刷新本页面重试');
+                        reject(new Error('数据库被阻塞'));
+                    };
+                });
+
+                // 4. 导入数据
+                log('步骤 4/4: 导入词条...');
+                const tx = db.transaction(['entries'], 'readwrite');
+                const store = tx.objectStore('entries');
+
+                let saved = 0;
+
+                for (const item of data) {
+                    const word = item.word;
+                    const pos = item.pos || 'unknown';
+                    const id = `${word.toLowerCase()}_${pos}`;
+
+                    const entry = {
+                        id: id,
+                        word: word,
+                        word_lower: word.toLowerCase(),
+                        pos: pos,
+                        article: item.article || '',
+                        plural: item.plural || '',
+                        translation_cn: item.translation_cn || null,
+                        translation_en: item.translation || null,
+                        ipa: item.ipa || '',
+                        audio_url: item.audio || '',  // 兼容性字段
+                        audio: item.audio || '',      // 源数据字段
+                        rank: item.rank || null,
+                        has_chinese: !!item.translation_cn,
+                        sources: [{ type: 'wiktionary', id: 'wikt_2500', imported_at: Date.now() }],
+                        created_at: Date.now(),
+                        updated_at: Date.now()
+                    };
+
+                    if (item.example_de) {
+                        entry.examples = [{
+                            de: item.example_de,
+                            cn: item.example_cn || '',
+                            source: 'wikt_2500'
+                        }];
+                    }
+
+                    store.put(entry);
+                    saved++;
+
+                    if (saved % 2000 === 0) {
+                        log(`  进度: ${saved}/${data.length}`);
+                    }
+                }
+
+                await new Promise((resolve, reject) => {
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+
+                log(`  ✅ 导入完成: ${saved} 条`);
+
+                // 5. 保存版本号
+                localStorage.setItem('star_vocab_dict_version', '2.0.1');
+
+                db.close();
+
+                log('\n========== 导入成功 ==========');
+                showStatus(`✅ 词典导入成功！共导入 ${saved} 个词条`, 'success');
+
+            } catch (error) {
+                log(`\n❌ 导入失败: ${error.message}`);
+                showStatus(`❌ 导入失败: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                // 恢复按钮
+                document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('load', () => {
+            setTimeout(checkDictionary, 500);
+        });
+    </script>
+</body>
+</html>

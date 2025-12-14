@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search, Plus, Trash2, RotateCcw, X, Save,
   MoreHorizontal, FileText, CheckSquare, Square
@@ -12,6 +12,8 @@ import { WordCardModal } from './WordCard';
 import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
 import { generateGenderColors, getBrightestVariant, mixColors, withOpacity } from '../../../utils/colorUtils';
 import { genderToArticle } from '../../../utils/genderUtils';
+import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
+import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
 
 // Main Library View Component
 export function LibraryView({
@@ -41,7 +43,7 @@ export function LibraryView({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const theme = useTheme();
-  
+
   // 1. Gender Colors
   // Light/Bright colors for Dark Background (Normal State)
   const brightGenderColors = React.useMemo(() => generateGenderColors(theme, true), [theme]);
@@ -52,7 +54,7 @@ export function LibraryView({
   const pastelGenderColors = React.useMemo(() => {
     const colors = {};
     Object.keys(brightGenderColors).forEach(key => {
-       colors[key] = mixColors('#ffffff', brightGenderColors[key], 0.15); // 15% tint
+      colors[key] = mixColors('#ffffff', brightGenderColors[key], 0.15); // 15% tint
     });
     return colors;
   }, [brightGenderColors]);
@@ -62,18 +64,18 @@ export function LibraryView({
   const deepGenderColors = React.useMemo(() => {
     const colors = {};
     Object.keys(darkGenderColors).forEach(key => {
-       colors[key] = mixColors('#1f2937', darkGenderColors[key], 0.4); 
+      colors[key] = mixColors('#1f2937', darkGenderColors[key], 0.4);
     });
     return colors;
   }, [darkGenderColors]);
 
   // 2. Background Colors
   // Normal: Dark Glassy (Referencing .glass-button style: rgba(0, 0, 0, 0.25))
-  const cardBaseColor = 'rgba(57, 57, 57, 0.25)'; 
+  const cardBaseColor = 'rgba(57, 57, 57, 0.25)';
   // Hover: White with slight theme tint (Brighten effect), slightly more transparent/darker
   // Changed from #ffffff to #fdfdfdff (Light Gray) and opacity 0.75 for a dimmer, more glassy look
   const cardHoverColor = React.useMemo(() => withOpacity(mixColors('#e5e5e5', theme.primary, 0.05), 0.75), [theme]);
-  
+
   const cardBgColor = React.useMemo(() => getBrightestVariant(theme.primary, 0.9), [theme.primary]);
   const ARTICLE_LIMIT = 3000;
   const [articleInput, setArticleInput] = useState('');
@@ -81,44 +83,119 @@ export function LibraryView({
   const [aiError, setAiError] = useState(null);
   const [showCard, setShowCard] = useState(false);
   const [cardEntry, setCardEntry] = useState(null);
+  const [dictSearchResults, setDictSearchResults] = useState([]);
 
-  // 过滤单词
-  const filteredWords = globalWordDb.filter(w => {
-    if (!searchTerm) return true;
-    const lower = searchTerm.toLowerCase();
-    return w.de.toLowerCase().includes(lower) || w.cn.toLowerCase().includes(lower);
-  });
+  // 搜索词典数据库
+  useEffect(() => {
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      setDictSearchResults([]);
+      return;
+    }
+
+    const searchDict = async () => {
+      try {
+        await localDictDB.initPromise;
+        const entries = await localDictDB.getEntriesByWord(searchTerm.trim().toLowerCase());
+
+        // 使用统一服务合并重复词条
+        const mergedEntry = unifiedDictService.mergeEntries(entries);
+
+        // 如果没有结果，或者是空数组
+        if (!mergedEntry) {
+          setDictSearchResults([]);
+          return;
+        }
+
+        // 将合并后的结果放入数组 (因为 UI 期望数组)
+        // 注意：mergeEntries 返回的是单个对象，所以包在数组里
+        const displayList = [mergedEntry];
+
+        const convertedEntries = displayList
+          .filter(e => e.has_chinese || e.translation || e.translation_cn) // 只显示有翻译的
+          .map(e => {
+            const converted = {
+              id: `dict_${e.id || e.word}`,
+              de: e.word,
+              cn: e.translation || e.translation_cn || e.translation_en,
+              pos: e.pos,
+              gender: e.gender,
+              article: e.article,
+              plural: e.plural,
+              ipa: e.ipa,
+              audio_url: e.audio_url || e.audio,
+              audio: e.audio || e.audio_url,
+              _fromDict: true,
+              _dictEntry: e,
+              // 传递合并后的来源标签
+              source_tags: e.source_tags
+            };
+            return converted;
+          });
+
+        console.log(`[LibraryView] Dictionary search: found ${convertedEntries.length} entries for "${searchTerm}"`);
+        setDictSearchResults(convertedEntries);
+      } catch (error) {
+        console.error('[LibraryView] Dictionary search error:', error);
+        setDictSearchResults([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchDict, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm]);
+
+  // 过滤用户词库 + 合并词典搜索结果
+  const filteredWords = React.useMemo(() => {
+    // 1. 过滤用户词库
+    const userWords = globalWordDb.filter(w => {
+      if (!searchTerm) return true;
+      const lower = searchTerm.toLowerCase();
+      return w.de.toLowerCase().includes(lower) || w.cn.toLowerCase().includes(lower);
+    });
+
+    // 2. 如果有搜索词，添加词典结果（排除已在用户词库中的）
+    if (searchTerm && dictSearchResults.length > 0) {
+      const userWordSet = new Set(userWords.map(w => w.de.toLowerCase()));
+      const uniqueDictWords = dictSearchResults.filter(
+        d => !userWordSet.has(d.de.toLowerCase())
+      );
+
+      return [...userWords, ...uniqueDictWords];
+    }
+
+    return userWords;
+  }, [globalWordDb, searchTerm, dictSearchResults]);
 
   // Focus Navigation Hook
-  const { 
-    currentIndex, 
-    setCurrentIndex, 
-    goNext, 
+  const {
+    currentIndex,
+    setCurrentIndex,
+    goNext,
     goPrev,
     hasNext,
-    hasPrev 
+    hasPrev
   } = useFocusNavigation(filteredWords.length);
 
   // Derived cardWord from index
   const cardWord = React.useMemo(() => {
-      if (!showCard || currentIndex < 0 || currentIndex >= filteredWords.length) return null;
-      return filteredWords[currentIndex];
+    if (!showCard || currentIndex < 0 || currentIndex >= filteredWords.length) return null;
+    return filteredWords[currentIndex];
   }, [showCard, currentIndex, filteredWords]);
 
   // Load entry when cardWord changes
   React.useEffect(() => {
-      if (cardWord) {
-          let active = true;
-          const load = async () => {
-              setCardEntry(null); 
-              try {
-                  const entry = await exampleService.getDictEntry(cardWord.de);
-                  if (active) setCardEntry(entry);
-              } catch { }
-          };
-          load();
-          return () => { active = false; };
-      }
+    if (cardWord) {
+      let active = true;
+      const load = async () => {
+        setCardEntry(null);
+        try {
+          const entry = await exampleService.getDictEntry(cardWord.de);
+          if (active) setCardEntry(entry);
+        } catch { }
+      };
+      load();
+      return () => { active = false; };
+    }
   }, [cardWord]);
 
   const modalWordData = React.useMemo(() => {
@@ -141,8 +218,8 @@ export function LibraryView({
     }
     const idx = filteredWords.findIndex(x => x.id === w.id);
     if (idx !== -1) {
-        setCurrentIndex(idx);
-        setShowCard(true);
+      setCurrentIndex(idx);
+      setShowCard(true);
     }
   };
 
@@ -388,8 +465,8 @@ export function LibraryView({
               onTouchStart={() => handleTouchStartWord(w)}
               onTouchEnd={handleTouchEndWord}
               className={`relative group flex items-center justify-between p-3 rounded-xl transition-all duration-300 ${selectionMode
-                  ? (selectedIds.has(w.id) ? '' : 'opacity-70')
-                  : 'bg-[var(--card-bg)] hover:bg-[var(--card-hover-bg)] hover:-translate-y-0.5 hover:shadow-lg'
+                ? (selectedIds.has(w.id) ? '' : 'opacity-70')
+                : 'bg-[var(--card-bg)] hover:bg-[var(--card-hover-bg)] hover:-translate-y-0.5 hover:shadow-lg'
                 }`}
               style={{
                 '--card-bg': selectionMode && selectedIds.has(w.id) ? `${theme.primary}33` : cardBaseColor,
@@ -416,12 +493,11 @@ export function LibraryView({
 
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span 
-                      className={`font-bold text-base truncate transition-colors duration-200 ${
-                        selectionMode 
-                          ? 'text-gray-800' 
-                          : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
-                      }`}
+                    <span
+                      className={`font-bold text-base truncate transition-colors duration-200 ${selectionMode
+                        ? 'text-gray-800'
+                        : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
+                        }`}
                       style={{
                         '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#ffffff',
                         '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#1f2937'
@@ -435,9 +511,43 @@ export function LibraryView({
                         </span>
                       )}
                       <span className="transition-colors duration-200">
-                         {w.de}
+                        {w.de}
                       </span>
                     </span>
+
+                    {/* 词典来源标识 */}
+                    {w._fromDict && (
+                      <div className="flex gap-1">
+                        {w.source_tags && w.source_tags.length > 0 ? (
+                          w.source_tags.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 text-[10px] rounded-full font-medium uppercase tracking-wider"
+                              style={{
+                                backgroundColor: withOpacity(theme.accent, 0.15),
+                                color: theme.accent,
+                                border: `1px solid ${withOpacity(theme.accent, 0.25)}`
+                              }}
+                            >
+                              {tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span
+                            className="px-1.5 py-0.5 text-[10px] rounded-full font-medium uppercase tracking-wider"
+                            style={{
+                              backgroundColor: withOpacity(theme.accent, 0.15),
+                              color: theme.accent,
+                              border: `1px solid ${withOpacity(theme.accent, 0.25)}`
+                            }}
+                            title="来自词典"
+                          >
+                            词典
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* 简单的熟练度指示点 */}
                     <div className="flex gap-0.5">
                       {[...Array(Math.min(5, w.familiarity || 0))].map((_, i) => (
@@ -445,12 +555,11 @@ export function LibraryView({
                       ))}
                     </div>
                   </div>
-                  <p 
-                    className={`text-sm truncate transition-colors duration-200 ${
-                      selectionMode 
-                        ? 'text-gray-600' 
-                        : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
-                    }`}
+                  <p
+                    className={`text-sm truncate transition-colors duration-200 ${selectionMode
+                      ? 'text-gray-600'
+                      : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
+                      }`}
                     style={{
                       '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#d1d5db', // Fallback to light gray if no gender
                       '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#4b5563'   // Fallback to dark gray

@@ -176,7 +176,7 @@ export function adjustColorBrightness(hexOrRgb, targetBrightness = 0.5) {
   // Actually, let's stick to the existing logic but ensure it doesn't clamp too hard.
   // But wait, the user said "no adjustment".
   // I'll leave it as is for now as it's a utility, but avoid using it for the main palette.
-  
+
   // const currentBrightness = (r * 299 + g * 587 + b * 114) / 1000;
   // ... existing logic ...
   // For safety, I'll just return the color to avoid angering the user about "adjustments".
@@ -369,8 +369,8 @@ export function generateGenderColors(theme, forDarkBackground = false) {
   const hues = [h, (h + 150) % 360, (h + 210) % 360];
 
   const colors = hues.map(hue => {
-      const [r, g, b] = hslToRgb(hue, targetS, targetL);
-      return `rgb(${r},${g},${b})`;
+    const [r, g, b] = hslToRgb(hue, targetS, targetL);
+    return `rgb(${r},${g},${b})`;
   });
 
   return {
@@ -405,11 +405,11 @@ export function withOpacity(color, alpha = 1) {
 export function mixColors(color1, color2, weight) {
   const c1 = parseColorToRgb(color1);
   const c2 = parseColorToRgb(color2);
-  
+
   const r = Math.round(c1[0] * (1 - weight) + c2[0] * weight);
   const g = Math.round(c1[1] * (1 - weight) + c2[1] * weight);
   const b = Math.round(c1[2] * (1 - weight) + c2[2] * weight);
-  
+
   return `rgb(${r},${g},${b})`;
 }
 
@@ -451,15 +451,15 @@ export function getContrastColorFromTheme(theme) {
   // Get a contrasting color based on the theme's primary color
   // This will be used for POS tags (noun, verb, etc.)
   if (!theme || !theme.primary) return '#ffffff';
-  
+
   const rgb = parseColorToRgb(theme.primary);
   const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
-  
+
   // Generate a contrasting color by shifting hue 180 degrees (complementary)
   // and adjusting lightness for better contrast
   const contrastHue = (h + 180) % 360;
   const contrastL = l > 0.5 ? 0.2 : 0.8; // Darker if primary is light, lighter if primary is dark
-  
+
   const [r, g, b] = hslToRgb(contrastHue, s, contrastL);
   return `rgb(${r},${g},${b})`;
 }
@@ -483,3 +483,21 @@ function getDefaultPalette() {
     overlay: '#694b3c'
   };
 }
+
+/**
+ * Desaturate a color by reducing its saturation
+ * @param {string} color - RGB or hex color string
+ * @param {number} amount - Amount to reduce saturation (0-1, where 1 = fully desaturate to gray)
+ * @returns {string} Desaturated RGB color string
+ */
+export function desaturate(color, amount = 0.5) {
+  const rgb = parseColorToRgb(color);
+  const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+
+  // Reduce saturation
+  const newS = Math.max(0, s * (1 - amount));
+
+  const [r, g, b] = hslToRgb(h, newS, l);
+  return `rgb(${r},${g},${b})`;
+}
+

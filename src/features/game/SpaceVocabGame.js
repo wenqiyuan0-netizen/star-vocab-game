@@ -67,6 +67,9 @@ export default function SpaceVocabGame() {
   const [, forceUpdate] = useState({});
   const exampleServiceRef = useRef(exampleService);
 
+  // Track last synced cloud profile to prevent infinite loops
+  const lastCloudSyncRef = useRef(null);
+
   // Set access token for AI Service
   useEffect(() => {
     if (session?.access_token) {
@@ -155,6 +158,19 @@ export default function SpaceVocabGame() {
   // Sync Profile from Cloud
   useEffect(() => {
     if (!profileLoading && cloudProfile) {
+      // Prevent infinite loop: Check if this cloudProfile has already been synced
+      const syncKey = JSON.stringify({
+        totalXP: cloudProfile.totalXP,
+        level: cloudProfile.level,
+        datesCount: cloudProfile.checkInDates?.length || 0,
+        updatedAt: cloudProfile.updated_at
+      });
+
+      if (lastCloudSyncRef.current === syncKey) {
+        // Already synced this exact profile, skip to prevent loop
+        return;
+      }
+
       const streak = calculateStreakFromDates(cloudProfile.checkInDates || []);
 
       // Sync dailyStats from cloud if available and matches today
@@ -257,8 +273,12 @@ export default function SpaceVocabGame() {
       localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
 
       // FIX: Bidirectional Sync - If local state is ahead of cloud (e.g. played offline), push it back to cloud
-      if (mergedTotalXP > (cloudProfile.totalXP || 0) ||
-        mergedDates.length > (cloudProfile.checkInDates?.length || 0)) {
+      // Only update cloud if we haven't already synced this profile
+      const needsCloudUpdate =
+        mergedTotalXP > (cloudProfile.totalXP || 0) ||
+        mergedDates.length > (cloudProfile.checkInDates?.length || 0);
+
+      if (needsCloudUpdate) {
         updateCloudProfile({
           totalXP: mergedTotalXP,
           level: mergedLevel,
@@ -266,10 +286,13 @@ export default function SpaceVocabGame() {
         });
       }
 
+      // Mark this profile as synced BEFORE forceUpdate to prevent loop
+      lastCloudSyncRef.current = syncKey;
+
       // Force UI update
       forceUpdate({});
     }
-  }, [cloudProfile, profileLoading, updateCloudProfile]);
+  }, [cloudProfile, profileLoading]);
 
   const calculateLevel = (xp) => {
     if (xp < 0) return 1;
