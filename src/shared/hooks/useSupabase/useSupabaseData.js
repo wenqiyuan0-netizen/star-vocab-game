@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../infrastructure/supabaseClient';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import { appWordToDbWord, dbWordToAppWord } from '../../../utils/supabaseUtils';
+import { isStableId, isUuid } from '../../../utils/idUtils';
 import { DEFAULT_WORDS } from '../../../logic/constants';
 
 export function useSupabaseData() {
@@ -61,10 +62,14 @@ export function useSupabaseData() {
 
       if (error) throw error;
 
-      // Update local state with the returned data (especially useful for getting the new UUID)
+      // Update local state with the returned data
       const newAppWord = dbWordToAppWord(data);
       setWords(prev => {
-        const index = prev.findIndex(w => w.id === newAppWord.id || (w.de && newAppWord.de && w.de.toLowerCase() === newAppWord.de.toLowerCase()));
+        // Try to find by ID first, then by content (de + pos)
+        const index = prev.findIndex(w =>
+          w.id === newAppWord.id ||
+          (w.de && newAppWord.de && w.de.toLowerCase() === newAppWord.de.toLowerCase() && w.pos === newAppWord.pos)
+        );
         if (index !== -1) {
           const newWords = [...prev];
           newWords[index] = { ...prev[index], ...newAppWord };
@@ -99,29 +104,40 @@ export function useSupabaseData() {
 
       const syncedWords = data.map(dbWordToAppWord);
       setWords(prev => {
-        const contentMap = new Map();
-        const idMap = new Map();      // uuid -> word
+        const contentMap = new Map();  // "word:pos" -> word (for temporary IDs)
+        const idMap = new Map();        // stable ID or UUID -> word
 
-        // Helper: is UUID? (Supabase UUIDs are 36 chars)
-        const isUuid = (id) => id && id.length > 20; 
+        // Helper: check if ID is valid (stable ID or UUID)
+        const isValidId = (id) => isStableId(id) || isUuid(id);
 
         // 1. Index local words
         prev.forEach(w => {
-          if (isUuid(w.id)) {
+          if (isValidId(w.id)) {
+            // Has valid ID (stable or UUID)
             idMap.set(w.id, w);
           } else {
-            const key = (w.de || '').toLowerCase();
+            // Temporary ID or invalid, use content as key
+            const key = `${(w.de || '').toLowerCase()}:${w.pos || 'unknown'}`;
             contentMap.set(key, w);
           }
         });
 
         // 2. Merge synced words
         syncedWords.forEach(w => {
-          const key = (w.de || '').toLowerCase();
-          if (contentMap.has(key)) {
+          const key = `${(w.de || '').toLowerCase()}:${w.pos || 'unknown'}`;
+
+          if (idMap.has(w.id)) {
+            // ID match - direct update
+            idMap.set(w.id, { ...idMap.get(w.id), ...w });
+          } else if (contentMap.has(key)) {
+            // Content match - this was a temporary ID word, now has stable ID
+            const localWord = contentMap.get(key);
+            idMap.set(w.id, { ...localWord, ...w });
             contentMap.delete(key);
+          } else {
+            // New word from server
+            idMap.set(w.id, w);
           }
-          idMap.set(w.id, w);
         });
 
         // 3. Combine and return
@@ -129,7 +145,7 @@ export function useSupabaseData() {
           ...idMap.values(),
           ...contentMap.values()
         ];
-        
+
         return combined.sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       });
       return syncedWords;

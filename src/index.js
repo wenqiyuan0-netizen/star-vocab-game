@@ -6,6 +6,8 @@ import reportWebVitals from './reportWebVitals';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 import { AuthProvider } from './features/auth/contexts/AuthContext';
+import './utils/testUnifiedSearch';
+import './utils/testLocalLemmatization';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -1,6 +1,7 @@
 // src/features/vocabulary/services/WordProcessor.js
 import { sortWords } from '../../../logic/utils';
 import { extractArticleFromWord } from '../../../utils/genderUtils';
+import { generateStableId } from '../../../utils/idUtils';
 
 export const processImportInput = (inputText, currentDb) => {
   if (!inputText || !inputText.trim()) {
@@ -56,17 +57,24 @@ export const processImportInput = (inputText, currentDb) => {
 
     if (deClean && cn) {
       existingFingerprints.add(deClean.toLowerCase());
+
+      // 确保 pos 有默认值
+      const finalPos = pos || 'unknown';
+
       newWords.push({
-        id: `c_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateStableId(deClean, finalPos), // 使用新的稳定 ID 生成函数
         de: deClean,
         cn,
         gender,
-        pos,
+        pos: finalPos, // 确保 pos 字段存在
         state: 'new',
         step: 0,
         interval: 0,
         easeFactor: 2.5,
         dueDate: 0,
+        proficiency: 0,        // 新增：初始熟练度
+        graduated: false,      // 新增：是否毕业
+        lastReview: null,      // 新增：最后复习时间
         example: null,
       });
     }

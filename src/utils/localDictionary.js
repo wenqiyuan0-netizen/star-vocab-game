@@ -8,6 +8,7 @@ class LocalDictionary {
     constructor() {
         this.dict = null;
         this.index = null;
+        this.variantIndex = null;
         this.loading = null;
     }
 
@@ -30,18 +31,48 @@ class LocalDictionary {
             console.log('⏳ 正在加载本地词典...');
             const startTime = Date.now();
 
-            const response = await fetch('/resources/cloud-dictionary.json');
-            this.dict = await response.json();
+            try {
+                // 加载 common_2500.json
+                const response = await fetch('/dict/common_2500.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const rawData = await response.json();
 
-            // 构建索引（单词 -> 词条位置）
-            this.buildIndex();
+                // 转换格式以匹配内部结构
+                const entries = Array.isArray(rawData) ? rawData.map(item => ({
+                    w: item.word,
+                    p: item.pos,
+                    a: item.article,
+                    pl: item.plural,
+                    e: item.translation ? [item.translation] : [],
+                    c: item.translation_cn ? [item.translation_cn] : [],
+                    i: item.ipa,
+                    x: item.example_de ? [item.example_de] : [],
+                    xc: item.example_cn ? [item.example_cn] : []
+                })) : (rawData.entries || []);
 
-            const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
-            console.log(`✅ 词典加载完成！`);
-            console.log(`   词条数: ${this.dict.totalEntries.toLocaleString()}`);
-            console.log(`   耗时: ${loadTime}秒`);
+                this.dict = {
+                    entries: entries,
+                    totalEntries: entries.length
+                };
 
-            return this.dict;
+                // 构建索引（单词 -> 词条位置）
+                this.buildIndex();
+
+                const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                console.log(`✅ 词典加载完成！`);
+                console.log(`   词条数: ${this.dict.totalEntries.toLocaleString()}`);
+                console.log(`   耗时: ${loadTime}秒`);
+
+                return this.dict;
+            } catch (error) {
+                console.error('❌ 加载本地词典失败:', error);
+                this.dict = { entries: [], totalEntries: 0 };
+                this.index = new Map();
+                this.variantIndex = new Map();
+                return this.dict;
+            }
         })();
 
         return this.loading;
@@ -53,19 +84,31 @@ class LocalDictionary {
     buildIndex() {
         console.log('📑 构建索引...');
         this.index = new Map();
+        this.variantIndex = new Map();
 
         this.dict.entries.forEach((entry, idx) => {
             const key = entry.w.toLowerCase();
 
-            // 一个单词可能有多个词性
+            // 1. 主索引
             if (!this.index.has(key)) {
                 this.index.set(key, []);
             }
-
             this.index.get(key).push(idx);
+
+            // 2. 变体索引 (例如复数)
+            if (entry.pl && entry.pl.trim()) {
+                const plural = entry.pl.toLowerCase().trim();
+                // 只有当复数和单数不同时才添加，避免重复
+                if (plural !== key) {
+                    if (!this.variantIndex.has(plural)) {
+                        this.variantIndex.set(plural, []);
+                    }
+                    this.variantIndex.get(plural).push(idx);
+                }
+            }
         });
 
-        console.log(`✅ 索引构建完成：${this.index.size} 个唯一单词`);
+        console.log(`✅ 索引构建完成：${this.index.size} 个唯一单词，${this.variantIndex.size} 个变体`);
     }
 
     /**
@@ -77,7 +120,14 @@ class LocalDictionary {
         await this.load();
 
         const key = word.toLowerCase().trim();
-        const indices = this.index.get(key);
+        
+        // 1. 尝试精确匹配
+        let indices = this.index.get(key);
+
+        // 2. 尝试变体匹配 (如果精确匹配失败)
+        if (!indices && this.variantIndex) {
+            indices = this.variantIndex.get(key);
+        }
 
         if (!indices) {
             return [];

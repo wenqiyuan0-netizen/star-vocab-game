@@ -1,10 +1,11 @@
 /**
  * 云端词典存储接口 - Supabase实现
- * 
- * 提供云端词典的CRUD操作
+ *
+ * 提供云端词典的CRUD操作（支持词形还原）
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { lemmatizationService } from './lemmatizationService';
 
 // Supabase配置（从环境变量读取）
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
@@ -21,36 +22,49 @@ const TABLE_NAME = 'cloud_dictionary';
  */
 export class CloudDictionary {
     /**
-     * 获取单个词条
+     * 获取单个词条（支持词形还原）
      * @param {string} word - 单词
      * @param {string} [pos] - 词性（可选，用于精确匹配）
-     * @returns {Promise<CloudDictionaryEntry|null>} - 词条
+     * @param {boolean} [useLemmatization] - 是否使用词形还原（默认 true）
+     * @returns {Promise<Array>} - 词条数组（可能包含多个匹配）
      */
-    async get(word, pos = null) {
+    async get(word, pos = null, useLemmatization = true) {
         try {
+            const results = [];
+
+            // 1. 尝试直接查询 dictionary 表
             let query = supabase
-                .from(TABLE_NAME)
+                .from('dictionary')
                 .select('*')
-                .eq('word', word);
+                .ilike('word', word);
 
             if (pos) {
                 query = query.eq('pos', pos);
             }
 
-            const { data, error } = await query.single();
+            const { data: directData, error: directError } = await query;
 
-            if (error) {
-                if (error.code === 'PGRST116') {
-                    // 未找到记录
-                    return null;
-                }
-                throw error;
+            if (directError && directError.code !== 'PGRST116') {
+                console.error(`直接查询失败 (${word}):`, directError);
             }
 
-            return data ? this._deserialize(data) : null;
+            if (directData && directData.length > 0) {
+                results.push(...directData);
+            }
+
+            // 2. 如果启用词形还原且直接查询无结果，使用词形还原
+            if (useLemmatization && results.length === 0) {
+                const lemmaResults = await lemmatizationService.findLemma(word);
+                if (lemmaResults && lemmaResults.length > 0) {
+                    console.log(`[CloudDict] 词形还原: ${word} → 找到 ${lemmaResults.length} 个结果`);
+                    results.push(...lemmaResults);
+                }
+            }
+
+            return results;
         } catch (error) {
             console.error(`查询词条失败 (${word}):`, error);
-            throw error;
+            return [];
         }
     }
 

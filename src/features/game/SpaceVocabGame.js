@@ -9,6 +9,7 @@ import { detectReviewBacklog, activateClearanceMode, checkAndRestoreSettings } f
 
 import { CalendarModal } from '../../shared/components/ui/CalendarModal';
 import { GlassButton } from '../../shared/components/ui/GlassButton';
+import { migrateLocalStorage, needsMigration } from '../../utils/localStorageMigration';
 
 import { LEARNING_STEPS, MIN_EASE_FACTOR, MAX_PRIORITY_QUEUE_SIZE, MIN_DECK_SIZE, DEFAULT_WORDS } from '../../logic/constants';
 import { aiService } from '../../shared/services/ai/AIService';
@@ -69,6 +70,29 @@ export default function SpaceVocabGame() {
 
   // Track last synced cloud profile to prevent infinite loops
   const lastCloudSyncRef = useRef(null);
+
+  // Migrate local storage data on first load (Phase 4: Data Migration)
+  useEffect(() => {
+    // 只在组件挂载时执行一次
+    if (needsMigration()) {
+      console.log('🔄 Migrating local storage data...');
+      const result = migrateLocalStorage();
+
+      if (result.success) {
+        if (result.migrated) {
+          console.log(`✅ Migration completed: ${result.changedCount}/${result.wordCount} words updated`);
+          // 可选：显示迁移成功消息给用户
+          // setMessage(`数据已升级: ${result.changedCount} 个词条已更新`);
+        } else {
+          console.log('✅ Data already up-to-date');
+        }
+      } else {
+        console.error('❌ Migration failed:', result.errors);
+        // 可选：显示错误消息给用户
+        // setMessage(`数据迁移失败，请联系技术支持`);
+      }
+    }
+  }, []); // 空依赖数组，仅在组件挂载时执行一次
 
   // Set access token for AI Service
   useEffect(() => {
@@ -427,9 +451,11 @@ export default function SpaceVocabGame() {
         }
         return dataToReturn.sort((a, b) => a.de.localeCompare(b.de, 'de', { sensitivity: 'base' }));
       }
-      return DEFAULT_WORDS;
+      // Fix: Do NOT load DEFAULT_WORDS for authenticated users. 
+      // This prevents "phantom words" (demo data) from being treated as new user words and synced to cloud.
+      return []; 
     } catch {
-      return DEFAULT_WORDS;
+      return [];
     }
   });
 
@@ -983,7 +1009,7 @@ export default function SpaceVocabGame() {
           await updateCloudProfile({ totalXP: 0, level: 1, checkInDates: [], dailyStats: null, dailyPlan: null, settings: null });
         }
         localStorage.clear();
-        setGlobalWordDb(DEFAULT_WORDS);
+        setGlobalWordDb([]);
         setShowConfirmModal(false);
         setMessage('所有数据已重置为默认。');
         setTimeout(() => setMessage(null), 2000);
@@ -1031,7 +1057,7 @@ export default function SpaceVocabGame() {
 
   const resetDataSilent = () => {
     localStorage.clear();
-    setGlobalWordDb(DEFAULT_WORDS);
+    setGlobalWordDb([]);
     window.location.reload();
   };
 

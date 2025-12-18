@@ -14,6 +14,7 @@ import { generateGenderColors, getBrightestVariant, mixColors, withOpacity } fro
 import { genderToArticle } from '../../../utils/genderUtils';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
 import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
+import { localLemmatization } from '../../../utils/localLemmatization';
 
 // Main Library View Component
 export function LibraryView({
@@ -84,31 +85,68 @@ export function LibraryView({
   const [showCard, setShowCard] = useState(false);
   const [cardEntry, setCardEntry] = useState(null);
   const [dictSearchResults, setDictSearchResults] = useState([]);
+  const [searchLemma, setSearchLemma] = useState(null);
 
   // 搜索词典数据库
   useEffect(() => {
     if (!searchTerm || searchTerm.trim().length < 2) {
       setDictSearchResults([]);
+      setSearchLemma(null);
       return;
     }
 
     const searchDict = async () => {
       try {
         await localDictDB.initPromise;
-        const entries = await localDictDB.getEntriesByWord(searchTerm.trim().toLowerCase());
+        const normalizedTerm = searchTerm.trim().toLowerCase();
+        
+        // 1. 尝试获取原型 (Lemmatization)
+        let lemma = null;
+        try {
+            lemma = await localLemmatization.findLemma(searchTerm.trim());
+            // 如果原型和搜索词相同，或者找不到原型，则 lemma 为 null 或相同词
+            if (lemma && lemma.toLowerCase() === normalizedTerm) {
+                lemma = null;
+            }
+        } catch (err) {
+            console.warn('[LibraryView] Lemmatization failed:', err);
+        }
+        
+        setSearchLemma(lemma);
 
-        // 使用统一服务合并重复词条
-        const mergedEntry = unifiedDictService.mergeEntries(entries);
-
-        // 如果没有结果，或者是空数组
-        if (!mergedEntry) {
-          setDictSearchResults([]);
-          return;
+        // 2. 搜索数据库 (原词 + 原型)
+        const searchPromises = [localDictDB.getEntriesByWord(normalizedTerm)];
+        if (lemma) {
+            console.log(`[LibraryView] Searching for lemma: ${lemma} (original: ${searchTerm})`);
+            searchPromises.push(localDictDB.getEntriesByWord(lemma));
         }
 
-        // 将合并后的结果放入数组 (因为 UI 期望数组)
-        // 注意：mergeEntries 返回的是单个对象，所以包在数组里
-        const displayList = [mergedEntry];
+        const results = await Promise.all(searchPromises);
+        let entries = results[0] || []; // 原词结果
+        
+        // 如果有原型结果，合并进来
+        if (results[1] && results[1].length > 0) {
+            // 简单的去重合并 (基于 ID 或 word)
+            const existingIds = new Set(entries.map(e => e.id || e.word));
+            const newEntries = results[1].filter(e => !existingIds.has(e.id || e.word));
+            entries = [...entries, ...newEntries];
+        }
+
+        // 使用统一服务合并重复词条
+        // 简单处理：如果只有一个词（或合并后被视为一个），则合并
+        // 否则，按单词分组后分别合并
+        const groupedByWord = {};
+        entries.forEach(e => {
+            const key = (e.word || e.headword || '').toLowerCase();
+            if (!groupedByWord[key]) groupedByWord[key] = [];
+            groupedByWord[key].push(e);
+        });
+        
+        const displayList = [];
+        Object.values(groupedByWord).forEach(group => {
+             const merged = unifiedDictService.mergeEntries(group);
+             if (merged) displayList.push(merged);
+        });
 
         const convertedEntries = displayList
           .filter(e => e.has_chinese || e.translation || e.translation_cn) // 只显示有翻译的
@@ -150,7 +188,11 @@ export function LibraryView({
     const userWords = globalWordDb.filter(w => {
       if (!searchTerm) return true;
       const lower = searchTerm.toLowerCase();
-      return w.de.toLowerCase().includes(lower) || w.cn.toLowerCase().includes(lower);
+      // 匹配原词 OR 匹配原型 (如果存在)
+      const matchOriginal = w.de.toLowerCase().includes(lower) || w.cn.toLowerCase().includes(lower);
+      const matchLemma = searchLemma && w.de.toLowerCase().includes(searchLemma.toLowerCase());
+      
+      return matchOriginal || matchLemma;
     });
 
     // 2. 如果有搜索词，添加词典结果（排除已在用户词库中的）
@@ -164,7 +206,7 @@ export function LibraryView({
     }
 
     return userWords;
-  }, [globalWordDb, searchTerm, dictSearchResults]);
+  }, [globalWordDb, searchTerm, dictSearchResults, searchLemma]);
 
   // Focus Navigation Hook
   const {

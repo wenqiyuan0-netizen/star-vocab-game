@@ -1,32 +1,10 @@
 
 import { localDictDB } from './LocalDictionaryDB';
 import { aiService } from '../ai/AIService';
-
-// 模拟云端 API (实际开发中替换为真实的 fetch 调用)
-class MockCloudAPI {
-    async lookup(word) {
-        // 模拟延迟
-        await new Promise(r => setTimeout(r, 500));
-
-        // 模拟云端数据库中只有英文释义的情况
-        // 实际场景：fetch('https://api.starvocab.com/dict?w=' + word)
-        return {
-            found: true,
-            entry: {
-                id: word.toLowerCase(),
-                word: word,
-                definition_en: `(Cloud) English definition for ${word}...`,
-                pos: 'unknown',
-                has_chinese: false, // 标记：云端还没有中文
-                source: 'cloud'
-            }
-        };
-    }
-}
+import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
 
 class UnifiedDictionaryService {
     constructor() {
-        this.cloudAPI = new MockCloudAPI();
         this.isProcessingQueue = false;
     }
 
@@ -130,58 +108,64 @@ class UnifiedDictionaryService {
         }
 
         // 1. 查本地数据库 (使用 word_lower 索引)
+        // 这是用户个人的缓存或已添加的词
         try {
             const localEntries = await localDictDB.getEntriesByWord(normalizedWord);
             if (localEntries && localEntries.length > 0) {
-                console.log(`[Dict] Local hit for ${word} (${localEntries.length} entries found)`);
-
-                // 执行合并逻辑
-                const mergedEntry = this.mergeEntries(localEntries);
-                return mergedEntry;
+                console.log(`[Dict] Local DB hit for ${word} (${localEntries.length} entries found)`);
+                return this.mergeEntries(localEntries);
             }
         } catch (e) {
             console.error('[Dict] Local DB lookup failed:', e);
         }
 
-
-        // 2. 查云端 (Fallback)
-        console.log(`[Dict] Local miss for ${word}, querying cloud...`);
+        // 2. 查统一词典 (本地 Common + Cloud + Lemmatization)
+        console.log(`[Dict] Local DB miss for ${word}, querying Unified Dictionary...`);
         try {
-            const cloudResult = await this.cloudAPI.lookup(normalizedWord);
+            const result = await unifiedSearch.search(normalizedWord);
 
-            if (cloudResult && cloudResult.found) {
-                const entry = cloudResult.entry;
+            if (result.found && result.entries.length > 0) {
+                console.log(`[Dict] Unified Search hit: ${result.source}`);
 
-                // 3. 处理云端结果
-                if (entry.has_chinese) {
-                    // A. 云端已有中文 -> 完美，存入本地，返回
-                    await localDictDB.saveEntry(entry);
-                    return entry;
+                // 转换为 Service 期望的格式
+                const mappedEntry = {
+                    id: result.entries[0].w.toLowerCase(), // 使用原型ID
+                    word: result.entries[0].w,
+                    pos: result.entries[0].p || 'unknown',
+                    translation: result.entries[0].c ? result.entries[0].c.join('; ') : '',
+                    definition_en: result.entries[0].e ? result.entries[0].e.join('; ') : '',
+                    source: result.source,
+                    has_chinese: !!(result.entries[0].c && result.entries[0].c.length > 0),
+                    // 如果是变位查到的，记录原始词
+                    original_search: normalizedWord,
+                    is_lemma_result: result.searchMethod.includes('lemmatization'),
+                    lemmas: result.lemmas || []
+                };
+
+                // 3. 处理结果
+                if (mappedEntry.has_chinese) {
+                    // A. 有中文 -> 完美，存入本地 DB 缓存，返回
+                    // 注意：这里我们只存入缓存，不一定算作"用户已学习"
+                    // await localDictDB.saveEntry(mappedEntry); // 暂时不自动存，由用户点击添加时存
+                    return mappedEntry;
                 } else {
-                    // B. 云端只有英文 -> 
-                    //    a. 存入本地缓存（用户下次查能立刻看到英文）
-                    //    b. 加入待翻译队列
-                    //    c. 返回英文版给用户（秒回体验）
-
-                    console.log(`[Dict] Cloud returned English only. Queuing translation...`);
-
-                    // 标记来源
-                    entry.source = 'cloud_pending_translation';
-
-                    // 并行执行：存缓存 + 加队列
+                    // B. 只有英文 -> 加入翻译队列
+                    console.log(`[Dict] Result has English only. Queuing translation...`);
+                    
+                    mappedEntry.source = 'cloud_pending_translation';
+                    
+                    // 存入本地并加入队列
                     await Promise.all([
-                        localDictDB.saveEntry(entry),
-                        localDictDB.addToTranslationQueue(entry)
+                        localDictDB.saveEntry(mappedEntry),
+                        localDictDB.addToTranslationQueue(mappedEntry)
                     ]);
 
-                    // 触发后台翻译任务（不阻塞当前返回）
                     this.triggerBatchTranslation();
-
-                    return entry;
+                    return mappedEntry;
                 }
             }
         } catch (e) {
-            console.error('[Dict] Cloud lookup failed:', e);
+            console.error('[Dict] Unified lookup failed:', e);
         }
 
         return null;

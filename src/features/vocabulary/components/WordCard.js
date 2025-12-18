@@ -4,6 +4,7 @@ import { useTheme } from '../../../shared/hooks/useTheme';
 import { generateGenderColors, withOpacity, getContrastColorFromTheme, desaturate } from '../../../utils/colorUtils';
 import { aiService } from '../../../shared/services/ai/AIService';
 import { useSupabaseProfile } from '../../../shared/hooks/useSupabase/useSupabaseProfile';
+import { localLemmatization } from '../../../utils/localLemmatization';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -109,6 +110,12 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
   const [aiExample, setAiExample] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
+  
+  // Conjugation state
+  const [showConjugation, setShowConjugation] = useState(false);
+  const [conjugationData, setConjugationData] = useState(null);
+  const [loadingConjugation, setLoadingConjugation] = useState(false);
+
   const { profile } = useSupabaseProfile();
 
   const handleGenerateExample = async (e) => {
@@ -172,6 +179,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
   const pos = entry?.pos || entry?.partOfSpeech || w.pos;
   const plural = entry?.plural || entry?.pluralForm;
   const conjugations = entry?.conjugations || entry?.conjugation;
+  const isVerb = pos && (typeof pos === 'string') && (pos.toLowerCase().includes('verb') || pos.toLowerCase().startsWith('v.'));
 
   // Check for Goethe source
   const sources = entry?.sources || [];
@@ -183,6 +191,28 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
   // Pronunciation data
   const ipa = entry?.ipa || w.ipa;
   const audioUrl = entry?.audio_url || entry?.audioUrl || entry?.audio || w.audio_url || w.audioUrl || w.audio;
+
+  const handleShowConjugation = async (e) => {
+    e.stopPropagation();
+    if (showConjugation) {
+        setShowConjugation(false);
+        return;
+    }
+    
+    setShowConjugation(true);
+    if (!conjugationData && !loadingConjugation) {
+        setLoadingConjugation(true);
+        try {
+            // 使用 headword (原型) 查询
+            const data = await localLemmatization.getWordForms(headword);
+            setConjugationData(data);
+        } catch (error) {
+            console.error('Failed to load conjugations:', error);
+        } finally {
+            setLoadingConjugation(false);
+        }
+    }
+  };
 
   // Audio playback handler
   const playAudio = (e) => {
@@ -334,7 +364,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
         )}
 
         {/* Plural & Conjugation */}
-        {(plural || conjugations) && (
+        {(plural || conjugations || isVerb) && (
           <div
             className={`flex flex-col gap-3 ${isFocus ? 'py-3 px-4 rounded-xl' : 'py-2 px-3 rounded-lg'} border`}
             style={{
@@ -349,12 +379,55 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 <span className="font-mono text-sm" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.9) }}>{plural}</span>
               </div>
             )}
-            {conjugations && (
-              <div className="flex items-start gap-4">
-                <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">变位</span>
-                <span className="font-mono text-sm italic" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.8) }}>
-                  {typeof conjugations === 'string' ? conjugations : JSON.stringify(conjugations)}
-                </span>
+            
+            {(conjugations || isVerb) && (
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                        <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">变位</span>
+                        {!showConjugation && conjugations && (
+                             <span className="font-mono text-sm italic" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.8) }}>
+                                {typeof conjugations === 'string' ? conjugations : (Array.isArray(conjugations) ? conjugations.join(', ') : JSON.stringify(conjugations))}
+                             </span>
+                        )}
+                    </div>
+                    
+                    <button 
+                        onClick={handleShowConjugation}
+                        className="text-xs px-2 py-0.5 rounded border transition-all hover:scale-105 active:scale-95"
+                        style={{ 
+                            color: theme.primary,
+                            borderColor: withOpacity(theme.primary, 0.3),
+                            backgroundColor: withOpacity(theme.primary, 0.1)
+                        }}
+                    >
+                        {showConjugation ? '收起' : '查看变位表'}
+                    </button>
+                </div>
+
+                {showConjugation && (
+                    <div className="mt-2 w-full animate-fade-in">
+                        {loadingConjugation ? (
+                            <div className="text-sm opacity-70 py-2 flex items-center gap-2">
+                                <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.text }}></div>
+                                正在加载变位表...
+                            </div>
+                        ) : (conjugationData && conjugationData.length > 0) ? (
+                            <div className="grid grid-cols-2 gap-2 text-sm max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                                {conjugationData.map((item, idx) => (
+                                    <div key={idx} className="flex flex-col p-2 rounded" style={{ backgroundColor: withOpacity(theme.text, 0.05) }}>
+                                        <span className="font-bold font-serif">{item.form}</span>
+                                        <span className="text-[10px] opacity-70 leading-tight mt-0.5">{item.tags ? item.tags.join(', ') : ''}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm opacity-70 py-2 italic">
+                                {conjugationData ? '暂无详细变位信息' : '加载失败'}
+                            </div>
+                        )}
+                    </div>
+                )}
               </div>
             )}
           </div>

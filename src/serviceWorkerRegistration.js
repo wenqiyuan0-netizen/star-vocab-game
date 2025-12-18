@@ -1,136 +1,73 @@
-// This optional code is used to register a service worker.
-// register() is not called by default.
-
-const isLocalhost = Boolean(
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '[::1]' ||
-    window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
-);
+import { Workbox } from 'workbox-window';
 
 export function register(config) {
-    if ('serviceWorker' in navigator) {
-        const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
-        if (publicUrl.origin !== window.location.origin) {
-            return;
-        }
-
-        window.addEventListener('load', () => {
-            const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
-
-            if (isLocalhost) {
-                checkValidServiceWorker(swUrl, config);
-                navigator.serviceWorker.ready.then(() => {
-                    console.log(
-                        'This web app is being served cache-first by a service worker.'
-                    );
-                });
-            } else {
-                registerValidSW(swUrl, config);
-            }
-        });
+  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+    const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
+    if (publicUrl.origin !== window.location.origin) {
+      return;
     }
-}
 
-function registerValidSW(swUrl, config) {
-    navigator.serviceWorker
-        .register(swUrl)
-        .then((registration) => {
-            registration.onupdatefound = () => {
-                const installingWorker = registration.installing;
-                if (installingWorker == null) {
-                    return;
-                }
-                installingWorker.onstatechange = () => {
-                    if (installingWorker.state === 'installed') {
-                        if (navigator.serviceWorker.controller) {
-                            console.log(
-                                'New content is available and will be used when all tabs are closed.'
-                            );
-                            if (config && config.onUpdate) {
-                                config.onUpdate(registration);
-                            }
-                        } else {
-                            console.log('Content is cached for offline use.');
-                            if (config && config.onSuccess) {
-                                config.onSuccess(registration);
-                            }
-                        }
-                    }
-                };
-            };
-        })
-        .catch((error) => {
-            console.error('Error during service worker registration:', error);
-        });
-}
+    const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+    const wb = new Workbox(swUrl);
 
-function checkValidServiceWorker(swUrl, config) {
-    fetch(swUrl, {
-        headers: { 'Service-Worker': 'script' },
-    })
-        .then((response) => {
-            const contentType = response.headers.get('content-type');
-            if (
-                response.status === 404 ||
-                (contentType != null && contentType.indexOf('javascript') === -1)
-            ) {
-                navigator.serviceWorker.ready.then((registration) => {
-                    registration.unregister().then(() => {
-                        window.location.reload();
-                    });
-                });
-            } else {
-                registerValidSW(swUrl, config);
-            }
-        })
-        .catch(() => {
-            console.log('No internet connection found. App is running in offline mode.');
+    // 注册生命周期钩子
+    // 1. Waiting (Update found but waiting for control)
+    wb.addEventListener('waiting', (event) => {
+      console.log('New service worker waiting to activate');
+      if (config && config.onUpdate) {
+        // Pass the Workbox instance or registration to the callback
+        // The original CRA implementation passed the registration object
+        // Here we can pass an object that mimics it or just the wb instance if we adapt the consumer
+        // To keep compatibility with our index.js:
+        // config.onUpdate(registration) -> we need the registration object
+        // wb.messageSkipWaiting() handles the skip waiting
+        
+        // Let's get the underlying registration
+        wb.getSW().then(sw => {
+           // Wait, we need the registration, not the SW.
+           // wb.register() returns the registration, but this event might fire before register() resolves?
+           // No, usually after.
+           navigator.serviceWorker.getRegistration().then(registration => {
+               if (config.onUpdate && registration) {
+                   config.onUpdate(registration);
+               }
+           });
         });
+      }
+    });
+
+    // 2. Installed
+    wb.addEventListener('installed', (event) => {
+       if (!event.isUpdate) {
+           console.log('Service worker installed for the first time');
+           if (config && config.onSuccess) {
+               navigator.serviceWorker.getRegistration().then(registration => {
+                   if (registration) config.onSuccess(registration);
+               });
+           }
+       }
+    });
+
+    // 3. Controlling (Reload when new SW takes control)
+    wb.addEventListener('controlling', () => {
+       console.log('Service worker now controlling page, reloading...');
+       window.location.reload();
+    });
+
+    wb.register().catch(error => {
+       console.error('Error during service worker registration:', error);
+    });
+  }
 }
 
 export function unregister() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready
-            .then((registration) => {
-                registration.unregister();
-            })
-            .catch((error) => {
-                console.error(error.message);
-            });
-    }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then((registration) => {
+        registration.unregister();
+      })
+      .catch((error) => {
+        console.error(error.message);
+      });
+  }
 }
-
-// Dictionary cache utilities (for future use)
-export const dictionaryCache = {
-    async checkCache() {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            const messageChannel = new MessageChannel();
-            return new Promise((resolve) => {
-                messageChannel.port1.onmessage = (event) => {
-                    resolve(event.data.isCached);
-                };
-                navigator.serviceWorker.controller.postMessage(
-                    { type: 'CHECK_DICTIONARY_CACHE' },
-                    [messageChannel.port2]
-                );
-            });
-        }
-        return false;
-    },
-
-    async cacheNow() {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            const messageChannel = new MessageChannel();
-            return new Promise((resolve) => {
-                messageChannel.port1.onmessage = (event) => {
-                    resolve(event.data.success);
-                };
-                navigator.serviceWorker.controller.postMessage(
-                    { type: 'CACHE_DICTIONARY' },
-                    [messageChannel.port2]
-                );
-            });
-        }
-        return false;
-    }
-};

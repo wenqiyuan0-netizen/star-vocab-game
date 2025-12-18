@@ -9,7 +9,7 @@ import { dictionaryImporter } from './DictionaryImporter';
 
 const DICT_VERSION_KEY = 'star_vocab_dict_version';
 // Bump version to force re-import for new Goethe data
-const CURRENT_DICT_VERSION = '2.1.0';
+const CURRENT_DICT_VERSION = '2.2.0';
 
 /**
  * 删除旧的 IndexedDB 数据库（带重试）
@@ -142,10 +142,15 @@ export async function initializeDictionary(onProgress = () => { }) {
 
         // 1. 导入常用词典 (25000词)
         onProgress(10, "正在下载常用词典...");
-        const responseCommon = await fetch('/dict/common_2500.json');
-        if (!responseCommon.ok) throw new Error('Failed to fetch common dictionary');
+        let commonData;
+        try {
+            // 使用动态导入替代 fetch，直接从源码目录加载
+            const commonModule = await import('./dict/Common_Vocab_local.json');
+            commonData = commonModule.default || commonModule;
+        } catch (e) {
+            throw new Error('Failed to load common dictionary: ' + e.message);
+        }
 
-        const commonData = await responseCommon.json();
         onProgress(30, `正在导入常用词典 (${commonData.length} 条)...`);
 
         await dictionaryImporter.importCommonVocab(commonData);
@@ -154,16 +159,13 @@ export async function initializeDictionary(onProgress = () => { }) {
         // 2. 导入 Goethe 词典
         onProgress(65, "正在下载歌德词典...");
         try {
-            const responseGoethe = await fetch('/dict/goethe_a1_b1.json');
-            if (responseGoethe.ok) {
-                const goetheData = await responseGoethe.json();
-                onProgress(75, `正在导入歌德词典 (${goetheData.length} 条)...`);
-                // Use 'mixed' as level to indicate it contains multiple levels, 
-                // though adapter handles internal 'level' field anyway.
-                await dictionaryImporter.importGoetheVocab(goetheData, 'mixed');
-            } else {
-                console.warn('[DictInit] Goethe dictionary not found');
-            }
+            const goetheModule = await import('./dict/Goethe_A1-B1_Levels_Combined.json');
+            const goetheData = goetheModule.default || goetheModule;
+            
+            onProgress(75, `正在导入歌德词典 (${goetheData.length} 条)...`);
+            // Use 'mixed' as level to indicate it contains multiple levels, 
+            // though adapter handles internal 'level' field anyway.
+            await dictionaryImporter.importGoetheVocab(goetheData, 'mixed');
         } catch (e) {
             console.warn('[DictInit] Failed to load Goethe dictionary:', e);
         }

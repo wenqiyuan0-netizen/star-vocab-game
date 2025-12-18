@@ -45,8 +45,23 @@ export function AuthProvider({ children }) {
     return supabase.auth.signInWithPassword({ email, password })
   }
 
-  const signOut = () => {
-    return supabase.auth.signOut()
+  const signOut = async () => {
+    try {
+      // 1. Clear all app-specific local storage to prevent data leakage between accounts
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('space_vocab_') || key.startsWith('star_vocab_') || key === 'sb-access-token' || key === 'sb-refresh-token')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      // 2. Sign out from Supabase
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   }
 
   const value = {

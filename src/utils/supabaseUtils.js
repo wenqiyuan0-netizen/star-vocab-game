@@ -1,4 +1,5 @@
 import { normalizeGender } from './genderUtils';
+import { isStableId } from './idUtils';
 
 // Helper to convert between App word format and Supabase DB format
 
@@ -20,6 +21,7 @@ export const appWordToDbWord = (appWord, userId) => {
     de: appWord.de,
     cn: appWord.cn,
     gender: normalizeGender(appWord.gender) || null,
+    pos: appWord.pos || 'unknown', // 新增：词性字段
     state: appWord.state,
     step: appWord.step,
     interval: appWord.interval,
@@ -33,9 +35,12 @@ export const appWordToDbWord = (appWord, userId) => {
     local_updated_at: appWord.localUpdatedAt ? new Date(appWord.localUpdatedAt).toISOString() : new Date().toISOString()
   };
 
+  // 只接受 UUID（数据库使用 UUID 作为主键）
+  // 稳定 ID 只在本地使用，同步时通过 de_norm 匹配
   if (isValidUuid(appWord.id)) {
     dbWord.id = appWord.id;
   }
+  // 不写入 stable_id，让数据库自动生成 UUID
 
   return dbWord;
 };
@@ -46,6 +51,7 @@ export const dbWordToAppWord = (dbWord) => {
     de: dbWord.de,
     cn: dbWord.cn,
     gender: dbWord.gender,
+    pos: dbWord.pos || 'unknown', // 新增：词性字段
     state: dbWord.state,
     step: dbWord.step,
     interval: dbWord.interval,
