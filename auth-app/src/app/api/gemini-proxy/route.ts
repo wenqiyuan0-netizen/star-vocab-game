@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  // Default requirement: Level 5 to unlock AI
+  // Default requirement: Level 10 to unlock AI
   const REQUIRED_LEVEL = 10
   const currentLevel = profile?.level || 0
 

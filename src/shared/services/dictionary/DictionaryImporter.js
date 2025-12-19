@@ -29,18 +29,60 @@ class DictionaryImporter {
     }
 
     /**
+     * Helper to process entries in chunks to avoid blocking the main thread
+     * @param {Array} entries - All entries to save
+     * @param {Function} [onProgress] - Optional callback(percent)
+     * @param {number} [batchSize] - Size of each chunk
+     */
+    async _processInChunks(entries, onProgress, batchSize = 500) {
+        let savedTotal = 0;
+        let errorTotal = 0;
+        const total = entries.length;
+
+        for (let i = 0; i < total; i += batchSize) {
+            const chunk = entries.slice(i, i + batchSize);
+            
+            try {
+                const result = await localDictDB.bulkSaveEntries(chunk);
+                savedTotal += result.saved;
+                errorTotal += result.errors;
+            } catch (e) {
+                console.error(`[DictionaryImporter] Batch error at index ${i}:`, e);
+                errorTotal += chunk.length;
+            }
+
+            // Update internal progress state
+            const currentProcessed = Math.min(total, i + batchSize);
+            this.importProgress.processed = currentProcessed;
+            
+            // Report progress callback
+            if (onProgress) {
+                const percent = Math.round((currentProcessed / total) * 100);
+                onProgress(percent);
+            }
+
+            // Yield to main thread to prevent UI freezing
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        return { saved: savedTotal, errors: errorTotal };
+    }
+
+    /**
      * 导入常用词典 (2500词)
      * @param {Object[]} processedData - 预处理后的词典数据
+     * @param {Function} [onProgress] - Progress callback(percent)
      * @returns {Promise<{ success: number, errors: number }>}
      */
-    async importCommonVocab(processedData) {
+    async importCommonVocab(processedData, onProgress) {
         console.log(`[DictionaryImporter] Importing ${processedData.length} common vocab entries...`);
 
         this.importProgress = { total: processedData.length, processed: 0, errors: [] };
 
         const entries = processedData.map(item => this.convertProcessedEntry(item, SOURCE_IDS.WIKT_2500));
 
-        const result = await localDictDB.bulkSaveEntries(entries);
+        // Use chunked processing instead of single bulk save
+        const result = await this._processInChunks(entries, onProgress);
 
         console.log(`[DictionaryImporter] Common vocab import complete: ${result.saved} saved, ${result.errors} errors`);
         return result;
@@ -50,15 +92,17 @@ class DictionaryImporter {
      * 导入 Goethe 词汇表
      * @param {Object[]} goetheData - Goethe 词汇数据
      * @param {string} level - 等级 (A1, A2, B1, B2)
+     * @param {Function} [onProgress] - Progress callback(percent)
      * @returns {Promise<{ success: number, errors: number }>}
      */
-    async importGoetheVocab(goetheData, level = 'A1') {
+    async importGoetheVocab(goetheData, level = 'A1', onProgress) {
         console.log(`[DictionaryImporter] Importing ${goetheData.length} Goethe ${level} entries...`);
 
         const adapter = createGoetheAdapter(level);
         const entries = adapter.adaptBatch(goetheData);
 
-        const result = await localDictDB.bulkSaveEntries(entries);
+        // Use chunked processing
+        const result = await this._processInChunks(entries, onProgress);
 
         console.log(`[DictionaryImporter] Goethe ${level} import complete: ${result.saved} saved, ${result.errors} errors`);
         return result;

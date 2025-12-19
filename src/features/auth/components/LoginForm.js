@@ -255,9 +255,8 @@ export default function LoginForm() {
                 </div>
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-                星际词汇
+                不想背单词可恶！
               </h1>
-              <p className="text-sm text-slate-400 mt-1 font-medium tracking-widest uppercase">Star Vocab Game</p>
             </div>
 
             {/* Tabs */}

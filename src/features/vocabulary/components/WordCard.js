@@ -5,6 +5,7 @@ import { generateGenderColors, withOpacity, getContrastColorFromTheme, desaturat
 import { aiService } from '../../../shared/services/ai/AIService';
 import { useSupabaseProfile } from '../../../shared/hooks/useSupabase/useSupabaseProfile';
 import { localLemmatization } from '../../../utils/localLemmatization';
+import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -120,6 +121,16 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
 
   const handleGenerateExample = async (e) => {
     e.stopPropagation();
+    
+    // Check level requirement (Level 10)
+    const REQUIRED_LEVEL = 10;
+    const currentLevel = profile?.level || 0;
+    
+    if (currentLevel < REQUIRED_LEVEL) {
+        alert(`AI 造句功能需要达到 Lv.${REQUIRED_LEVEL} 才能解锁。\n您当前等级: Lv.${currentLevel}`);
+        return;
+    }
+
     setLoadingAi(true);
     setAiError(null);
     try {
@@ -130,6 +141,20 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
           translation: result.cn,
           source: 'ai_gen'
         });
+
+        // Save to local dictionary (independent examples store)
+        try {
+            await localDictDB.bulkSaveExamples([{
+                word: w.de,
+                sentence: result.de,
+                translation: result.cn,
+                source: 'ai_gen',
+                created_at: Date.now()
+            }]);
+            console.log('[WordCard] AI example saved to local dictionary');
+        } catch (saveErr) {
+            console.error('[WordCard] Failed to save AI example:', saveErr);
+        }
       }
     } catch (err) {
       console.error("AI Gen Error:", err);
@@ -287,7 +312,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                   className="text-xs px-2 py-0.5 rounded-full border font-medium tracking-wide"
                   style={{
                     backgroundColor: withOpacity(theme.accent, 0.3),
-                    color: theme.accent,
+                    color: `color-mix(in srgb, ${theme.accent}, #000000 80%)`,
                     borderColor: withOpacity(theme.accent, 0.5)
                   }}
                 >
@@ -301,7 +326,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                   className="text-xs px-2 py-0.5 rounded-full border font-medium tracking-wide"
                   style={{
                     backgroundColor: withOpacity(theme.accent, 0.3),
-                    color: theme.accent,
+                    color: `color-mix(in srgb, ${theme.accent}, #000000 80%)`,
                     borderColor: withOpacity(theme.accent, 0.5)
                   }}
                 >
@@ -396,7 +421,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                         onClick={handleShowConjugation}
                         className="text-xs px-2 py-0.5 rounded border transition-all hover:scale-105 active:scale-95"
                         style={{ 
-                            color: theme.primary,
+                            color: `color-mix(in srgb, ${theme.primary}, #000000 80%)`,
                             borderColor: withOpacity(theme.primary, 0.3),
                             backgroundColor: withOpacity(theme.primary, 0.1)
                         }}
@@ -441,14 +466,15 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
               {isFocus && (
                 <button
                   onClick={handleGenerateExample}
-                  disabled={loadingAi || (profile?.level || 0) < 5}
+                  disabled={loadingAi}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all ${loadingAi ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
                   style={{
-                    backgroundColor: (profile?.level || 0) < 5 ? withOpacity(theme.text, 0.1) : withOpacity(theme.accent, 0.15),
-                    color: (profile?.level || 0) < 5 ? withOpacity(theme.text, 0.4) : theme.accent,
-                    border: `1px solid ${(profile?.level || 0) < 5 ? 'transparent' : withOpacity(theme.accent, 0.3)}`
+                    backgroundColor: (profile?.level || 0) < 10 ? withOpacity(theme.text, 0.1) : withOpacity(theme.accent, 0.15),
+                    color: (profile?.level || 0) < 10 ? withOpacity(theme.text, 0.4) : theme.accent,
+                    border: `1px solid ${(profile?.level || 0) < 10 ? 'transparent' : withOpacity(theme.accent, 0.3)}`,
+                    cursor: (profile?.level || 0) < 10 ? 'not-allowed' : 'pointer'
                   }}
-                  title={(profile?.level || 0) < 5 ? "需要达到 Lv.5 解锁 AI 造句" : "AI 生成例句"}
+                  title={(profile?.level || 0) < 10 ? "需要达到 Lv.10 解锁 AI 造句" : "AI 生成例句"}
                 >
                   <Sparkles className="w-3 h-3" />
                   {loadingAi ? '生成中...' : 'AI 造句'}

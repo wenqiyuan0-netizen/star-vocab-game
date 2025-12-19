@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Rocket, BookOpen, Sparkles, Star } from 'lucide-react';
+import { Play, BookOpen, Sparkles, Library } from 'lucide-react';
 import BrandLogo from '../../../shared/components/ui/BrandLogo';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { GlassButton } from '../../../shared/components/ui/GlassButton';
@@ -50,9 +50,9 @@ export function HomeView({
         </div>
         <div className="text-center space-y-1">
           <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-lg" style={{ fontFamily: '"Exo 2", "Orbitron", sans-serif' }}>
-            Star Vocab
+            就爱背单词！
           </h1>
-          <p className="text-white/60 text-sm font-medium tracking-wide">探索 · 记忆 · 征服</p>
+          <p className="text-white/60 text-sm font-medium tracking-wide">探索 · 记忆 · 摆烂</p>
         </div>
       </div>
 
@@ -76,9 +76,9 @@ export function HomeView({
         </div>
       ) : (
         <div className="glass-panel p-6 rounded-2xl border-dashed border-slate-600 max-w-md text-center">
-          <Star className="w-10 h-10 mx-auto mb-3" style={{ color: theme.accent }} />
+          <Library className="w-10 h-10 mx-auto mb-3" style={{ color: theme.accent }} />
           <h3 className="text-lg font-semibold text-white mb-2">词库是空的</h3>
-          <p className="text-gray-400 text-sm mb-4">没有燃料，飞船无法起飞。去添加一些单词或导入文章吧！</p>
+          <p className="text-gray-400 text-sm mb-4">词库中没有单词，请先添加单词开始学习。</p>
           <GlassButton 
             onClick={onNavigateToLibrary}
             tone="secondary"
@@ -99,9 +99,9 @@ export function HomeView({
           tone="secondary"
           variant="homePrimary"
           className="rounded-full px-12 py-6 text-xl"
-          leadingIcon={Rocket}
+          leadingIcon={Play}
         >
-          START MISSION
+          START LEARNING
         </GlassButton>
       </div>
 

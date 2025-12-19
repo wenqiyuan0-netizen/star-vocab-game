@@ -113,7 +113,15 @@ class UnifiedDictionaryService {
             const localEntries = await localDictDB.getEntriesByWord(normalizedWord);
             if (localEntries && localEntries.length > 0) {
                 console.log(`[Dict] Local DB hit for ${word} (${localEntries.length} entries found)`);
-                return this.mergeEntries(localEntries);
+                const merged = this.mergeEntries(localEntries);
+                
+                // 注入独立存储的例句
+                const extraExamples = await localDictDB.getExamples(normalizedWord);
+                if (extraExamples && extraExamples.length > 0) {
+                    merged.examples = [...(merged.examples || []), ...extraExamples];
+                }
+                
+                return merged;
             }
         } catch (e) {
             console.error('[Dict] Local DB lookup failed:', e);
@@ -147,6 +155,13 @@ class UnifiedDictionaryService {
                     // A. 有中文 -> 完美，存入本地 DB 缓存，返回
                     // 注意：这里我们只存入缓存，不一定算作"用户已学习"
                     // await localDictDB.saveEntry(mappedEntry); // 暂时不自动存，由用户点击添加时存
+                    
+                    // 注入独立存储的例句
+                    const extraExamples = await localDictDB.getExamples(normalizedWord);
+                    if (extraExamples && extraExamples.length > 0) {
+                        mappedEntry.examples = [...(mappedEntry.examples || []), ...extraExamples];
+                    }
+                    
                     return mappedEntry;
                 } else {
                     // B. 只有英文 -> 加入翻译队列

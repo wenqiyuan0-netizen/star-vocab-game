@@ -1826,7 +1826,7 @@ export default function SpaceVocabGame() {
             <div className="overflow-y-auto flex-1 space-y-6 pr-1">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
                 <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2"><Info className="w-4 h-4" style={{ color: theme.primary }} />使用说明</h3>
-                <p className="mb-2">欢迎使用 Star Vocab Game 的手动存档功能...</p>
+                <p className="mb-2">欢迎使用手动存档功能...</p>
               </div>
               <div className="p-4 rounded-xl border" style={{ backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}33` }}>
                 <div className="text-xs font-bold mb-2 uppercase flex justify-between" style={{ color: theme.primary }}><span>导出进度</span></div>

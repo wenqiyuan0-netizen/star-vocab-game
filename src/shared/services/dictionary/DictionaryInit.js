@@ -153,7 +153,11 @@ export async function initializeDictionary(onProgress = () => { }) {
 
         onProgress(30, `正在导入常用词典 (${commonData.length} 条)...`);
 
-        await dictionaryImporter.importCommonVocab(commonData);
+        await dictionaryImporter.importCommonVocab(commonData, (percent) => {
+            // Map 0-100% to 30-60% global progress
+            const globalPercent = 30 + Math.round(percent * 0.3);
+            onProgress(globalPercent, `正在导入常用词典 (${percent}%)...`);
+        });
         onProgress(60, "常用词典导入完成");
 
         // 2. 导入 Goethe 词典
@@ -165,7 +169,11 @@ export async function initializeDictionary(onProgress = () => { }) {
             onProgress(75, `正在导入歌德词典 (${goetheData.length} 条)...`);
             // Use 'mixed' as level to indicate it contains multiple levels, 
             // though adapter handles internal 'level' field anyway.
-            await dictionaryImporter.importGoetheVocab(goetheData, 'mixed');
+            await dictionaryImporter.importGoetheVocab(goetheData, 'mixed', (percent) => {
+                // Map 0-100% to 75-95% global progress
+                const globalPercent = 75 + Math.round(percent * 0.2);
+                onProgress(globalPercent, `正在导入歌德词典 (${percent}%)...`);
+            });
         } catch (e) {
             console.warn('[DictInit] Failed to load Goethe dictionary:', e);
         }

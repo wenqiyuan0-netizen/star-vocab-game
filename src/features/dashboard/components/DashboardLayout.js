@@ -42,6 +42,48 @@ export function DashboardLayout(props) {
     profile: React.createRef()
   });
 
+  // Touch handling for swipe navigation
+  const touchStart = useRef(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    touchStart.current = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY
+    };
+  };
+
+  const onTouchEnd = (e) => {
+    if (!touchStart.current) return;
+
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY
+    };
+
+    const diffX = touchStart.current.x - touchEnd.x;
+    const diffY = touchStart.current.y - touchEnd.y;
+    const absDiffX = Math.abs(diffX);
+    const absDiffY = Math.abs(diffY);
+
+    if (absDiffX > minSwipeDistance && absDiffX > absDiffY) {
+      const currentIndex = TABS.indexOf(activeTab);
+      
+      if (diffX > 0) {
+        // Swiped Left -> Go Next
+        if (currentIndex < TABS.length - 1) {
+          handleTabChange(TABS[currentIndex + 1]);
+        }
+      } else {
+        // Swiped Right -> Go Prev
+        if (currentIndex > 0) {
+          handleTabChange(TABS[currentIndex - 1]);
+        }
+      }
+    }
+    touchStart.current = null;
+  };
+
   const TABS = ['home', 'today', 'library', 'profile'];
 
   // 预加载和解码所有壁纸
@@ -68,6 +110,10 @@ export function DashboardLayout(props) {
         window.dispatchEvent(new Event('wallpaper-changed'));
       }
 
+      // 设置当前壁纸 - 立即设置，避免加载延迟
+      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
+      setWallpaper(currentWallpaper);
+
       const wallpapersToPreload = [homeWall, sysWall].filter(Boolean);
 
       const preloaded = {};
@@ -83,10 +129,6 @@ export function DashboardLayout(props) {
       if (Object.keys(preloaded).length > 0) {
         setCachedWallpapers(prev => ({ ...prev, ...preloaded }));
       }
-
-      // 设置当前壁纸
-      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
-      setWallpaper(currentWallpaper);
     };
 
     loadAllWallpapers();
@@ -218,7 +260,11 @@ export function DashboardLayout(props) {
       }}
     >
       {/* 主内容区 - 所有视图同时存在，通过 opacity/transform 控制显示 */}
-      <div className="flex-1 overflow-hidden relative z-10">
+      <div 
+        className="flex-1 overflow-hidden relative z-10"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         {renderAllContent()}
       </div>
 
