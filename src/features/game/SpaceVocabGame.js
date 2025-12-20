@@ -1238,12 +1238,19 @@ export default function SpaceVocabGame() {
       ctx.restore();
     }
 
-    const adjustedSpawnRate = settingsRef.current.spawnRate / Math.max(0.1, settingsRef.current.speed);
+    const baseSpawnRate = settingsRef.current.spawnRate / Math.max(0.1, settingsRef.current.speed);
     // 修复：增加最大同屏数量检查
     const maxOnScreen = settingsRef.current.maxOnScreen || 10;
-    const canSpawn = fragmentsRef.current.length < maxOnScreen;
+    const currentCount = fragmentsRef.current.length;
+    const canSpawn = currentCount < maxOnScreen;
 
-    if (!isPaused && (lastSpawnTimeRef.current === 0 || time - lastSpawnTimeRef.current > adjustedSpawnRate)) {
+    // 动态调整生成速率：屏幕越空，生成越快 (解决“后期越来越低”的问题)
+    // fillRatio: 0 (empty) -> 1 (full)
+    const fillRatio = Math.max(0, Math.min(1, currentCount / maxOnScreen));
+    // dynamicSpawnRate: 30% of base rate (when empty) -> 100% (when full)
+    const dynamicSpawnRate = baseSpawnRate * (0.3 + 0.7 * fillRatio);
+
+    if (!isPaused && (lastSpawnTimeRef.current === 0 || time - lastSpawnTimeRef.current > dynamicSpawnRate)) {
       if (canSpawn) {
         spawnFragment(width, height);
       }
