@@ -483,7 +483,7 @@ export function LibraryView({
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="搜索单词..."
-            className="w-full glass-button bg-black/40 cursor-text rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2"
+            className="w-full glass-input bg-black/40 cursor-text rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2 transition-colors duration-200"
             style={{ '--tw-ring-color': theme.primary, borderColor: searchTerm ? theme.primary : undefined }}
             name="librarySearch"
             autoComplete="off"

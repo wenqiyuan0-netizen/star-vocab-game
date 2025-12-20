@@ -27,9 +27,12 @@ import { DeckGenerator } from '../learning/services/DeckGenerator';
 import { useTheme } from '../../shared/hooks/useTheme';
 import { getLocalDateString, calculateStreakFromDates } from '../../utils/dateUtils';
 import { Dashboard } from '../dashboard/components/Dashboard';
+import { GameModeSelection } from './GameModeSelection';
+import { ListeningGame } from '../listening/ListeningGame';
 import { useSupabaseData } from '../../shared/hooks/useSupabase/useSupabaseData';
 import { useSupabaseProfile } from '../../shared/hooks/useSupabase/useSupabaseProfile';
 import { useAuth } from '../auth/contexts/AuthContext';
+import Matter from 'matter-js';
 
 // CustomModal (保持 V1 原样)
 const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
@@ -118,6 +121,7 @@ export default function SpaceVocabGame() {
       console.error("Cloud Sync Error:", cloudError);
       // Show error to user so they know why sync isn't working
       setMessage(`同步失败: ${cloudError}`);
+      setTimeout(() => setMessage(null), 5000);
     }
   }, [cloudError]);
 
@@ -141,6 +145,12 @@ export default function SpaceVocabGame() {
   const shakeIntensityRef = useRef(0);
   const layoutRef = useRef({ uiScale: 1, isPortrait: false });
   const isPausedRef = useRef(false);
+  
+  const engineRef = useRef(Matter.Engine.create({ 
+    gravity: { x: 0, y: 0 },
+    positionIterations: 6, 
+    velocityIterations: 4,  
+  }));
 
   const cloudMergeRef = useRef(false);
   const lastSyncedSettingsRef = useRef(null);
@@ -356,8 +366,9 @@ export default function SpaceVocabGame() {
   }, []);
 
   const saveUserProfile = (newXP = 0, newCheckIn = false) => {
-    const oldLevel = userProfileRef.current.level;
-    const currentTotalXP = userProfileRef.current.totalXP + newXP;
+    const oldLevel = userProfileRef.current.level || 1;
+    const safeNewXP = Math.max(0, Number(newXP) || 0);
+    const currentTotalXP = (Number(userProfileRef.current.totalXP) || 0) + safeNewXP;
     const newLevel = calculateLevel(currentTotalXP);
 
     let { checkInDates, streak } = userProfileRef.current;
@@ -394,9 +405,23 @@ export default function SpaceVocabGame() {
       dailyPlan: currentDailyPlan
     });
 
-    if (newLevel > oldLevel) {
-      setMessage(`升级了！达到 Lv.${newLevel}！`);
-      soundManager.playVictory();
+    // 只有在获得 XP 时才显示提示，避免 check-in 时重复显示
+    if (safeNewXP > 0) {
+      // 如果同时升级，优先显示升级信息
+      if (newLevel > oldLevel) {
+        setMessage(`升级了！达到 Lv.${newLevel}！ (+${safeNewXP} XP)`);
+        setTimeout(() => setMessage(null), 3000);
+        soundManager.playVictory();
+      } else {
+        // 可选：显示获得 XP 的提示
+        // setMessage(`+${safeNewXP} XP`);
+        // setTimeout(() => setMessage(null), 1500);
+      }
+    } else if (newLevel > oldLevel) {
+       // 防御性检查：即使没有新XP（罕见），如果计算导致升级也提示
+       setMessage(`升级了！达到 Lv.${newLevel}！`);
+       setTimeout(() => setMessage(null), 3000);
+       soundManager.playVictory();
     }
   };
 
@@ -418,6 +443,7 @@ export default function SpaceVocabGame() {
   const [importString, setImportString] = useState('');
   const [wallpaper, setWallpaper] = useState(null);
 
+  const [showModeSelection, setShowModeSelection] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState('');
@@ -743,10 +769,13 @@ export default function SpaceVocabGame() {
 
     if (Object.prototype.hasOwnProperty.call(finalSettings, 'difficulty')) {
       const d = Math.max(1, Math.min(10, parseInt(finalSettings.difficulty)));
-      // Adjusted formula: Higher initial speed (1.2), Lower density (2), Slower spawn (3000ms)
-      const speed = parseFloat((1.2 + (d - 1) * (1.8 / 9)).toFixed(1));
-      const maxOnScreen = Math.round(2 + (d - 1) * (8 / 9));
-      const spawnRate = Math.round(3000 - (d - 1) * (2000 / 9));
+      // Adjusted formula: Higher density requested
+      // speed: 0.8 (d=1) -> 2.0 (d=10). Slower overall.
+      const speed = parseFloat((0.8 + (d - 1) * (1.2 / 9)).toFixed(1));
+      // maxOnScreen: 5 (d=1) -> 23 (d=10). Increased density slope.
+      const maxOnScreen = Math.round(5 + (d - 1) * 2);
+      // spawnRate: 2200 (d=1) -> 800 (d=10)
+      const spawnRate = Math.round(2200 - (d - 1) * (1400 / 9));
       settingsRef.current = { ...settingsRef.current, ...finalSettings, difficulty: d, speed, maxOnScreen, spawnRate };
     } else {
       settingsRef.current = { ...settingsRef.current, ...finalSettings };
@@ -1050,6 +1079,7 @@ export default function SpaceVocabGame() {
       } catch (err) {
         console.error(err);
         setMessage('注销失败: ' + err.message);
+        setTimeout(() => setMessage(null), 3000);
       }
     });
     setShowConfirmModal(true);
@@ -1097,7 +1127,9 @@ export default function SpaceVocabGame() {
       if (realIndex > -1) gameDeckRef.current.splice(realIndex, 1);
     }
 
-    const spawnData = calculateSpawnPair(width, height, fragmentsRef.current);
+    // 修复：传入难度滑块设置的速度
+    const baseSpeed = settingsRef.current.speed || 0.35;
+    const spawnData = calculateSpawnPair(width, height, fragmentsRef.current, baseSpeed);
     const pairId = Date.now() + Math.random();
 
     // 修复：构建带冠词的德语显示文本
@@ -1112,11 +1144,11 @@ export default function SpaceVocabGame() {
     const article = genderToArticle(wordData.gender);
     const displayDe = article ? `${article} ${wordData.de}` : wordData.de;
 
-    const f1 = new StarFragment(spawnData.de.x, spawnData.de.y, displayDe, 'de', wordData, pairId, () => layoutRef.current.uiScale);
+    const f1 = new StarFragment(spawnData.de.x, spawnData.de.y, displayDe, 'de', wordData, pairId, () => layoutRef.current.uiScale, engineRef.current.world);
     f1.vx = spawnData.de.vx;
     f1.vy = spawnData.de.vy;
 
-    const f2 = new StarFragment(spawnData.cn.x, spawnData.cn.y, wordData.cn, 'cn', wordData, pairId, () => layoutRef.current.uiScale);
+    const f2 = new StarFragment(spawnData.cn.x, spawnData.cn.y, wordData.cn, 'cn', wordData, pairId, () => layoutRef.current.uiScale, engineRef.current.world);
     f2.vx = spawnData.cn.vx;
     f2.vy = spawnData.cn.vy;
 
@@ -1207,8 +1239,14 @@ export default function SpaceVocabGame() {
     }
 
     const adjustedSpawnRate = settingsRef.current.spawnRate / Math.max(0.1, settingsRef.current.speed);
+    // 修复：增加最大同屏数量检查
+    const maxOnScreen = settingsRef.current.maxOnScreen || 10;
+    const canSpawn = fragmentsRef.current.length < maxOnScreen;
+
     if (!isPaused && (lastSpawnTimeRef.current === 0 || time - lastSpawnTimeRef.current > adjustedSpawnRate)) {
-      spawnFragment(width, height);
+      if (canSpawn) {
+        spawnFragment(width, height);
+      }
       lastSpawnTimeRef.current = time;
     }
 
@@ -1235,6 +1273,43 @@ export default function SpaceVocabGame() {
       ctx.fillStyle = "rgba(235, 238, 240, 0.30)";
       ctx.fillText("Speed Up!", 0, 40);
       ctx.restore();
+    }
+
+    if (!isPaused) {
+      // 物理引擎更新前：施加方块间斥力 (防止堆叠黏连)
+      const frags = fragmentsRef.current;
+      const repulsionRange = 180 * uiScale; // 斥力作用范围
+      const repulsionRangeSq = repulsionRange * repulsionRange;
+      const forceStrength = 0.005 * uiScale; // 基础斥力强度
+
+      for (let i = 0; i < frags.length; i++) {
+        for (let j = i + 1; j < frags.length; j++) {
+          const b1 = frags[i].body;
+          const b2 = frags[j].body;
+          if (!b1 || !b2) continue;
+
+          const dx = b1.position.x - b2.position.x;
+          const dy = b1.position.y - b2.position.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq > 0 && distSq < repulsionRangeSq) {
+            const dist = Math.sqrt(distSq);
+            // 使用平方衰减 (1 - d/r)^2，距离越近斥力越大
+            const intensity = Math.pow(1 - dist / repulsionRange, 2);
+            const force = forceStrength * intensity;
+
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+
+            // 施加反向力
+            Matter.Body.applyForce(b1, b1.position, { x: fx, y: fy });
+            Matter.Body.applyForce(b2, b2.position, { x: -fx, y: -fy });
+          }
+        }
+      }
+
+      // 物理引擎更新
+      Matter.Engine.update(engineRef.current, effectiveDt);
     }
 
     fragmentsRef.current.forEach(f => {
@@ -1276,55 +1351,7 @@ export default function SpaceVocabGame() {
       }
     });
 
-    if (!isPaused) {
-      // ... 物理碰撞逻辑 (原封不动) ...
-      for (let i = 0; i < fragmentsRef.current.length; i++) {
-        for (let j = i + 1; j < fragmentsRef.current.length; j++) {
-          const a = fragmentsRef.current[i];
-          const b = fragmentsRef.current[j];
-          if (a.isMatched || b.isMatched || a.markedForDeletion || b.markedForDeletion) continue;
-          let dx = b.x - a.x;
-          let dy = b.y - a.y;
-          let dist = Math.hypot(dx, dy);
-          if (dist === 0) { dx = 0.0001; dy = 0; dist = 0.0001; }
-          const nx = dx / dist;
-          const ny = dy / dist;
-          const rxA = a.width * 0.5;
-          const ryA = a.height * 0.5;
-          const rxB = b.width * 0.5;
-          const ryB = b.height * 0.5;
-          const denomA = (nx * nx) / (rxA * rxA) + (ny * ny) / (ryA * ryA);
-          const denomB = (nx * nx) / (rxB * rxB) + (ny * ny) / (ryB * ryB);
-          if (denomA <= 0 || denomB <= 0) continue;
-          let effRadiusA = 1 / Math.sqrt(denomA);
-          let effRadiusB = 1 / Math.sqrt(denomB);
-          const enlargeFactor = 1.12;
-          effRadiusA *= enlargeFactor;
-          effRadiusB *= enlargeFactor;
-          const minDist = effRadiusA + effRadiusB;
-          if (dist >= minDist) continue;
-          const overlap = minDist - dist;
-          const pushX = nx * overlap * 0.5;
-          const pushY = ny * overlap * 0.5;
-          a.x -= pushX; a.y -= pushY;
-          b.x += pushX; b.y += pushY;
-          const dvx = b.vx - a.vx;
-          const dvy = b.vy - a.vy;
-          const velAlongNormal = dvx * nx + dvy * ny;
-          if (velAlongNormal > 0) continue;
-          const restitution = 0.9;
-          let jVal = -(1 + restitution) * velAlongNormal;
-          jVal /= 2;
-          const impulseX = jVal * nx;
-          const impulseY = jVal * ny;
-          a.vx -= impulseX; a.vy -= impulseY;
-          b.vx += impulseX; b.vy += impulseY;
-          const jitter = 0.02;
-          a.vx += (Math.random() - 0.5) * jitter; a.vy += (Math.random() - 0.5) * jitter;
-          b.vx += (Math.random() - 0.5) * jitter; b.vy += (Math.random() - 0.5) * jitter;
-        }
-      }
-    }
+
 
     particlesRef.current.forEach(p => { p.update(effectiveDt); p.draw(ctx); });
     if (particlesRef.current.length > 50) particlesRef.current.splice(0, particlesRef.current.length - 50);
@@ -1357,7 +1384,11 @@ export default function SpaceVocabGame() {
           gameStatusRef.current = 'win';
           setGameState('win');
           soundManager.playVictory();
-          saveUserProfile(scoreRef.current);
+          // 通关额外奖励：基础分 500 + 剩余生命值 * 200
+          const winBonus = 500 + (livesRef.current * 200);
+          const totalScore = scoreRef.current + winBonus;
+          setUiScore(totalScore); // 更新 UI 显示总分
+          saveUserProfile(totalScore);
           clearGameSession();
         }
       }, 500);
@@ -1451,9 +1482,9 @@ export default function SpaceVocabGame() {
     } else if (dailyStatsRef.current.isCheckedIn) {
       let bonusGain = 1;
       const extraCount = currentProgress - todayGoal;
-      if (extraCount === 5) { bonusGain += 10; setMessage("超额完成 5 词！获得额外奖励！"); soundManager.playVictory(); }
-      else if (extraCount === 15) { bonusGain += 30; setMessage("超额完成 15 词！奖励翻倍！"); soundManager.playVictory(); }
-      else if (extraCount === 30) { bonusGain += 100; setMessage("超额完成 30 词！太强了！"); soundManager.playVictory(); }
+      if (extraCount === 5) { bonusGain += 10; setMessage("超额完成 5 词！获得额外奖励！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
+      else if (extraCount === 15) { bonusGain += 30; setMessage("超额完成 15 词！奖励翻倍！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
+      else if (extraCount === 30) { bonusGain += 100; setMessage("超额完成 30 词！太强了！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
       dailyStatsRef.current.bonusXP = (dailyStatsRef.current.bonusXP || 0) + bonusGain;
       saveUserProfile(bonusGain);
     }
@@ -1665,6 +1696,29 @@ export default function SpaceVocabGame() {
     _startGameLogic();
   };
 
+  const handleStartGameRequest = () => {
+    setShowModeSelection(true);
+  };
+
+  const handleModeSelect = (mode) => {
+    setShowModeSelection(false);
+    if (mode === 'falling') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
+        const today = new Date().toDateString();
+        if (saved && saved.date === today) {
+           showResumeDialog();
+        } else {
+           startGame();
+        }
+      } catch (e) {
+        startGame();
+      }
+    } else if (mode === 'listening') {
+      setGameState('listening');
+    }
+  };
+
   const handleDeleteWord = (id) => {
     setConfirmMessage('确定要从词库中删除此单词吗？');
     setConfirmAction(() => () => {
@@ -1807,7 +1861,12 @@ export default function SpaceVocabGame() {
             <p className="text-slate-500 mb-6 text-sm">是否保存当前进度？<br /><span className="text-xs text-slate-400">保存后可于今日内继续挑战 (24:00 失效)</span></p>
             <div className="space-y-3">
               <button onClick={() => { saveGameSession(); setShowExitModal(false); setGameState('dashboard'); }} className="w-full py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" style={{ backgroundColor: theme.primary }}><Save className="w-4 h-4" />退出并存档</button>
-              <button onClick={() => { clearGameSession(); setShowExitModal(false); setGameState('dashboard'); }} className="w-full py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">直接退出</button>
+              <button onClick={() => { 
+                saveUserProfile(scoreRef.current); // 直接退出也保存分数
+                clearGameSession(); 
+                setShowExitModal(false); 
+                setGameState('dashboard'); 
+              }} className="w-full py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">直接退出 (结算积分)</button>
               <button onClick={() => { setShowExitModal(false); isPausedRef.current = false; }} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600">取消</button>
             </div>
           </div>
@@ -1815,6 +1874,22 @@ export default function SpaceVocabGame() {
       )}
 
       <CalendarModal isOpen={showCheckInModal} onClose={() => { setShowCheckInModal(false); isPausedRef.current = false; }} todayCompleted={true} checkInDates={userProfileRef.current?.checkInDates || []} />
+
+      {showModeSelection && (
+        <GameModeSelection 
+          onSelectMode={handleModeSelect} 
+          onBack={() => setShowModeSelection(false)} 
+        />
+      )}
+
+      {gameState === 'listening' && (
+        <div className="absolute inset-0 z-50 bg-slate-900">
+           <ListeningGame 
+              onExit={() => setGameState('dashboard')} 
+              globalWordDb={globalWordDb}
+           />
+        </div>
+      )}
 
       {showSaveModal && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[999] flex items-end justify-center sm:items-center p-4">
@@ -1848,7 +1923,7 @@ export default function SpaceVocabGame() {
         </div>
       )}
 
-      {(gameState === 'menu' || gameState === 'dashboard') && (
+      {(gameState === 'menu' || gameState === 'dashboard') && !showModeSelection && (
         <Dashboard
           globalWordDb={globalWordDb}
           customInput={customInput}
@@ -1870,15 +1945,7 @@ export default function SpaceVocabGame() {
           examplesById={examplesById}
           handleDeleteWord={handleDeleteWord}
           handleResetWord={handleResetWord}
-          onStartGame={() => {
-            try {
-              const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
-              const today = new Date().toDateString();
-              if (saved && saved.date === today) { showResumeDialog(); } else { startGame(); }
-            } catch (e) {
-              startGame();
-            }
-          }}
+          onStartGame={handleStartGameRequest}
           showSettingsOverlay={showSettingsOverlay}
           setShowSettingsOverlay={setShowSettingsOverlay}
           isPausedRef={isPausedRef}

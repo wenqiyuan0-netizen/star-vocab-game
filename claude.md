@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-**Star Vocab Game (星际词汇大作战)** 是一款结合街机射击玩法与间隔重复系统 (SRS) 的德语学习应用。采用 React 19 + Supabase + Electron 技术栈，支持本地离线使用和云端同步。
+**Vocab Master (德语词汇大师)** 是一款结合游戏化玩法与间隔重复系统 (SRS) 的德语学习应用。采用 React 19 + Supabase + Electron 技术栈，支持本地离线使用和云端同步。
 
 ### 技术栈
 - **前端**: React 19, Tailwind CSS, Canvas API
