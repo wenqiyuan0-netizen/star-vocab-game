@@ -145,11 +145,11 @@ export default function SpaceVocabGame() {
   const shakeIntensityRef = useRef(0);
   const layoutRef = useRef({ uiScale: 1, isPortrait: false });
   const isPausedRef = useRef(false);
-  
-  const engineRef = useRef(Matter.Engine.create({ 
+
+  const engineRef = useRef(Matter.Engine.create({
     gravity: { x: 0, y: 0 },
-    positionIterations: 6, 
-    velocityIterations: 4,  
+    positionIterations: 6,
+    velocityIterations: 4,
   }));
 
   const cloudMergeRef = useRef(false);
@@ -165,7 +165,6 @@ export default function SpaceVocabGame() {
     ttsMode: 'none',
     speakDe: true,
     speakCn: false,
-    apiKey: '',
     dailyNewLimit: 5,      // V2 新增
     dailyReviewLimit: 10,  // V2 新增
     reviewRetention: 0.90, // FSRS Target Retention (User Configurable)
@@ -346,9 +345,15 @@ export default function SpaceVocabGame() {
       }
       const savedProfile = JSON.parse(localStorage.getItem('space_vocab_user_profile'));
       if (savedProfile) {
+        // Use the saved level, but validate it matches the XP
+        // Sometimes the level gets out of sync - use the MAXIMUM of saved vs calculated
+        const savedLevel = savedProfile.level || 1;
+        const calculatedLevel = calculateLevel(savedProfile.totalXP || 0);
+        const correctLevel = Math.max(savedLevel, calculatedLevel);
+
         userProfileRef.current = {
           totalXP: savedProfile.totalXP || 0,
-          level: calculateLevel(savedProfile.totalXP || 0),
+          level: correctLevel,
           checkInDates: Array.isArray(savedProfile.checkInDates) ? savedProfile.checkInDates : [],
           streak: savedProfile.streak || 0
         };
@@ -418,10 +423,10 @@ export default function SpaceVocabGame() {
         // setTimeout(() => setMessage(null), 1500);
       }
     } else if (newLevel > oldLevel) {
-       // 防御性检查：即使没有新XP（罕见），如果计算导致升级也提示
-       setMessage(`升级了！达到 Lv.${newLevel}！`);
-       setTimeout(() => setMessage(null), 3000);
-       soundManager.playVictory();
+      // 防御性检查：即使没有新XP（罕见），如果计算导致升级也提示
+      setMessage(`升级了！达到 Lv.${newLevel}！`);
+      setTimeout(() => setMessage(null), 3000);
+      soundManager.playVictory();
     }
   };
 
@@ -479,7 +484,7 @@ export default function SpaceVocabGame() {
       }
       // Fix: Do NOT load DEFAULT_WORDS for authenticated users. 
       // This prevents "phantom words" (demo data) from being treated as new user words and synced to cloud.
-      return []; 
+      return [];
     } catch {
       return [];
     }
@@ -1175,7 +1180,7 @@ export default function SpaceVocabGame() {
 
     const baseW = 390; const baseH = 844;
     const isPortrait = height >= width;
-    
+
     // 修复：横屏模式下使用不同的基准尺寸计算 uiScale，并整体放大 2.5 倍
     let uiScale;
     if (isPortrait) {
@@ -1183,13 +1188,13 @@ export default function SpaceVocabGame() {
       uiScale = Math.min(scaleX, scaleY, 1.7);
     } else {
 
-      const landscapeBaseH = 390; 
+      const landscapeBaseH = 390;
 
-      uiScale = (height / landscapeBaseH) * 1.0; 
+      uiScale = (height / landscapeBaseH) * 1.0;
 
-      uiScale = Math.min(uiScale, 1.5); 
+      uiScale = Math.min(uiScale, 1.5);
     }
-    
+
     layoutRef.current = { uiScale, isPortrait };
 
     if (!lastFrameTimeRef.current) lastFrameTimeRef.current = time;
@@ -1556,7 +1561,7 @@ export default function SpaceVocabGame() {
       const realWidth = f.width * s;
       const realHeight = f.height * s;
 
-      const halfW = realWidth / 2 + TOUCH_SLOP; 
+      const halfW = realWidth / 2 + TOUCH_SLOP;
       const halfH = realHeight / 2 + TOUCH_SLOP;
       if (x > f.x - halfW && x < f.x + halfW && y > f.y - halfH && y < f.y + halfH) { clickedFrag = f; break; }
     }
@@ -1714,9 +1719,9 @@ export default function SpaceVocabGame() {
         const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
         const today = new Date().toDateString();
         if (saved && saved.date === today) {
-           showResumeDialog();
+          showResumeDialog();
         } else {
-           startGame();
+          startGame();
         }
       } catch (e) {
         startGame();
@@ -1868,11 +1873,11 @@ export default function SpaceVocabGame() {
             <p className="text-slate-500 mb-6 text-sm">是否保存当前进度？<br /><span className="text-xs text-slate-400">保存后可于今日内继续挑战 (24:00 失效)</span></p>
             <div className="space-y-3">
               <button onClick={() => { saveGameSession(); setShowExitModal(false); setGameState('dashboard'); }} className="w-full py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" style={{ backgroundColor: theme.primary }}><Save className="w-4 h-4" />退出并存档</button>
-              <button onClick={() => { 
+              <button onClick={() => {
                 saveUserProfile(scoreRef.current); // 直接退出也保存分数
-                clearGameSession(); 
-                setShowExitModal(false); 
-                setGameState('dashboard'); 
+                clearGameSession();
+                setShowExitModal(false);
+                setGameState('dashboard');
               }} className="w-full py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">直接退出 (结算积分)</button>
               <button onClick={() => { setShowExitModal(false); isPausedRef.current = false; }} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600">取消</button>
             </div>
@@ -1883,18 +1888,18 @@ export default function SpaceVocabGame() {
       <CalendarModal isOpen={showCheckInModal} onClose={() => { setShowCheckInModal(false); isPausedRef.current = false; }} todayCompleted={true} checkInDates={userProfileRef.current?.checkInDates || []} />
 
       {showModeSelection && (
-        <GameModeSelection 
-          onSelectMode={handleModeSelect} 
-          onBack={() => setShowModeSelection(false)} 
+        <GameModeSelection
+          onSelectMode={handleModeSelect}
+          onBack={() => setShowModeSelection(false)}
         />
       )}
 
       {gameState === 'listening' && (
         <div className="absolute inset-0 z-50 bg-slate-900">
-           <ListeningGame 
-              onExit={() => setGameState('dashboard')} 
-              globalWordDb={globalWordDb}
-           />
+          <ListeningGame
+            onExit={() => setGameState('dashboard')}
+            globalWordDb={globalWordDb}
+          />
         </div>
       )}
 

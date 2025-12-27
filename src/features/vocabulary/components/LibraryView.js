@@ -308,13 +308,6 @@ export function LibraryView({
         return;
       }
 
-      // Check for API key
-      const hasApiKey = aiService.apiKey && aiService.apiKey.trim();
-      if (!hasApiKey) {
-        setAiError('请在【我的】页面开启AI助手并填入API Key');
-        return;
-      }
-
       const raw = await aiService.generateVocabularyFromArticle(source, recent);
       if (!raw) {
         setAiError('生成失败');

@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Minimize2, Sparkles, Volume2 } from 'lucide-
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { generateGenderColors, withOpacity, getContrastColorFromTheme, desaturate } from '../../../utils/colorUtils';
 import { aiService } from '../../../shared/services/ai/AIService';
-import { useSupabaseProfile } from '../../../shared/hooks/useSupabase/useSupabaseProfile';
 import { localLemmatization } from '../../../utils/localLemmatization';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
 
@@ -111,25 +110,18 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
   const [aiExample, setAiExample] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
-  
+
   // Conjugation state
   const [showConjugation, setShowConjugation] = useState(false);
   const [conjugationData, setConjugationData] = useState(null);
   const [loadingConjugation, setLoadingConjugation] = useState(false);
 
-  const { profile } = useSupabaseProfile();
 
   const handleGenerateExample = async (e) => {
     e.stopPropagation();
-    
-    // Check level requirement (Level 10)
-    const REQUIRED_LEVEL = 10;
-    const currentLevel = profile?.level || 0;
-    
-    if (currentLevel < REQUIRED_LEVEL) {
-        alert(`AI 造句功能需要达到 Lv.${REQUIRED_LEVEL} 才能解锁。\n您当前等级: Lv.${currentLevel}`);
-        return;
-    }
+
+    // Note: Backend validates level via gemini-proxy (secure check)
+    // Frontend only shows optimistic UI hint, but actual check is server-side
 
     setLoadingAi(true);
     setAiError(null);
@@ -144,21 +136,29 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
 
         // Save to local dictionary (independent examples store)
         try {
-            await localDictDB.bulkSaveExamples([{
-                word: w.de,
-                sentence: result.de,
-                translation: result.cn,
-                source: 'ai_gen',
-                created_at: Date.now()
-            }]);
-            console.log('[WordCard] AI example saved to local dictionary');
+          await localDictDB.bulkSaveExamples([{
+            word: w.de,
+            sentence: result.de,
+            translation: result.cn,
+            source: 'ai_gen',
+            created_at: Date.now()
+          }]);
+          console.log('[WordCard] AI example saved to local dictionary');
         } catch (saveErr) {
-            console.error('[WordCard] Failed to save AI example:', saveErr);
+          console.error('[WordCard] Failed to save AI example:', saveErr);
         }
       }
     } catch (err) {
       console.error("AI Gen Error:", err);
-      setAiError(err.message);
+      // Backend returns "Level too low" or "AI feature requires Level X" messages
+      // Parse the error to display a user-friendly message
+      const errorMessage = err.message || '生成失败';
+      if (errorMessage.includes('Level') || errorMessage.includes('level')) {
+        // Backend returned a level-related error with accurate current level
+        setAiError(errorMessage);
+      } else {
+        setAiError(errorMessage);
+      }
     } finally {
       setLoadingAi(false);
     }
@@ -220,22 +220,22 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
   const handleShowConjugation = async (e) => {
     e.stopPropagation();
     if (showConjugation) {
-        setShowConjugation(false);
-        return;
+      setShowConjugation(false);
+      return;
     }
-    
+
     setShowConjugation(true);
     if (!conjugationData && !loadingConjugation) {
-        setLoadingConjugation(true);
-        try {
-            // 使用 headword (原型) 查询
-            const data = await localLemmatization.getWordForms(headword);
-            setConjugationData(data);
-        } catch (error) {
-            console.error('Failed to load conjugations:', error);
-        } finally {
-            setLoadingConjugation(false);
-        }
+      setLoadingConjugation(true);
+      try {
+        // 使用 headword (原型) 查询
+        const data = await localLemmatization.getWordForms(headword);
+        setConjugationData(data);
+      } catch (error) {
+        console.error('Failed to load conjugations:', error);
+      } finally {
+        setLoadingConjugation(false);
+      }
     }
   };
 
@@ -404,54 +404,54 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 <span className="font-mono text-sm" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.9) }}>{plural}</span>
               </div>
             )}
-            
+
             {(conjugations || isVerb) && (
               <div className="flex flex-col gap-2 w-full">
                 <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                        <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">变位</span>
-                        {!showConjugation && conjugations && (
-                             <span className="font-mono text-sm italic" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.8) }}>
-                                {typeof conjugations === 'string' ? conjugations : (Array.isArray(conjugations) ? conjugations.join(', ') : JSON.stringify(conjugations))}
-                             </span>
-                        )}
-                    </div>
-                    
-                    <button 
-                        onClick={handleShowConjugation}
-                        className="text-xs px-2 py-0.5 rounded border transition-all hover:scale-105 active:scale-95"
-                        style={{ 
-                            color: `color-mix(in srgb, ${theme.primary}, #000000 80%)`,
-                            borderColor: withOpacity(theme.primary, 0.3),
-                            backgroundColor: withOpacity(theme.primary, 0.1)
-                        }}
-                    >
-                        {showConjugation ? '收起' : '查看变位表'}
-                    </button>
+                  <div className="flex items-start gap-4">
+                    <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">变位</span>
+                    {!showConjugation && conjugations && (
+                      <span className="font-mono text-sm italic" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.8) }}>
+                        {typeof conjugations === 'string' ? conjugations : (Array.isArray(conjugations) ? conjugations.join(', ') : JSON.stringify(conjugations))}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleShowConjugation}
+                    className="text-xs px-2 py-0.5 rounded border transition-all hover:scale-105 active:scale-95"
+                    style={{
+                      color: `color-mix(in srgb, ${theme.primary}, #000000 80%)`,
+                      borderColor: withOpacity(theme.primary, 0.3),
+                      backgroundColor: withOpacity(theme.primary, 0.1)
+                    }}
+                  >
+                    {showConjugation ? '收起' : '查看变位表'}
+                  </button>
                 </div>
 
                 {showConjugation && (
-                    <div className="mt-2 w-full animate-fade-in">
-                        {loadingConjugation ? (
-                            <div className="text-sm opacity-70 py-2 flex items-center gap-2">
-                                <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.text }}></div>
-                                正在加载变位表...
-                            </div>
-                        ) : (conjugationData && conjugationData.length > 0) ? (
-                            <div className="grid grid-cols-2 gap-2 text-sm max-h-60 overflow-y-auto custom-scrollbar pr-1">
-                                {conjugationData.map((item, idx) => (
-                                    <div key={idx} className="flex flex-col p-2 rounded" style={{ backgroundColor: withOpacity(theme.text, 0.05) }}>
-                                        <span className="font-bold font-serif">{item.form}</span>
-                                        <span className="text-[10px] opacity-70 leading-tight mt-0.5">{item.tags ? item.tags.join(', ') : ''}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-sm opacity-70 py-2 italic">
-                                {conjugationData ? '暂无详细变位信息' : '加载失败'}
-                            </div>
-                        )}
-                    </div>
+                  <div className="mt-2 w-full animate-fade-in">
+                    {loadingConjugation ? (
+                      <div className="text-sm opacity-70 py-2 flex items-center gap-2">
+                        <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.text }}></div>
+                        正在加载变位表...
+                      </div>
+                    ) : (conjugationData && conjugationData.length > 0) ? (
+                      <div className="grid grid-cols-2 gap-2 text-sm max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                        {conjugationData.map((item, idx) => (
+                          <div key={idx} className="flex flex-col p-2 rounded" style={{ backgroundColor: withOpacity(theme.text, 0.05) }}>
+                            <span className="font-bold font-serif">{item.form}</span>
+                            <span className="text-[10px] opacity-70 leading-tight mt-0.5">{item.tags ? item.tags.join(', ') : ''}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm opacity-70 py-2 italic">
+                        {conjugationData ? '暂无详细变位信息' : '加载失败'}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -469,12 +469,12 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                   disabled={loadingAi}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all ${loadingAi ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
                   style={{
-                    backgroundColor: (profile?.level || 0) < 10 ? withOpacity(theme.text, 0.1) : withOpacity(theme.accent, 0.15),
-                    color: (profile?.level || 0) < 10 ? withOpacity(theme.text, 0.4) : theme.accent,
-                    border: `1px solid ${(profile?.level || 0) < 10 ? 'transparent' : withOpacity(theme.accent, 0.3)}`,
-                    cursor: (profile?.level || 0) < 10 ? 'not-allowed' : 'pointer'
+                    backgroundColor: withOpacity(theme.accent, 0.15),
+                    color: theme.accent,
+                    border: `1px solid ${withOpacity(theme.accent, 0.3)}`,
+                    cursor: loadingAi ? 'not-allowed' : 'pointer'
                   }}
-                  title={(profile?.level || 0) < 10 ? "需要达到 Lv.10 解锁 AI 造句" : "AI 生成例句"}
+                  title="AI 生成例句 (需要 Lv.10)"
                 >
                   <Sparkles className="w-3 h-3" />
                   {loadingAi ? '生成中...' : 'AI 造句'}

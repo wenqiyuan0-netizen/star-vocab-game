@@ -185,7 +185,7 @@ class LookupService {
 
             // 调用 AI 翻译
             let translation = null;
-            if (aiService && aiService.apiKey) {
+            if (aiService) {
                 try {
                     // 构建翻译上下文
                     const context = {

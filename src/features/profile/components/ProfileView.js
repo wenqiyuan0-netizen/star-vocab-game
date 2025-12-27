@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Download, Award, Calendar,
-  Volume2, Key, Image, Sparkles, Bot,
+  Volume2, Image, Sparkles, Bot,
   Clock, AlertTriangle, BrainCircuit
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
@@ -117,7 +117,6 @@ export function ProfileView({
 }) {
   const safeSettings = settingsState || {};
   const [showWallpaperSettings, setShowWallpaperSettings] = useState(false);
-  const [showAiSettings, setShowAiSettings] = useState(!!safeSettings.apiKey);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const theme = useTheme();
@@ -660,7 +659,7 @@ export function ProfileView({
           </div>
         </button>
 
-        {/* --- Block 7: AI Gemini (Medium, 6 cols) - REDESIGNED --- */}
+        {/* --- Block 7: AI Info (Medium, 6 cols) - Updated: Proxy Auth --- */}
         <div
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-2 overflow-hidden relative"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
@@ -670,32 +669,19 @@ export function ProfileView({
               <Bot className="w-4 h-4" />
               <span className="text-xs font-bold">AI 助手</span>
             </div>
-            <button
-              onClick={() => setShowAiSettings(!showAiSettings)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner`}
-              style={{ backgroundColor: showAiSettings ? highlightColor : getOffToggleColor(theme) }}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${showAiSettings ? 'translate-x-4' : 'translate-x-1'}`} />
-            </button>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: withOpacity(highlightColor, 0.2) }}>
+              已启用
+            </span>
           </div>
 
-          <div className="mt-1 relative">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-50" style={{ color: textColor }}>
-              <Key className="w-3 h-3" />
-            </div>
-            <input
-              type="password"
-              value={safeSettings.apiKey || ''}
-              readOnly={!showAiSettings}
-              disabled={!showAiSettings}
-              onChange={e => updateSettings({ apiKey: e.target.value })}
-              placeholder={showAiSettings ? "API Key..." : "OFF"}
-              className="w-full rounded-lg py-1.5 pl-7 pr-2 text-[10px] font-mono outline-none border border-transparent focus:border-current transition-colors disabled:opacity-50"
-              style={{ color: highlightColor, backgroundColor: withOpacity(highlightColor, 0.12) }}
-            />
+          <div className="flex items-center gap-2 py-2">
+            <Sparkles className="w-4 h-4" style={{ color: highlightColor }} />
+            <span className="text-xs" style={{ color: withOpacity(theme.text, 0.8) }}>
+              Lv.10 解锁造句 · Lv.15 解锁翻译
+            </span>
           </div>
-          <div className="text-[9px] opacity-40 truncate text-center" style={{ color: theme.text }}>
-            解锁智能例句生成
+          <div className="text-[9px] opacity-50 truncate text-center" style={{ color: theme.text }}>
+            通过代理认证，无需手动配置
           </div>
         </div>
 
