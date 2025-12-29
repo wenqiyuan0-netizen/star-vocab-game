@@ -92,7 +92,9 @@ export default function App() {
             {!user ? (
                 <LoginForm />
             ) : (
-                <SpaceVocabGame />
+                <ProfileProvider>
+                    <VocabGame />
+                </ProfileProvider>
             )}
         </ThemeProvider>
     );
