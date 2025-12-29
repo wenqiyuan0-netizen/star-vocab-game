@@ -93,7 +93,7 @@ export default function App() {
                 <LoginForm />
             ) : (
                 <ProfileProvider>
-                    <VocabGame />
+                    <SpaceVocabGame />
                 </ProfileProvider>
             )}
         </ThemeProvider>
