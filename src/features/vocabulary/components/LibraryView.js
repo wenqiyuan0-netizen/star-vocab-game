@@ -102,6 +102,9 @@ export function LibraryView({
   const [dictSearchResults, setDictSearchResults] = useState([]);
   const [searchLemma, setSearchLemma] = useState(null);
 
+  // 分页显示，避免一次性渲染大量数据导致卡顿
+  const [visibleCount, setVisibleCount] = useState(50);
+
   // 搜索词典数据库
   useEffect(() => {
     if (!searchTerm || searchTerm.trim().length < 2) {
@@ -222,6 +225,27 @@ export function LibraryView({
 
     return userWords;
   }, [globalWordDb, searchTerm, dictSearchResults, searchLemma]);
+
+  // 重置分页
+  React.useEffect(() => {
+    setVisibleCount(50);
+  }, [filteredWords]);
+
+  // 计算当前显示的词列表
+  const visibleWords = React.useMemo(() => {
+    return filteredWords.slice(0, visibleCount);
+  }, [filteredWords, visibleCount]);
+
+  // 滚动加载更多（添加防抖优化，避免频繁触发）
+  const handleListScroll = React.useCallback((e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    // 降低阈值到 300px，让用户更早看到新内容
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      if (visibleCount < filteredWords.length) {
+        setVisibleCount(prev => Math.min(prev + 50, filteredWords.length));
+      }
+    }
+  }, [visibleCount, filteredWords.length]);
 
   // Focus Navigation Hook
   const {
@@ -575,11 +599,14 @@ export function LibraryView({
       </div>
 
       {/* 单词列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div 
+        className="flex-1 overflow-y-auto p-4 space-y-2"
+        onScroll={handleListScroll}
+      >
         {filteredWords.length === 0 ? (
           <div className="text-center text-gray-500 py-10">未找到单词</div>
         ) : (
-          filteredWords.map(w => (
+          visibleWords.map(w => (
             <div
               key={w.id}
               onClick={() => handleWordClick(w)}

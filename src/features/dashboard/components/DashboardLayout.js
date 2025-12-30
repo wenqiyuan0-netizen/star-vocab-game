@@ -207,45 +207,53 @@ export function DashboardLayout(props) {
 
     return (
       <>
-        {/* Home View */}
-        <div
-          ref={contentRefs.current.home}
-          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('home')}`}
-          style={getViewStyle('home')}
-        >
-          <HomeView
-            {...props}
-            onStartGame={props.onStartGame}
-            onNavigateToLibrary={() => handleTabChange('library')}
-          />
-        </div>
+        {/* Home View - 只在激活或动画中渲染 */}
+        {(activeTab === 'home' || (isAnimating && previousTab === 'home')) && (
+          <div
+            ref={contentRefs.current.home}
+            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('home')}`}
+            style={getViewStyle('home')}
+          >
+            <HomeView
+              {...props}
+              onStartGame={props.onStartGame}
+              onNavigateToLibrary={() => handleTabChange('library')}
+            />
+          </div>
+        )}
 
-        {/* Today View */}
-        <div
-          ref={contentRefs.current.today}
-          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('today')}`}
-          style={getViewStyle('today')}
-        >
-          <TodayView {...props} />
-        </div>
+        {/* Today View - 只在激活或动画中渲染 */}
+        {(activeTab === 'today' || (isAnimating && previousTab === 'today')) && (
+          <div
+            ref={contentRefs.current.today}
+            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('today')}`}
+            style={getViewStyle('today')}
+          >
+            <TodayView {...props} />
+          </div>
+        )}
 
-        {/* Library View */}
-        <div
-          ref={contentRefs.current.library}
-          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('library')}`}
-          style={getViewStyle('library')}
-        >
-          <LibraryView {...props} />
-        </div>
+        {/* Library View - 只在激活或动画中渲染 */}
+        {(activeTab === 'library' || (isAnimating && previousTab === 'library')) && (
+          <div
+            ref={contentRefs.current.library}
+            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('library')}`}
+            style={getViewStyle('library')}
+          >
+            <LibraryView {...props} />
+          </div>
+        )}
 
-        {/* Profile View */}
-        <div
-          ref={contentRefs.current.profile}
-          className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('profile')}`}
-          style={getViewStyle('profile')}
-        >
-          <ProfileView {...props} />
-        </div>
+        {/* Profile View - 只在激活或动画中渲染 */}
+        {(activeTab === 'profile' || (isAnimating && previousTab === 'profile')) && (
+          <div
+            ref={contentRefs.current.profile}
+            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('profile')}`}
+            style={getViewStyle('profile')}
+          >
+            <ProfileView {...props} />
+          </div>
+        )}
       </>
     );
   };

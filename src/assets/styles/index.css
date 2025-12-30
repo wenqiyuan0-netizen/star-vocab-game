@@ -19,6 +19,9 @@ body {
   min-height: 100dvh;
   overflow: hidden; /* Prevent scroll on body */
   background-color: #0f172a; /* Fix white borders in landscape */
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+  touch-action: pan-x pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
@@ -44,6 +47,26 @@ code {
   .pr-safe {
     padding-right: env(safe-area-inset-right);
   }
+}
+
+/* 移动端滚动优化 - 启用硬件加速和平滑滚动 */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  /* iOS 平滑滚动（虽然已废弃但仍有效） */
+  -webkit-overflow-scrolling: touch;
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  will-change: scroll-position;
+  /* 防止过度滚动 */
+  overscroll-behavior: contain;
+}
+
+/* Canvas 硬件加速 */
+canvas {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Strategy slider styles using CSS variables */

@@ -1171,8 +1171,12 @@ export default function SpaceVocabGame() {
       return;
     }
     const ctx = canvas.getContext('2d');
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+
+    // 修复 iOS 地址栏导致的尺寸跳动：使用 visualViewport API
+    // visualViewport 提供稳定的视口尺寸，不受地址栏显示/隐藏影响
+    const viewport = window.visualViewport || window;
+    const width = Math.floor(viewport.width || window.innerWidth);
+    const height = Math.floor(viewport.height || window.innerHeight);
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width; canvas.height = height;
