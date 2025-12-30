@@ -5,6 +5,7 @@ import { generateGenderColors, withOpacity, getContrastColorFromTheme, desaturat
 import { aiService } from '../../../shared/services/ai/AIService';
 import { localLemmatization } from '../../../utils/localLemmatization';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
+import { ProfileContext } from '../../../shared/contexts/ProfileContext';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -106,19 +107,84 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
 
 export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) => {
   const theme = useTheme();
+  const profileContext = React.useContext(ProfileContext);
+
+  // 安全地获取用户等级，添加多层fallback
+  let userLevel = 1; // 默认等级
+  try {
+    if (profileContext && profileContext.profile && typeof profileContext.profile.level === 'number') {
+      userLevel = profileContext.profile.level;
+    } else {
+      // 尝试从localStorage读取（注意：键名是 'space_vocab_user_profile'）
+      const localProfile = localStorage.getItem('space_vocab_user_profile');
+      if (localProfile) {
+        const parsed = JSON.parse(localProfile);
+        userLevel = parsed.level || 1;
+      }
+    }
+  } catch (err) {
+    console.error('[WordCard] Failed to get user level:', err);
+  }
+
+  const REQUIRED_LEVEL = 10; // AI功能需要的等级
+
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [aiExample, setAiExample] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [savedExamples, setSavedExamples] = useState([]); // 从独立例句库加载的例句
+
+  // Debug: 打印用户等级信息
+  useEffect(() => {
+    console.log('[WordCard Debug] ProfileContext:', profileContext);
+    console.log('[WordCard Debug] User Level:', userLevel);
+    console.log('[WordCard Debug] Required Level:', REQUIRED_LEVEL);
+    console.log('[WordCard Debug] isFocus:', isFocus);
+    console.log('[WordCard Debug] loadingAi:', loadingAi);
+
+    // 尝试读取localStorage
+    try {
+      const localProfile = localStorage.getItem('space_vocab_user_profile');
+      console.log('[WordCard Debug] localStorage profile:', localProfile);
+    } catch (e) {
+      console.error('[WordCard Debug] localStorage error:', e);
+    }
+  }, [profileContext, userLevel, isFocus, loadingAi]);
 
   // Conjugation state
   const [showConjugation, setShowConjugation] = useState(false);
   const [conjugationData, setConjugationData] = useState(null);
   const [loadingConjugation, setLoadingConjugation] = useState(false);
 
+  // 加载独立例句库中的例句（包括AI生成的）
+  useEffect(() => {
+    const loadSavedExamples = async () => {
+      if (!w.de) return;
+      try {
+        const examples = await localDictDB.getExamples(w.de);
+        if (examples && examples.length > 0) {
+          // 转换格式以匹配显示逻辑
+          const formatted = examples.map(ex => ({
+            de: ex.sentence,
+            cn: ex.translation,
+            sentence: ex.sentence,
+            translation: ex.translation,
+            source: ex.source || 'user'
+          }));
+          setSavedExamples(formatted);
+          console.log(`[WordCard] Loaded ${examples.length} saved examples for "${w.de}"`);
+        }
+      } catch (err) {
+        console.error('[WordCard] Failed to load saved examples:', err);
+      }
+    };
+    loadSavedExamples();
+  }, [w.de]);
 
   const handleGenerateExample = async (e) => {
     e.stopPropagation();
+    console.log('[WordCard] AI Generate Button Clicked!');
+    console.log('[WordCard] Current Level:', userLevel, 'Required:', REQUIRED_LEVEL);
 
     // Note: Backend validates level via gemini-proxy (secure check)
     // Frontend only shows optimistic UI hint, but actual check is server-side
@@ -144,6 +210,15 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
             created_at: Date.now()
           }]);
           console.log('[WordCard] AI example saved to local dictionary');
+
+          // 更新 savedExamples 状态以立即显示新例句
+          setSavedExamples(prev => [...prev, {
+            de: result.de,
+            cn: result.cn,
+            sentence: result.de,
+            translation: result.cn,
+            source: 'ai_gen'
+          }]);
         } catch (saveErr) {
           console.error('[WordCard] Failed to save AI example:', saveErr);
         }
@@ -195,9 +270,10 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
     return theme.text;
   };
 
-  // Data extraction
-  const examples = entry && Array.isArray(entry.examples) ? entry.examples : [];
-  const displayExamples = showAllExamples ? examples : examples.slice(0, isFocus ? 5 : 3);
+  // Data extraction - 合并词典例句和独立例句库的例句
+  const dictExamples = entry && Array.isArray(entry.examples) ? entry.examples : [];
+  const allExamples = [...dictExamples, ...savedExamples];
+  const displayExamples = showAllExamples ? allExamples : allExamples.slice(0, isFocus ? 5 : 3);
 
   const article = entry?.article || genderToArticle(entry?.gender || w.gender);
   const headword = entry?.base || entry?.word || (entry?.headword ? entry.headword.replace(/^(der|die|das)\s+/, '') : w.de);
@@ -459,7 +535,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
         )}
 
         {/* Examples */}
-        {examples.length > 0 && (
+        {(allExamples.length > 0 || isFocus) && (
           <div className="flex flex-col gap-3 mt-2">
             <div className="flex items-center justify-between mb-1">
               <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="font-medium">示例</span>
@@ -474,7 +550,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                     border: `1px solid ${withOpacity(theme.accent, 0.3)}`,
                     cursor: loadingAi ? 'not-allowed' : 'pointer'
                   }}
-                  title="AI 生成例句 (需要 Lv.10)"
+                  title={userLevel >= REQUIRED_LEVEL ? `AI 智能造句 (Lv.${userLevel})` : `需要 Lv.${REQUIRED_LEVEL} 解锁 (当前 Lv.${userLevel})`}
                 >
                   <Sparkles className="w-3 h-3" />
                   {loadingAi ? '生成中...' : 'AI 造句'}
@@ -562,7 +638,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
               })}
             </div>
 
-            {examples.length > (isFocus ? 5 : 3) && (
+            {allExamples.length > (isFocus ? 5 : 3) && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -571,7 +647,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 className="text-xs self-start mt-1 hover:underline"
                 style={{ color: theme.secondary }}
               >
-                {showAllExamples ? '收起' : `+${examples.length - (isFocus ? 5 : 3)} 更多`}
+                {showAllExamples ? '收起' : `+${allExamples.length - (isFocus ? 5 : 3)} 更多`}
               </button>
             )}
           </div>
