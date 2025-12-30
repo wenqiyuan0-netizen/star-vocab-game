@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import {
-  PlusCircle, Save, Trash2, Upload, X, Search, RotateCcw, FileText, CheckSquare, Square
+  PlusCircle, Save, Trash2, Upload, X, Search, RotateCcw, FileText, CheckSquare, Square, BookOpen
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { computeProficiency } from '../../logic/srs';
+import { PresetLibrarySelector } from './PresetLibrarySelector';
 
 export function WordManager({
   globalWordDb,
@@ -37,6 +38,7 @@ export function WordManager({
   const [cardWord, setCardWord] = useState(null);
   const [cardEntry, setCardEntry] = useState(null);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [showPresetLibrary, setShowPresetLibrary] = useState(false);
 
   const handleArticleUpload = async (event) => {
     const file = event.target.files[0];
@@ -50,6 +52,15 @@ export function WordManager({
       console.error("添加文章失败:", error);
       alert(`添加文章失败: ${error.message}`);
     }
+  };
+
+  const handlePresetLibraryImport = (text, libraryName) => {
+    setCustomInput(text);
+    // 自动触发导入
+    setTimeout(() => {
+      handleBulkAdd();
+      setCustomInput(''); // 清空输入框
+    }, 100);
   };
 
   return (
@@ -75,9 +86,18 @@ export function WordManager({
             onChange={handleArticleUpload}
           />
           <button
+            onClick={() => setShowPresetLibrary(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg transition hover:opacity-90 shadow-sm"
+            style={{ backgroundColor: theme.primary, color: '#ffffff', boxShadow: `0 2px 8px ${theme.primary}33` }}
+          >
+            <BookOpen className="w-4 h-4" />
+            预设词库
+          </button>
+
+          <button
             onClick={() => fileInputRef.current.click()}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition border glass-button hover:bg-white/10"
-            style={{ backgroundColor: `${theme.secondary}33`, color: theme.secondary, borderColor: `${theme.secondary}4d` }}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg transition hover:opacity-90 shadow-sm"
+            style={{ backgroundColor: theme.secondary, color: '#ffffff', boxShadow: `0 2px 8px ${theme.secondary}33` }}
           >
             <Upload className="w-4 h-4" />
             导入文章
@@ -85,8 +105,8 @@ export function WordManager({
 
           <button
             onClick={() => setShowSaveModal(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition border glass-button hover:bg-white/10"
-            style={{ backgroundColor: `${theme.primary}33`, color: theme.primary, borderColor: `${theme.primary}4d` }}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg transition hover:opacity-90 shadow-sm"
+            style={{ backgroundColor: theme.accent, color: '#ffffff', boxShadow: `0 2px 8px ${theme.accent}33` }}
           >
             <Save className="w-4 h-4" />
             存档
@@ -94,15 +114,15 @@ export function WordManager({
 
           <button
             onClick={() => setSelectionMode(!selectionMode)}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition border ${selectionMode
+            className={`flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg transition hover:opacity-90 shadow-sm ${selectionMode
                 ? ''
-                : 'glass-button text-gray-300 border-transparent'
+                : ''
               }`}
-            style={selectionMode ? {
-              backgroundColor: `${theme.accent}33`,
-              color: theme.accent,
-              borderColor: `${theme.accent}4d`
-            } : {}}
+            style={{ 
+              backgroundColor: selectionMode ? '#ef4444' : `${theme.primary}cc`, // 选中红色退出，未选半透明主色
+              color: '#ffffff',
+              boxShadow: selectionMode ? '0 2px 8px rgba(239, 68, 68, 0.3)' : `0 2px 8px ${theme.primary}33`
+            }}
           >
             <CheckSquare className="w-4 h-4" />
             {selectionMode ? '退出管理' : '批量管理'}
@@ -262,6 +282,13 @@ export function WordManager({
           )}
         </div>
       </div>
+
+      {showPresetLibrary && (
+        <PresetLibrarySelector
+          onImport={handlePresetLibraryImport}
+          onClose={() => setShowPresetLibrary(false)}
+        />
+      )}
 
       {showCard && cardWord && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/70 backdrop-blur-sm">

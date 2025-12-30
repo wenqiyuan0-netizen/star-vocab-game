@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Plus, Trash2, RotateCcw, X, Save,
-  MoreHorizontal, FileText, CheckSquare, Square
+  MoreHorizontal, FileText, CheckSquare, Square, BookOpen
 } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { GlassButton } from '../../../shared/components/ui/GlassButton';
+import { PresetLibrarySelector } from './PresetLibrarySelector';
 import { aiService } from '../../../shared/services/ai/AIService';
 import { exampleService } from '../../../shared/services/examples/ExampleService';
 import { sanitizeCn } from '../../../logic/utils';
@@ -15,10 +16,12 @@ import { genderToArticle } from '../../../utils/genderUtils';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
 import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
 import { localLemmatization } from '../../../utils/localLemmatization';
+import { processImportInput } from '../services/WordProcessor';
 
 // Main Library View Component
 export function LibraryView({
   globalWordDb = [],
+  setGlobalWordDb = () => { },
   customInput = '',
   setCustomInput = () => { },
   handleBulkAdd = () => { },
@@ -44,6 +47,18 @@ export function LibraryView({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const theme = useTheme();
+
+  // 新增状态：预设词库导入
+  const [importedLibraries, setImportedLibraries] = useState(() => {
+    // 从 localStorage 恢复已导入的词库列表
+    try {
+      const saved = localStorage.getItem('imported_preset_libraries');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }); // 数组，存储已导入的词库 ID
+  const [showPresetLibrary, setShowPresetLibrary] = useState(false);
 
   // 1. Gender Colors
   // Light/Bright colors for Dark Background (Normal State)
@@ -329,12 +344,70 @@ export function LibraryView({
       const count = await localCorpusService.addArticle('手动导入 ' + new Date().toLocaleString(), articleInput);
       setAiError(`已成功写入 ${count} 个例句到本地库`);
       // 成功后可选：清空短文输入框
-      // setArticleInput(''); 
+      // setArticleInput('');
     } catch (e) {
       console.error(e);
       setAiError('写入例句库失败');
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // 处理预设词库按钮点击
+  const handlePresetLibraryClick = () => {
+    setShowPresetLibrary(true);
+  };
+
+  // 处理删除导入的词库（只删除未学习的）
+  const handleDeleteLibrary = (libraryId, libraryName) => {
+    // 筛选出未学习的单词（state='new' 且从未复习过）
+    const unlearnedWords = globalWordDb.filter(w =>
+      w.state === 'new' && (!w.lastReview || w.lastReview === 0 || w.lastReview === null)
+    );
+
+    const learnedWords = globalWordDb.filter(w =>
+      w.state !== 'new' || (w.lastReview && w.lastReview > 0)
+    );
+
+    const deletedCount = unlearnedWords.length;
+
+    // 更新词库，只保留已学习的单词
+    setGlobalWordDb(learnedWords);
+
+    // 从已导入列表中移除
+    const newImportedLibraries = importedLibraries.filter(id => id !== libraryId);
+    setImportedLibraries(newImportedLibraries);
+    localStorage.setItem('imported_preset_libraries', JSON.stringify(newImportedLibraries));
+
+    // 显示提示
+    alert(`已删除 ${libraryName}\n删除了 ${deletedCount} 个未学习的单词，保留了 ${learnedWords.length} 个已学习的单词`);
+  };
+
+  // 处理预设词库导入
+  const handlePresetLibraryImport = (text, libraryName, libraryId) => {
+    console.log('[LibraryView] Importing preset library:', libraryName);
+    console.log('[LibraryView] Text length:', text.length);
+
+    // 直接处理导入
+    const result = processImportInput(text, globalWordDb);
+
+    if (result.message) {
+      // 显示导入结果消息
+      setTimeout(() => {
+        alert(result.message);
+      }, 100);
+    }
+
+    if (result.success && result.updatedDb) {
+      console.log('[LibraryView] Import successful, updating database');
+      setGlobalWordDb(result.updatedDb);
+
+      // 记录到已导入列表
+      if (!importedLibraries.includes(libraryId)) {
+        const newImportedLibraries = [...importedLibraries, libraryId];
+        setImportedLibraries(newImportedLibraries);
+        localStorage.setItem('imported_preset_libraries', JSON.stringify(newImportedLibraries));
+      }
     }
   };
 
@@ -437,16 +510,31 @@ export function LibraryView({
               )}
             </div>
             <div className="flex justify-between items-center">
-              <GlassButton
-                onClick={() => { handleBulkAdd(); setShowAddPanel(false); }}
-                disabled={!customInput.trim()}
-                tone="primary"
-                variant="solid"
-                size="md"
-                className="rounded-lg"
-              >
-                添加
-              </GlassButton>
+              <div className="flex gap-2">
+                <GlassButton
+                  onClick={() => { handleBulkAdd(); setShowAddPanel(false); }}
+                  disabled={!customInput.trim()}
+                  tone="primary"
+                  variant="solid"
+                  size="md"
+                  className="rounded-lg"
+                >
+                  添加
+                </GlassButton>
+
+                <button
+                  onClick={handlePresetLibraryClick}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:opacity-90"
+                  style={{
+                    backgroundColor: `${theme.accent}33`,
+                    color: theme.accent
+                  }}
+                  title="导入预设词库"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  预设词库
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -651,6 +739,15 @@ export function LibraryView({
         />
       )}
 
+      {/* 预设词库选择器 */}
+      {showPresetLibrary && (
+        <PresetLibrarySelector
+          onImport={handlePresetLibraryImport}
+          onDelete={handleDeleteLibrary}
+          onClose={() => setShowPresetLibrary(false)}
+          importedLibraries={importedLibraries}
+        />
+      )}
 
     </div>
   );

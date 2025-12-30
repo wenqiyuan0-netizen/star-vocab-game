@@ -15,6 +15,7 @@ export function useListeningGameLogic(userId, globalWordDb) {
     // UI State
     const [notification, setNotification] = useState(null);
     const [currentWordChallenge, setCurrentWordChallenge] = useState(null);
+    const [generationFailed, setGenerationFailed] = useState(false);
 
     const initializedRef = useRef(false);
 
@@ -73,6 +74,9 @@ export function useListeningGameLogic(userId, globalWordDb) {
             const challenge = generateWordChallenge(globalWordDb);
             if (challenge) {
                 setCurrentWordChallenge(challenge);
+                setGenerationFailed(false);
+            } else {
+                setGenerationFailed(true);
             }
         }
     }, [view, currentWordChallenge, globalWordDb, generateWordChallenge]);
@@ -226,6 +230,7 @@ export function useListeningGameLogic(userId, globalWordDb) {
         materials,
         notification,
         currentWordChallenge, // Renamed from currentChallenge for clarity
+        generationFailed,
         actions: {
             setView,
             startChallenge,

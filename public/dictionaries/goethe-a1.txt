@@ -1,0 +1,555 @@
+ab;从...起
+aber;但是, 可是
+abfahren;出发, 启程
+die Abfahrt;出发, 启程
+abgeben;交出, 递交
+abholen;接, 取
+der Absender;发件人, 寄件人
+Achtung;注意, 小心
+die Adresse;地址
+all-;所有, 全部
+allein;独自, 单独
+also;那么, 因此
+alt;老的, 旧的
+das Alter;年龄
+an;在...旁, 到...
+anbieten;提供, 提议
+das Angebot;提议, 报价, 特价
+ander-;别的, 另外的
+anfangen;开始
+der Anfang;开始, 开头
+anklicken;点击
+die Ansage;通知, 广播
+der Anschluss;连接, 转机
+an sein;开着, 亮着
+antworten;回答
+die Antwort;答案, 回答
+die Anzeige;广告, 告示
+anziehen;穿衣, 穿上
+das Apartment;公寓
+der Apfel;苹果
+der Appetit;食欲
+arbeiten;工作
+die Arbeit;工作
+arbeitslos;失业的
+der Arbeitsplatz;工作岗位, 工作地点
+der Arm;手臂
+der Arzt;医生
+auch;也, 同样
+auf;在...上面, 在...
+die Aufgabe;任务, 作业
+aufhören;停止, 结束
+auf sein;开着, 敞开
+aufstehen;起床, 站起来
+der Aufzug;电梯
+das Auge;眼睛
+aus;来自, 出自
+der Ausflug;郊游, 短途旅行
+ausfüllen;填写
+der Ausgang;出口
+die Auskunft;信息, 咨询
+das Ausland;国外
+der Ausländer;外国人 (男性)
+ausländisch;外国的, 外来的
+ausmachen;关掉, 熄灭
+das Baby;婴儿
+die Bäckerei;面包店
+das Bad;浴室；澡
+baden;洗澡
+die Bahn;火车；轨道
+der Bahnhof;火车站
+der Bahnsteig;站台
+bald;很快
+der Balkon;阳台
+die Banane;香蕉
+die Bank;银行；长凳
+bar;现金的
+der Bauch;肚子
+der Baum;树
+der Beamte;公务员
+bedeuten;意味着
+beginnen;开始
+bei;在...旁边；在...处
+beide;两个；双方
+das Bein;腿
+das Beispiel;例子
+zum Beispiel/z. B.;例如
+bekannt;出名的；熟悉的
+der/die Bekannte;熟人
+bekommen;得到；收到
+benutzen;使用
+der Beruf;职业
+besetzt;占用的；忙碌的
+besichtigen;参观
+besser;更好
+die Birne;梨
+bis;直到
+bisschen;一点点
+bitte;请
+bitten;请求
+bitter;苦的
+bleiben;停留
+der Bleistift;铅笔
+der Blick;视野, 景色
+die Blume;花
+der Bogen;弓, 弧, 纸张
+böse;生气的, 邪恶的
+brauchen;需要
+breit;宽的
+der Brief;信
+die Briefmarke;邮票
+bringen;带来, 送
+das Brot;面包
+das Brötchen;小面包
+der Bruder;兄弟
+daneben;在旁边
+danken;感谢
+der Dank;感谢
+danke;谢谢
+dann;然后，那时
+das Datum;日期
+dauern;持续
+dein-;你的
+denn;因为
+der, die, das;这，那个 (定冠词/指示代词)
+dich;你 (宾格)
+dies-;这，这个
+dir;你 (与格)
+die Disco;迪斯科舞厅
+der Doktor;医生
+das Doppelzimmer;双人间
+das Dorf;村庄
+dort;在那里
+draußen;在外面
+drucken;打印
+der Drucker;打印机
+drücken;按，推
+durch;穿过，通过
+die Durchsage;通知，广播
+dürfen;允许，可以
+der Durst;口渴
+duschen;淋浴
+einmal;一次；曾经
+einsteigen;上车；登机
+der Eintritt;入场；门票
+das Einzelzimmer;单人房
+die Eltern;父母
+die E-Mail;电子邮件
+der Empfänger;收件人；接收者
+empfehlen;推荐
+enden;结束
+das Ende;结尾；末端
+entschuldigen;道歉；原谅
+die Entschuldigung;抱歉；道歉
+er;他
+das Ergebnis;结果
+erklären;解释
+erlauben;允许
+der Erwachsene;成年人
+erzählen;讲述；告诉
+es;它
+essen;吃
+euer;你们的
+fahren;驾驶；行驶
+der Fahrer;司机
+die Fahrkarte;车票
+das Fahrrad;自行车
+falsch;错误的
+die Familie;家庭
+der Familienname;姓氏
+der Familienstand;婚姻状况
+die Farbe;颜色
+das Fax;传真
+der Feierabend;下班；休息时间
+der Feiertag;节日
+feiern;庆祝
+fehlen;缺少；不在
+der Fehler;错误
+fernsehen;看电视
+die Flasche;瓶子
+das Fleisch;肉
+fliegen;飞
+abfliegen;起飞
+der Abflug;起飞（名词）
+der Flughafen;机场
+das Flugzeug;飞机
+das Formular;表格
+das Foto;照片
+fragen;提问，询问
+die Frage;问题
+die Frau;女士，妻子
+frei;自由的，空的
+die Freizeit;闲暇时间
+fremd;陌生的，外国的
+freuen;高兴，期待
+der Freund;朋友（男性）
+früher;以前，更早
+frühstücken;吃早餐
+das Frühstück;早餐
+die Führung;引导，导游，领导
+für;为了，对于
+der Fuß;脚
+der Fußball;足球
+der Garten;花园
+der Gast;客人
+geben;给
+geboren;出生的
+das Geburtsjahr;出生年份
+der Geburtsort;出生地
+der Geburtstag;生日
+gefallen;喜欢，中意
+das Gepäck;行李
+gerade;刚刚，正好
+geradeaus;直走
+gern(e);乐意地，喜欢
+das Geschäft;商店，生意
+das Geschenk;礼物
+die Geschwister;兄弟姐妹
+das Gespräch;谈话，对话
+gestern;昨天
+gestorben;死了的
+das Getränk;饮料
+das Gewicht;重量
+gewinnen;赢，获胜
+das Glas;玻璃杯，玻璃
+glauben;相信
+gleich;马上，相同
+das Gleis;站台，轨道
+das Glück;幸福，运气
+glücklich;幸福的，快乐的
+der Glückwunsch;祝贺
+Grad;度 (摄氏度)
+gratulieren;祝贺
+grillen;烧烤
+groß;大的，高的
+die Größe;尺寸，大小，身高
+die Großeltern;祖父母，外祖父母
+die Großmutter;祖母，外祖母
+der Großvater;祖父，外祖父
+die Gruppe;小组，团体
+der Gruß;问候，致意
+gültig;有效的
+günstig;便宜的，有利的
+gut;好的
+das Haar;头发
+haben;有
+das Hähnchen;鸡肉，小鸡
+die Halbpension;半膳宿
+halten;停止，握住
+die Haltestelle;车站，停车站
+die Hand;手
+das Handy;手机
+das Haus;房子，家
+die Hausaufgabe;家庭作业
+die Hausfrau;家庭主妇
+der Hausmann;家庭主夫
+die Heimat;故乡，家乡
+heiraten;结婚
+heißen;叫做，名为
+helfen;帮助
+hell;明亮的
+der Herd;炉灶，炉子
+der Herr;先生
+herzlich;衷心的，热情的
+heute;今天
+hier;这里
+die Hilfe;帮助
+hinten;后面
+das Hobby;爱好
+hoch;高的
+die Hochzeit;婚礼
+holen;取，拿
+hören;听
+das Hotel;酒店
+der Hund;狗
+der Hunger;饥饿
+ich;我
+ihr/ihm/ihn;她/他 (与格/宾格)
+immer;总是，一直
+ja;是的，是啊
+die Jacke;夹克，外套
+jed-;每个，任何
+jetzt;现在
+der Job;工作
+der Jugendliche;青少年
+jung;年轻的
+der Junge;男孩
+der Kaffee;咖啡
+kaputt;坏的，破损的
+die Karte;卡片，地图，票
+die Kreditkarte;信用卡
+die Kartoffel;土豆
+die Kasse;收银台，现金
+kaufen;购买
+kein;没有，不
+kennen;认识，了解
+kennenlernen;结识，认识
+das Kind;孩子
+der Kindergarten;幼儿园
+das Kino;电影院
+der Kiosk;报摊，小卖部
+klar;清楚的，明白的
+die Klasse;班级，等级
+die Kleidung;衣服，服装
+klein;小的
+kochen;烹饪，煮
+der Koffer;手提箱，行李箱
+der Kollege;同事
+kommen;来
+können;能，会
+das Konto;账户
+der Kopf;头
+kosten;花费
+krank;生病的
+kriegen;得到，收到
+die Küche;厨房
+der Kuchen;蛋糕
+der Kugelschreiber;圆珠笔
+der Kühlschrank;冰箱
+kulturell;文化的
+kümmern;照顾，关心
+der Kunde;顾客
+der Kurs;课程
+kurz;短的
+lachen;笑
+der Laden;商店
+das Land;国家，土地
+lang;长的
+lange;长久地，长时间地
+langsam;慢地
+laufen;跑，走
+laut;大声的
+leben;生活，居住
+die Lebensmittel;食品
+ledig;未婚的
+legen;平放
+der Lehrer;老师
+leicht;轻的，容易的
+leider;可惜，遗憾地
+leise;轻声的，安静的
+lernen;学习
+lesen;阅读
+letzt;最后的，最近的
+die Leute;人们
+das Licht;光，灯
+lieb;亲爱的，可爱的
+lieben;爱
+lieber;更喜欢
+Lieblings;最喜欢的
+macht;花费，值
+das Mädchen;女孩
+man;人们
+der Mann;男人
+männlich;男性的，雄性的
+die Maschine;机器
+das Meer;海洋
+mehr;更多
+mein;我的
+meist-;大多数的
+der Mensch;人
+mieten;租
+die Miete;租金
+die Milch;牛奶
+mit;和...一起，用...
+mitbringen;带来
+mitkommen;一起来
+mitmachen;参与，加入
+mitnehmen;带走
+die Mitte;中间
+die Möbel;家具
+möchten;想，愿意
+mögen;喜欢
+möglich;可能的
+der Moment;片刻，瞬间
+morgen;明天
+müde;疲倦的
+der Mund;嘴巴
+müssen;必须
+die Mutter;母亲
+nach;到...去，在...之后
+noch;还，仍然
+normal;正常的
+die Nummer;号码
+nur;只，仅仅
+oben;在上面
+das Obst;水果
+oder;或者
+öffnen;打开
+geöffnet;开放的，营业的
+oft;经常
+ohne;没有，无
+das Öl;油
+die Oma;奶奶，外婆
+der Opa;爷爷，外公
+die Ordnung;秩序，整洁
+der Ort;地点，地方
+das Papier;纸
+der Partner;伴侣，搭档 (男性)
+die Partnerin;伴侣，搭档 (女性)
+die Party;派对
+der Pass;护照
+die Pause;休息
+Rad fahren;骑自行车
+rauchen;吸烟
+der Raum;房间，空间
+die Rechnung;账单，发票
+rechts;右边
+regnen;下雨
+der Regen;雨
+der Reis;米饭
+reisen;旅行
+die Reise;旅行
+das Reisebüro;旅行社
+der Reiseführer;导游；旅行指南
+reparieren;修理
+die Reparatur;修理，修缮
+das Restaurant;餐厅
+die Rezeption;接待处
+richtig;正确的；对的
+riechen;闻，嗅
+ruhig;安静的；平静的
+der Saft;果汁
+sagen;说
+der Salat;沙拉
+das Salz;盐
+der Satz;句子；一套
+die S-Bahn;城铁
+der Schalter;柜台；开关
+scheinen;照耀；似乎
+schicken;寄送
+das Schild;牌子，标志
+der Schinken;火腿
+schlafen;睡觉
+schlecht;坏的；差的
+schließen;关闭
+geschlossen;关闭的
+der Schuh;鞋子
+die Schule;学校
+der Schüler;学生 (男)
+schwer;重的；困难的
+die Schwester;姐妹；护士
+schwimmen;游泳
+das Schwimmbad;游泳池
+der See;湖泊
+sehen;看见
+die Sehenswürdigkeit;名胜古迹
+sehr;非常
+sein;是；存在
+weg sein;走了；不在
+zu sein;关着
+seit;自从...以来
+selbstständig;独立的；自主的
+sich;自己
+sie;她
+sitzen;坐
+so;如此；这样
+das Sofa;沙发
+sofort;立刻；马上
+der Sohn;儿子
+sollen;应该；被要求
+die Sonne;太阳
+spät;晚的；迟的
+später;稍后；以后
+die Speisekarte;菜单
+spielen;玩；演奏
+der Sport;运动
+die Sprache;语言
+sprechen;说
+die Stadt;城市
+stehen;站立；位于
+stellen;放置，摆放
+der Stock;楼层；拐杖
+die Straße;街道
+die Straßenbahn;有轨电车
+studieren;学习，攻读
+das Studium;大学学习，学业
+der Student;大学生 (男)
+die Stunde;小时
+suchen;寻找
+tanzen;跳舞
+die Tasche;包，袋
+das Taxi;出租车
+der Tee;茶
+der Teil;部分
+telefonieren;打电话
+das Telefon;电话
+der Termin;预约，约会
+der Test;考试，测试
+teuer;贵的
+der Text;文本
+das Thema;主题
+das Ticket;票
+der Tisch;桌子
+die Tochter;女儿
+die Toilette;厕所
+die Tomate;西红柿，番茄
+tot;死的
+treffen;见面，会面
+unser-;我们的
+unten;下面，在下面
+unter;在...下面；在...之中
+der Unterricht;课程，教学
+unterschreiben;签署，签名
+die Unterschrift;签名
+der Urlaub;假期
+der Vater;父亲
+verboten;被禁止的
+verdienen;赚取；值得
+der Verein;协会，俱乐部
+verheiratet;已婚的
+verkaufen;出售，卖
+der Verkäufer;售货员 (男)
+vermieten;出租
+der Vermieter;房东 (男)
+verstehen;理解，明白
+der Verwandte;亲戚
+viel;很多，许多
+vielleicht;也许，可能
+von;从...；由...；关于...
+vor;在...前面；在...之前
+der Vorname;名字
+die Vorsicht;小心，谨慎
+vorstellen;介绍；想象
+die Vorwahl;区号
+wandern;徒步旅行
+wann;什么时候
+warten;等待
+warum;为什么
+weiter;继续
+welch-;哪个，哪些
+die Welt;世界
+wenig;少量的，不多的
+wer;谁
+werden;成为，将要
+das Wetter;天气
+wichtig;重要的
+wie;如何，怎样，像...一样
+wiederholen;重复
+das Wiederhören;再听，再会
+das Wiedersehen;再见
+wie viel;多少
+willkommen;欢迎
+der Wind;风
+wir;我们
+wissen;知道
+wo;在哪里
+woher;从哪里
+wohin;到哪里去
+wohnen;居住
+die Wohnung;公寓，住房
+wollen;想要，愿意
+das Wort;单词，词语
+wunderbar;极好的，美妙的
+zählen;数数，计算
+die Zeit;时间
+zurzeit;目前，现在
+die Zeitung;报纸
+die Zigarette;香烟
+das Zimmer;房间
+der Zoll;海关，关税
+zu;到...，太...
+zufrieden;满意的，满足的
+der Zug;火车
+zurück;回来，返回
+zusammen;一起，共同
+zwischen;在...之间

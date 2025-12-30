@@ -17,6 +17,7 @@ export function ListeningGame({ onExit, globalWordDb }) {
     materials, 
     notification, 
     currentWordChallenge, 
+    generationFailed,
     actions 
   } = useListeningGameLogic(user?.id, globalWordDb);
 
@@ -51,6 +52,8 @@ export function ListeningGame({ onExit, globalWordDb }) {
                     challenge={currentWordChallenge}
                     onNext={actions.nextWord}
                     onSubmit={actions.submitResult}
+                    hasWords={globalWordDb && globalWordDb.length > 0}
+                    generationFailed={generationFailed}
                   />
               );
           case 'practice':

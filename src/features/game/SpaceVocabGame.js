@@ -1938,6 +1938,7 @@ export default function SpaceVocabGame() {
       {(gameState === 'menu' || gameState === 'dashboard') && !showModeSelection && (
         <Dashboard
           globalWordDb={globalWordDb}
+          setGlobalWordDb={setGlobalWordDb}
           customInput={customInput}
           setCustomInput={setCustomInput}
           handleBulkAdd={parseInput}

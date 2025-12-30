@@ -2,7 +2,7 @@
 class FeatureFlagService {
   constructor() {
     this.flags = {
-      enableListeningSpeaking: false // Default to false
+      enableListeningSpeaking: true // Default to false
     };
     this.init();
   }
@@ -18,7 +18,8 @@ class FeatureFlagService {
         // Mock backend response
         // You can toggle this to true to test the feature
         const mockBackendResponse = {
-            enableListeningSpeaking: false
+            enableListeningSpeaking: true
+        
         };
         
         this.flags = { ...this.flags, ...mockBackendResponse };

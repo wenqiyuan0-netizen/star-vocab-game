@@ -603,12 +603,6 @@ export function ProfileView({
                   className="flex items-center gap-1 transition-opacity duration-300"
                   style={{ opacity: currentRetentionPercent <= 85 ? (isDragging ? 1 : 0.8) : 0.3 }}
                 >
-                  {/* 低负担 Icon (Feather-like) */}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
-                    <line x1="16" y1="8" x2="2" y2="22" />
-                    <line x1="17.5" y1="15" x2="9" y2="15" />
-                  </svg>
                   <div className="flex flex-col">
                     <span>混个脸熟</span>
                     <span className="font-normal opacity-70 scale-90 origin-left">低负担</span>
@@ -623,10 +617,6 @@ export function ProfileView({
                     <span>刻入灵魂</span>
                     <span className="font-normal opacity-70 scale-90 origin-right">抗遗忘</span>
                   </div>
-                  {/* 抗遗忘 Icon (Shield/Strong) */}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
                 </div>
               </div>
             </div>
@@ -661,27 +651,41 @@ export function ProfileView({
 
         {/* --- Block 7: AI Info (Medium, 6 cols) - Updated: Proxy Auth --- */}
         <div
-          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-2 overflow-hidden relative"
+          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-between overflow-hidden relative"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
-          <div className="flex items-center justify-between mb-1 opacity-90" style={{ color: highlightColor }}>
+          <div className="flex items-center justify-between mb-2 opacity-90" style={{ color: highlightColor }}>
             <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4" />
-              <span className="text-xs font-bold">AI 助手</span>
+              <Bot className="w-5 h-5" />
+              <span className="text-sm font-bold">AI 助手</span>
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: withOpacity(highlightColor, 0.2) }}>
-              已启用
-            </span>
+            <button
+              onClick={() => {
+                if (safeSettings.aiEnabled) {
+                  updateSettings({ aiEnabled: false });
+                } else {
+                  if (level < 10) {
+                    alert(`需要达到 Lv.10 才能开启 AI 助手功能 (当前 Lv.${level})`);
+                    return;
+                  }
+                  updateSettings({ aiEnabled: true });
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner`}
+              style={{ backgroundColor: safeSettings.aiEnabled ? highlightColor : getOffToggleColor(theme) }}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${safeSettings.aiEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 py-2">
-            <Sparkles className="w-4 h-4" style={{ color: highlightColor }} />
-            <span className="text-xs" style={{ color: withOpacity(theme.text, 0.8) }}>
-              Lv.10 解锁造句 · Lv.15 解锁翻译
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-bold opacity-90 transition-colors" style={{ color: highlightColor }}>
+              {safeSettings.aiEnabled ? '智能造句已激活' : '开启以启用智能辅助'}
             </span>
-          </div>
-          <div className="text-[9px] opacity-50 truncate text-center" style={{ color: theme.text }}>
-            通过代理认证，无需手动配置
+            <span className="text-[10px] opacity-70 font-medium" style={{ color: highlightColor }}>
+              {safeSettings.aiEnabled ? '自动生成语境例句' : '需 Lv.10 解锁'}
+            </span>
           </div>
         </div>
 

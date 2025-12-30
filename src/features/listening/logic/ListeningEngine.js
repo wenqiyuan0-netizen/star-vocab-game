@@ -25,13 +25,17 @@ export function selectNextWord(globalWordDb, dailyStats, settings) {
     // If globalWordDb is empty, we return null immediately.
     if (!globalWordDb || globalWordDb.length === 0) return null;
 
-    let candidates = globalWordDb.filter(w => 
+    // Filter out invalid words (must have 'word' property)
+    const validWords = globalWordDb.filter(w => w && w.word);
+    if (validWords.length === 0) return null;
+
+    let candidates = validWords.filter(w => 
         w.state !== 'new' || (w.examples && w.examples.length > 0)
     );
     
-    // Fallback: If strict filtering leaves us with nothing, use ANY word.
+    // Fallback: If strict filtering leaves us with nothing, use ANY valid word.
     if (candidates.length === 0) {
-        candidates = globalWordDb;
+        candidates = validWords;
     }
     
     if (candidates.length === 0) return null;
@@ -67,6 +71,12 @@ export function selectNextWord(globalWordDb, dailyStats, settings) {
 // --- Cloze Generation ---
 
 export function buildClozeChallenge(word, difficultyLevel = 0) {
+    // Safety check
+    if (!word || !word.word) {
+        console.warn('buildClozeChallenge received invalid word:', word);
+        return null;
+    }
+
     // word: { word, translation, example_de, example_cn, ... }
     
     // 1. Select Content
@@ -76,8 +86,8 @@ export function buildClozeChallenge(word, difficultyLevel = 0) {
     
     if (!sentence && word.examples && word.examples.length > 0) {
         const ex = word.examples[Math.floor(Math.random() * word.examples.length)];
-        sentence = ex.de;
-        sentenceTranslation = ex.cn;
+        sentence = ex?.de || null;
+        sentenceTranslation = ex?.cn || null;
     }
 
     // Fallback if no example
@@ -87,11 +97,34 @@ export function buildClozeChallenge(word, difficultyLevel = 0) {
         difficultyLevel = 0; // Force easy if no context
     }
 
+    // Ensure sentence is a string to prevent .match() errors
+    if (typeof sentence !== 'string') {
+        sentence = String(sentence || "");
+    }
+
     // 2. Identify Target in Sentence
     const escapedWord = (word.word || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escapedWord}\\b`, 'i');
-    const match = sentence.match(regex);
     
+    // Strategy 1: Exact Match (Whole word)
+    let regex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+    let match = sentence.match(regex);
+
+    // Strategy 2: Prefix Match (Handles declensions like 'Hause', 'Hauses', 'Hausaufgabe')
+    // We match the word boundary at start, then the word, then optional suffix characters.
+    if (!match) {
+        // [a-zäöüß]* matches German letters. 
+        regex = new RegExp(`\\b${escapedWord}[a-zäöüß]*`, 'i');
+        match = sentence.match(regex);
+    }
+    
+    // Strategy 3: Relaxed Match (If word is long enough, match anywhere)
+    // Useful for compound words where the target is in the middle/end (e.g. 'Bahn' in 'Autobahn')
+    // Only apply if word length > 3 to avoid matching 'in', 'an', 'es' everywhere.
+    if (!match && word.word.length > 3) {
+        regex = new RegExp(`${escapedWord}`, 'i');
+        match = sentence.match(regex);
+    }
+
     let answer = word.word;
     let parts = [];
     let challengeType = 'cloze'; // standard

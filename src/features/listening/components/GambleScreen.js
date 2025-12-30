@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, ArrowRight, Check, X, Volume2 } from 'lucide-react';
+import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, ArrowRight, Check, X, Volume2, AlertCircle } from 'lucide-react';
 import { GlassButton } from '../../../shared/components/ui/GlassButton';
 
-export function GambleScreen({ wallet, target = 300, challenge, onNext, onSubmit }) {
+export function GambleScreen({ wallet, target = 300, challenge, onNext, onSubmit, hasWords = true, generationFailed = false }) {
   const [step, setStep] = useState('roll'); // roll, answer, result
   const [rollVal, setRollVal] = useState(null);
   const [input, setInput] = useState('');
@@ -142,8 +142,20 @@ export function GambleScreen({ wallet, target = 300, challenge, onNext, onSubmit
                     {/* Question Card */}
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-md shadow-2xl min-h-[200px] flex flex-col justify-center">
                         {!challenge ? (
-                            <div className="text-center text-slate-400 animate-pulse">
-                                Loading challenge data...
+                            <div className="text-center text-slate-400">
+                                {!hasWords || generationFailed ? (
+                                    <div className="space-y-2 animate-fade-in">
+                                        <AlertCircle className="w-10 h-10 mx-auto text-yellow-500/50 mb-2" />
+                                        <p className="font-bold text-slate-300">
+                                            {!hasWords ? '词库为空' : '没有有效单词'}
+                                        </p>
+                                        <p className="text-sm opacity-60">
+                                            {!hasWords ? '请先前往单词本添加词汇' : '词库中的单词缺少必要数据'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="animate-pulse">Loading challenge data...</div>
+                                )}
                             </div>
                         ) : (
                             <>
