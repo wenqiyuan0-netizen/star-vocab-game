@@ -119,7 +119,7 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
     >
       <div 
-        className="glass-panel w-full max-w-2xl rounded-2xl p-6 shadow-2xl animate-fade-in"
+        className="glass-panel w-full max-w-2xl rounded-2xl p-4 sm:p-6 shadow-2xl animate-fade-in"
         style={{ 
           backgroundColor: withOpacity(modalBg, 0.95), // 高不透明度
           borderColor: borderColor,
@@ -127,22 +127,22 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
         }}
       >
         {/* 标题栏 */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div
-              className="p-2 rounded-lg"
+              className="p-1.5 sm:p-2 rounded-lg"
               style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
             >
-              <BookOpen className="w-6 h-6" style={{ color: theme.primary }} />
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.primary }} />
             </div>
             <div>
-              <h2 className="text-xl font-bold" style={{ color: textColor }}>导入预设词库</h2>
-              <p className="text-sm" style={{ color: textSubColor }}>选择一个词库快速开始学习</p>
+              <h2 className="text-lg sm:text-xl font-bold" style={{ color: textColor }}>导入预设词库</h2>
+              <p className="text-xs sm:text-sm" style={{ color: textSubColor }}>选择一个词库快速开始学习</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 transition rounded-lg hover:bg-black/5"
+            className="p-1.5 sm:p-2 transition rounded-lg hover:bg-black/5"
             style={{ color: textSubColor }}
           >
             <X className="w-5 h-5" />
@@ -150,7 +150,7 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
         </div>
 
         {/* 词库列表 */}
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto overflow-x-hidden custom-scrollbar pr-1 sm:pr-2">
           {PRESET_LIBRARIES.map((library) => {
             const isLoading = loading && selectedLibrary === library.id;
             const isImported = importedLibraries.includes(library.id);
@@ -159,7 +159,7 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
             return (
               <div
                 key={library.id}
-                className={`glass-panel p-4 rounded-xl transition-all border ${
+                className={`glass-panel p-3 sm:p-4 rounded-xl transition-all border ${
                   isLoading
                     ? 'shadow-lg'
                     : 'hover:scale-[1.01] hover:shadow-md'
@@ -169,11 +169,11 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
                   borderColor: isLoading ? levelColor : withOpacity(theme.primary, 0.1),
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                     {/* 等级标签 */}
                     <div
-                      className="flex-shrink-0 px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm"
+                      className="flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs sm:text-sm shadow-sm"
                       style={{
                         backgroundColor: levelColor,
                         color: '#ffffff'
@@ -184,32 +184,37 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
 
                     {/* 词库信息 */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold" style={{ color: textColor }}>
+                      <h3 className="text-sm sm:text-lg font-semibold truncate" style={{ color: textColor }}>
                         {library.name}
                         {isImported && (
-                          <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600 border border-green-200">
+                          <span className="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600 border border-green-200">
                             已导入
                           </span>
                         )}
                       </h3>
-                      <p className="text-sm truncate" style={{ color: textSubColor }}>
+                      <p className="text-xs sm:text-sm truncate" style={{ color: textSubColor }}>
                         {library.description}
                       </p>
-                      <p className="text-xs mt-1" style={{ color: withOpacity(textColor, 0.5) }}>
+                      <p className="text-[10px] sm:text-xs mt-0.5 sm:mt-1" style={{ color: withOpacity(textColor, 0.5) }}>
                         共 {library.wordCount} 个单词
+                        {isImported && (
+                          <span className="sm:hidden ml-2 text-[10px] px-1.5 py-0 rounded-full bg-green-100 text-green-600 border border-green-200">
+                            已导入
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
 
                   {/* 导入/删除按钮 */}
-                  <div className="flex-shrink-0 ml-4">
+                  <div className="flex-shrink-0 ml-1 sm:ml-4">
                     {isLoading ? (
-                      <div className="flex items-center gap-2 text-sm" style={{ color: theme.primary }}>
+                      <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm" style={{ color: theme.primary }}>
                         <div
-                          className="w-2 h-2 rounded-full animate-ping"
+                          className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-ping"
                           style={{ backgroundColor: theme.primary }}
                         />
-                        导入中...
+                        <span className="hidden sm:inline">导入中...</span>
                       </div>
                     ) : isImported ? (
                       <button
@@ -217,14 +222,14 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
                           e.stopPropagation();
                           handleDeleteClick(library);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition hover:opacity-80"
+                        className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition hover:opacity-80 text-xs sm:text-base"
                         style={{
                           backgroundColor: '#fee2e2',
                           color: '#ef4444'
                         }}
                       >
-                        <Trash2 className="w-4 h-4" />
-                        移除
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span className="whitespace-nowrap">移除</span>
                       </button>
                     ) : (
                       <button
@@ -232,15 +237,15 @@ export function PresetLibrarySelector({ onImport, onDelete, onClose, importedLib
                           e.stopPropagation();
                           handleImport(library);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition hover:opacity-90 shadow-sm"
+                        className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition hover:opacity-90 shadow-sm text-xs sm:text-base"
                         style={{
                           backgroundColor: levelColor,
                           color: '#ffffff'
                         }}
                       >
-                        <Download className="w-4 h-4" />
-                        导入
-                        <ChevronRight className="w-4 h-4" />
+                        <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span className="whitespace-nowrap">导入</span>
+                        <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:block" />
                       </button>
                     )}
                   </div>

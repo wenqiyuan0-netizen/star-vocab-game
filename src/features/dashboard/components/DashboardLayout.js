@@ -260,7 +260,7 @@ export function DashboardLayout(props) {
 
   return (
     <div
-      className="absolute inset-0 flex flex-col overflow-hidden z-[20]"
+      className="fixed inset-0 flex flex-col overflow-hidden z-[20]"
       style={{
         backgroundImage: wallpaper ? `url(${wallpaper})` : 'none',
         backgroundSize: 'cover',
