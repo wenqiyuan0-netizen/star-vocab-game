@@ -117,12 +117,23 @@ class LocalLemmatization {
         if (!lemma) return null;
 
         // 确定首字母以加载对应块
-        const firstChar = lemma.charAt(0);
+        // 注意：无论 lemma 大小写，我们都去对应的小写字母文件中查找
+        const firstChar = lemma.charAt(0).toLowerCase();
         const chunk = await this.loadConjugationChunk(firstChar);
         
-        if (chunk && chunk[lemma]) {
-            return chunk[lemma];
-        }
+        if (!chunk) return null;
+
+        // 尝试多种大小写组合
+        // 1. 精确匹配
+        if (chunk[lemma]) return chunk[lemma];
+
+        // 2. 全小写 (针对传入 "Gehen" 但存储为 "gehen" 的情况)
+        const lower = lemma.toLowerCase();
+        if (chunk[lower]) return chunk[lower];
+
+        // 3. 首字母大写 (针对传入 "gehen" 但存储为 "Gehen" 的名词情况)
+        const capitalized = lower.charAt(0).toUpperCase() + lower.slice(1);
+        if (chunk[capitalized]) return chunk[capitalized];
 
         return null;
     }

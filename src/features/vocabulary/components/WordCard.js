@@ -524,7 +524,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                       </div>
                     ) : (
                       <div className="text-sm opacity-70 py-2 italic">
-                        {conjugationData ? '暂无详细变位信息' : '加载失败'}
+                        {conjugationData ? '暂无详细变位信息' : '未找到变位数据'}
                       </div>
                     )}
                   </div>
