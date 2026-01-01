@@ -278,13 +278,15 @@ export function DashboardLayout(props) {
 
       {/* 底部导航栏 (Glassmorphism) */}
       <div
-        className="glass-panel border-b-0 rounded-t-3xl pb-safe pt-2 z-50 relative transition-colors duration-500"
+        className="glass-panel border-b-0 rounded-t-3xl z-50 relative transition-colors duration-500"
         style={{
           borderColor: withOpacity((Array.isArray(theme.contrast) && theme.contrast.length > 0 ? theme.contrast[0] : theme.primary), 0.2),
-          boxShadow: `0 -8px 32px ${withOpacity((Array.isArray(theme.contrast) && theme.contrast.length > 0 ? theme.contrast[0] : theme.primary), 0.06)}`
+          boxShadow: `0 -8px 32px ${withOpacity((Array.isArray(theme.contrast) && theme.contrast.length > 0 ? theme.contrast[0] : theme.primary), 0.06)}`,
+          paddingBottom: 'env(safe-area-inset-bottom)', // 显式使用 padding-bottom
+          marginBottom: '-1px' // 微调以覆盖可能的缝隙
         }}
       >
-        <div className="flex justify-around items-center h-16">
+        <div className="flex justify-around items-center h-16 pt-2">
           <NavButton
             icon={Home}
             label="主页"
