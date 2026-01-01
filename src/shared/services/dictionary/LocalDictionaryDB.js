@@ -1,9 +1,10 @@
 const DB_NAME = 'StarVocabDictionaryDB';
-const DB_VERSION = 3; // 升级版本：新增 word_lower 索引和 translation_tasks
+const DB_VERSION = 4; // 升级版本：新增 search_index
 const STORE_ENTRIES = 'entries';
 const STORE_QUEUE = 'translation_queue';
 const STORE_EXAMPLES = 'examples';
-const STORE_TASKS = 'translation_tasks'; // 新增：翻译任务存储
+const STORE_TASKS = 'translation_tasks';
+const STORE_SEARCH_INDEX = 'search_index'; // 新增：变位索引
 
 /**
  * 词条结构示例 (UnifiedEntry):
@@ -110,6 +111,19 @@ class LocalDictionaryDB {
                     store.createIndex('entry_id', 'entry_id', { unique: false });
                     store.createIndex('status', 'status', { unique: false });
                     store.createIndex('created_at', 'created_at', { unique: false });
+                }
+
+                // 5. 变位索引存储 (v4)
+                if (!db.objectStoreNames.contains(STORE_SEARCH_INDEX)) {
+                    // keyPath: 'v' (variant), value: 'l' (lemma_id)
+                    // 为了节省空间，我们存储简化的对象 {v: "...", l: ...} 或者直接把 variant 作为 key
+                    // 使用 out-of-line keys (不设置 keyPath) 可以存储任意值，比如 just number
+                    // 但 keyPath 查询更方便。这里 variant 是唯一的 key。
+                    // 让我们用 variant 作为 keyPath，value 是 lemma_id
+                    // 但是 IndexedDB value 必须是对象吗？不一定。
+                    // 为了最大化性能和空间，我们使用 out-of-line key。
+                    // store.put(lemma_id, variant)
+                    db.createObjectStore(STORE_SEARCH_INDEX); 
                 }
             };
         });
@@ -421,6 +435,88 @@ class LocalDictionaryDB {
         });
         return new Promise(resolve => {
             tx.oncomplete = () => resolve();
+        });
+    }
+
+    /**
+     * 获取翻译任务
+     */
+    async getTask(taskId) {
+        const db = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_TASKS, 'readonly');
+            const store = tx.objectStore(STORE_TASKS);
+            const request = store.get(taskId);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // ==========================================
+    // Search Index Methods (v4)
+    // ==========================================
+
+    /**
+     * 批量导入搜索索引
+     * @param {Object} indexData - { variant: lemma_id, ... }
+     */
+    async bulkPutSearchIndex(indexData) {
+        const db = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_SEARCH_INDEX, 'readwrite');
+            const store = tx.objectStore(STORE_SEARCH_INDEX);
+            
+            let count = 0;
+            const entries = Object.entries(indexData);
+            const total = entries.length;
+
+            // 为了不阻塞 UI，可能需要分块，但 IndexedDB 本身是异步的 (虽然 put 是请求)
+            // 几十万条一次性提交可能会卡死
+            // 建议外部调用者分块，或者这里简单处理
+            
+            entries.forEach(([variant, lemmaId]) => {
+                store.put(lemmaId, variant);
+                count++;
+            });
+
+            tx.oncomplete = () => {
+                console.log(`[DictDB] Indexed ${count} variants`);
+                resolve(count);
+            };
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    /**
+     * 查询变位原型 ID
+     * @param {string} variant 
+     * @returns {Promise<number|undefined>} lemma_id
+     */
+    async getLemmaId(variant) {
+        const db = await this.initPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_SEARCH_INDEX, 'readonly');
+            const store = tx.objectStore(STORE_SEARCH_INDEX);
+            const request = store.get(variant); // key is variant
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * 检查索引是否已填充
+     */
+    async isSearchIndexPopulated() {
+        const db = await this.initPromise;
+        return new Promise((resolve) => {
+            const tx = db.transaction(STORE_SEARCH_INDEX, 'readonly');
+            const store = tx.objectStore(STORE_SEARCH_INDEX);
+            const request = store.count();
+            
+            request.onsuccess = () => resolve(request.result > 0);
+            request.onerror = () => resolve(false);
         });
     }
 }
