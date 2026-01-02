@@ -564,34 +564,52 @@ class LocalDictionaryDB {
     // ==========================================
 
     /**
-     * 批量导入搜索索引
+     * 批量导入搜索索引 (分批处理以避免 UI 卡死)
      * @param {Object} indexData - { variant: lemma_id, ... }
      */
     async bulkPutSearchIndex(indexData) {
         const db = await this.initPromise;
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_SEARCH_INDEX, 'readwrite');
-            const store = tx.objectStore(STORE_SEARCH_INDEX);
-            
-            let count = 0;
-            const entries = Object.entries(indexData);
-            const total = entries.length;
+        const keys = Object.keys(indexData);
+        const total = keys.length;
+        const BATCH_SIZE = 2000; // 每批 2000 条，适中
 
-            // 为了不阻塞 UI，可能需要分块，但 IndexedDB 本身是异步的 (虽然 put 是请求)
-            // 几十万条一次性提交可能会卡死
-            // 建议外部调用者分块，或者这里简单处理
+        console.log(`[DictDB] Starting bulk index import for ${total} items...`);
+
+        // 使用 Promise.all 并不是好的选择，因为我们想要串行执行以减少瞬时内存压力
+        // 并允许中间插入 setTimeout
+        
+        let processed = 0;
+
+        for (let i = 0; i < total; i += BATCH_SIZE) {
+            const batchKeys = keys.slice(i, i + BATCH_SIZE);
             
-            entries.forEach(([variant, lemmaId]) => {
-                store.put(lemmaId, variant);
-                count++;
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_SEARCH_INDEX, 'readwrite');
+                const store = tx.objectStore(STORE_SEARCH_INDEX);
+                
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => {
+                    console.error(`[DictDB] Batch import failed at ${i}:`, e);
+                    // Continue anyway? Or reject? 
+                    // Rejecting stops the whole process. Let's try to resolve to skip bad batch.
+                    resolve(); 
+                };
+
+                batchKeys.forEach(key => {
+                    store.put(indexData[key], key);
+                });
             });
 
-            tx.oncomplete = () => {
-                console.log(`[DictDB] Indexed ${count} variants`);
-                resolve(count);
-            };
-            tx.onerror = (e) => reject(e.target.error);
-        });
+            processed += batchKeys.length;
+            
+            // 每处理一批，稍微休息一下，让出主线程给 UI (如进度条、动画)
+            if (i + BATCH_SIZE < total) {
+                await new Promise(r => setTimeout(r, 20));
+            }
+        }
+        
+        console.log(`[DictDB] Indexed ${processed} variants successfully`);
+        return processed;
     }
 
     /**

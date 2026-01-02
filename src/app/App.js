@@ -43,6 +43,14 @@ export default function App() {
                 const dictModule = await import("../shared/services/dictionary/DictionaryInit");
                 console.log('[App] Starting dictionary initialization...');
 
+                // Start lemmatization index download in background (non-blocking)
+                import("../utils/lemmatizationService").then(({ lemmatizationService }) => {
+                    console.log('[App] Triggering background index download...');
+                    lemmatizationService.ensureIndexLoaded().catch(e => 
+                        console.warn('[App] Background index download warning:', e)
+                    );
+                });
+
                 const result = await dictModule.initializeDictionary((p, m) => {
                     console.log(`[Dict] ${p}%: ${m}`);
                 });
