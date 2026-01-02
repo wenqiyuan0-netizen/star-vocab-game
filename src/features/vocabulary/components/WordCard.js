@@ -591,23 +591,43 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
               {/* AI Generated Example Display */}
               {aiExample && (
                 <div
-                  className="relative pl-4 border-l-2 mb-3 animate-fade-in"
+                  className="relative pl-4 border-l-2 mb-3 animate-fade-in group"
                   style={{ borderColor: theme.accent }}
                 >
-                  <div
-                    className="leading-relaxed font-serif tracking-wide mb-1 font-medium"
-                    style={{
-                      color: theme.text,
-                      fontSize: isFocus ? '1.1rem' : '0.9rem'
-                    }}
-                  >
-                    {aiExample.sentence}
-                  </div>
-                  <div
-                    className="text-xs font-light"
-                    style={{ color: withOpacity(theme.text, 0.8) }}
-                  >
-                    {aiExample.translation}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <div
+                        className="leading-relaxed font-serif tracking-wide mb-1 font-medium"
+                        style={{
+                          color: theme.text,
+                          fontSize: isFocus ? '1.1rem' : '0.9rem'
+                        }}
+                      >
+                        {aiExample.sentence}
+                      </div>
+                      <div
+                        className="text-xs font-light"
+                        style={{ color: withOpacity(theme.text, 0.8) }}
+                      >
+                        {aiExample.translation}
+                      </div>
+                    </div>
+                    {/* TTS Button for AI Example */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakWithTTS(aiExample.sentence);
+                      }}
+                      className="flex-shrink-0 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 opacity-0 group-hover:opacity-100"
+                      style={{
+                        backgroundColor: withOpacity(theme.accent, 0.15),
+                        color: theme.accent,
+                        border: `1px solid ${withOpacity(theme.accent, 0.3)}`
+                      }}
+                      title="朗读例句"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[0.6rem] opacity-70 uppercase tracking-widest font-bold" style={{ color: theme.accent }}>AI</span>
@@ -631,23 +651,43 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                     className="relative pl-4 border-l-2 transition-all duration-300 group hover:border-l-3 hover:bg-white/5 rounded-r-lg p-1"
                     style={{ borderColor: withOpacity(sourceColor, 0.4) }}
                   >
-                    <div
-                      className="leading-relaxed font-serif tracking-wide mb-1"
-                      style={{
-                        color: isFocus ? theme.text : withOpacity(theme.text, 0.95),
-                        fontSize: isFocus ? '1.1rem' : '0.9rem'
-                      }}
-                    >
-                      {ex.de || ex.sentence}
-                    </div>
-                    {(ex.cn || ex.translation) && (
-                      <div
-                        className="text-xs font-light"
-                        style={{ color: isFocus ? withOpacity(theme.text, 0.6) : withOpacity(theme.text, 0.7) }}
-                      >
-                        {ex.cn || ex.translation}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <div
+                          className="leading-relaxed font-serif tracking-wide mb-1"
+                          style={{
+                            color: isFocus ? theme.text : withOpacity(theme.text, 0.95),
+                            fontSize: isFocus ? '1.1rem' : '0.9rem'
+                          }}
+                        >
+                          {ex.de || ex.sentence}
+                        </div>
+                        {(ex.cn || ex.translation) && (
+                          <div
+                            className="text-xs font-light"
+                            style={{ color: isFocus ? withOpacity(theme.text, 0.6) : withOpacity(theme.text, 0.7) }}
+                          >
+                            {ex.cn || ex.translation}
+                          </div>
+                        )}
                       </div>
-                    )}
+                      {/* TTS Button for Example */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakWithTTS(ex.de || ex.sentence);
+                        }}
+                        className="flex-shrink-0 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 opacity-0 group-hover:opacity-100"
+                        style={{
+                          backgroundColor: withOpacity(theme.text, 0.08),
+                          color: withOpacity(theme.text, 0.7),
+                          border: `1px solid ${withOpacity(theme.text, 0.15)}`
+                        }}
+                        title="朗读例句"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     {/* Source Label for Example */}
                     {sourceLabel && isFocus && (
                       <div className="mt-1 flex justify-end">

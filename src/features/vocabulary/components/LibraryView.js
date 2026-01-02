@@ -507,7 +507,7 @@ export function LibraryView({
               <textarea
                 value={customInput}
                 onChange={e => setCustomInput(e.target.value)}
-                placeholder="输入单词... (格式: der Apfel, 苹果)"
+                placeholder="输入单词... (格式: der Apfel；苹果)"
                 className="w-full text-left cursor-text rounded-lg p-3 pr-10 text-sm outline-none placeholder:text-gray-500 overflow-y-auto custom-scrollbar resize-none"
                 style={{
                   backgroundColor: cardBgColor,

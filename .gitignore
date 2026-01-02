@@ -35,3 +35,6 @@ src/shared/services/dictionary/dict/Kaikki_Dict_Output.json
 src/shared/services/dictionary/dict/Rare_Vocab_cloud.json
 src/shared/services/dictionary/dict/lemma/Kaikki_Lemma_Output.json
 src/shared/services/dictionary/dict/Kaikki_Dict_Cleaned.csv
+
+# invalid windows file
+nul

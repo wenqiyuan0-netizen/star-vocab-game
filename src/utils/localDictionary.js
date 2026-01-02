@@ -40,7 +40,7 @@ class LocalDictionary {
                 const rawData = await response.json();
 
                 // 转换格式以匹配内部结构
-                const entries = Array.isArray(rawData) ? rawData.map(item => ({
+                const entries = Array.isArray(rawData) ? rawData.map((item, index) => ({
                     w: item.word,
                     p: item.pos,
                     a: item.article,
@@ -50,7 +50,8 @@ class LocalDictionary {
                     i: item.ipa,
                     audio: item.audio || item.audio_url,  // 音频 URL
                     x: item.example_de ? [item.example_de] : [],
-                    xc: item.example_cn ? [item.example_cn] : []
+                    xc: item.example_cn ? [item.example_cn] : [],
+                    rank: index + 1 // 添加词频排名 (假设源文件是按词频排序的)
                 })) : (rawData.entries || []);
 
                 this.dict = {

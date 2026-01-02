@@ -158,7 +158,7 @@ export function WordManager({
           <textarea
             value={customInput}
             onChange={e => setCustomInput(e.target.value)}
-            placeholder="快速添加: der Apfel, 苹果 (每行一个)"
+            placeholder="快速添加: der Apfel; 苹果 (每行一个)"
             className="flex-grow glass-input text-left cursor-text rounded-lg p-3 text-sm text-gray-200 focus:ring-2 transition-colors min-h-[60px] resize-none placeholder-gray-500"
             style={{ '--tw-ring-color': `${theme.primary}80`, borderColor: theme.primary }}
           />
