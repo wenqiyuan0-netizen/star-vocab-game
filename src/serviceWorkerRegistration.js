@@ -50,8 +50,9 @@ export function register(config) {
 
     // 3. Controlling (Reload when new SW takes control)
     wb.addEventListener('controlling', () => {
-       console.log('Service worker now controlling page, reloading...');
-       window.location.reload();
+       console.log('Service worker now controlling page');
+       // 移除自动刷新，防止 iOS 循环刷新问题
+       // window.location.reload();
     });
 
     wb.register().catch(error => {

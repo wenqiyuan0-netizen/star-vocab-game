@@ -186,6 +186,46 @@ class LocalDictionaryDB {
         });
     }
 
+    /**
+     * 根据单词获取所有匹配的词条 (使用 word_lower 索引)
+     * @param {string} word 
+     * @returns {Promise<Array>}
+     */
+    async getEntriesByWord(word) {
+        await this.ensureConnection();
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORE_ENTRIES], 'readonly');
+            const store = tx.objectStore(STORE_ENTRIES);
+            const lower = word.toLowerCase().trim();
+            
+            let request;
+            // 优先使用索引查找所有匹配项
+            if (store.indexNames.contains('word_lower')) {
+                const index = store.index('word_lower');
+                request = index.getAll(lower);
+            } else if (store.indexNames.contains('word')) {
+                // Fallback to case-sensitive word index if lower not available
+                const index = store.index('word');
+                request = index.getAll(word);
+            } else {
+                // Fallback to primary key (ID)
+                request = store.get(lower);
+            }
+
+            request.onsuccess = () => {
+                const res = request.result;
+                if (Array.isArray(res)) {
+                    resolve(res);
+                } else if (res) {
+                    resolve([res]);
+                } else {
+                    resolve([]);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async saveEntry(entry) {
         await this.ensureConnection();
         return new Promise((resolve, reject) => {

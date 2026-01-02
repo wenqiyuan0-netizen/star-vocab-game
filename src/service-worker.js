@@ -86,7 +86,7 @@ registerRoute(
     cacheName: 'images',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 100,
+        maxEntries: 50, // 减少缓存条目，优化 Android 性能
         maxAgeSeconds: 30 * 24 * 60 * 60, // 30 天
       }),
     ],

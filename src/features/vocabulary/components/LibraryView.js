@@ -254,15 +254,24 @@ export function LibraryView({
   React.useEffect(() => {
     if (cardWord) {
       let active = true;
-      const load = async () => {
-        setCardEntry(null);
-        try {
-          const entry = await exampleService.getDictEntry(cardWord.de);
-          if (active) setCardEntry(entry);
-        } catch { }
+      // Clear previous entry immediately to avoid showing stale data
+      setCardEntry(null);
+
+      // Debounce the heavy dictionary lookup to prevent crashing on rapid navigation
+      const timer = setTimeout(() => {
+        const load = async () => {
+          try {
+            const entry = await exampleService.getDictEntry(cardWord.de);
+            if (active) setCardEntry(entry);
+          } catch { }
+        };
+        load();
+      }, 200); // 200ms delay to wait for user to stop rapid clicking
+
+      return () => { 
+        active = false;
+        clearTimeout(timer);
       };
-      load();
-      return () => { active = false; };
     }
   }, [cardWord]);
 

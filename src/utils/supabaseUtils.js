@@ -39,8 +39,11 @@ export const appWordToDbWord = (appWord, userId) => {
   // 稳定 ID 只在本地使用，同步时通过 de_norm 匹配
   if (isValidUuid(appWord.id)) {
     dbWord.id = appWord.id;
+  } else {
+    // 如果没有有效的 UUID（例如新词或只有稳定 ID），生成一个新的 UUID
+    // 这避免了依赖数据库的默认值，解决了 "null value in column id" 错误
+    dbWord.id = generateUuid();
   }
-  // 不写入 stable_id，让数据库自动生成 UUID
 
   return dbWord;
 };

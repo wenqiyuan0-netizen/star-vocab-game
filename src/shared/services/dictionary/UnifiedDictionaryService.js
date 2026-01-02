@@ -190,8 +190,46 @@ class UnifiedDictionaryService {
             console.error('[Dict] Local dictionary lookup failed:', e);
         }
 
+        // 1.5 查本地数据库 (IndexedDB - 用户导入/缓存)
+        try {
+            const dbEntries = await localDictDB.getEntriesByWord(normalizedWord);
+            if (dbEntries && dbEntries.length > 0) {
+                console.log(`[Dict] Local DB hit for ${word} (${dbEntries.length} entries found)`);
+
+                // 标记来源
+                dbEntries.forEach(e => {
+                    if (!e.source_tags) e.source_tags = ['local_db'];
+                    // 确保有必要的字段用于合并
+                    if (!e.translation && e.translation_cn) e.translation = e.translation_cn;
+                });
+
+                // 尝试找到与输入词完全匹配的条目（区分大小写）
+                const exactMatchEntries = dbEntries.filter(e => e.word === word);
+                let targetEntries = dbEntries;
+                if (exactMatchEntries.length > 0 && exactMatchEntries.length < dbEntries.length) {
+                    targetEntries = exactMatchEntries;
+                }
+
+                const merged = this.mergeEntries(targetEntries);
+
+                // 注入独立存储的例句（如果有）
+                try {
+                    const extraExamples = await localDictDB.getExamples(normalizedWord);
+                    if (extraExamples && extraExamples.length > 0) {
+                        merged.examples = [...(merged.examples || []), ...extraExamples];
+                    }
+                } catch (e) {
+                    console.warn('[Dict] Failed to load extra examples for DB entry:', e);
+                }
+
+                return merged;
+            }
+        } catch (e) {
+            console.warn('[Dict] Local DB lookup failed:', e);
+        }
+
         // 2. 查统一词典 (本地 Common + Cloud + Lemmatization)
-        console.log(`[Dict] Local DB miss for ${word}, querying Unified Dictionary...`);
+        console.log(`[Dict] Local/DB miss for ${word}, querying Unified Dictionary...`);
         try {
             const result = await unifiedSearch.search(normalizedWord);
 

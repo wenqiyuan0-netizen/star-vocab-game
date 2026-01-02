@@ -1776,7 +1776,7 @@ export default function SpaceVocabGame() {
 
   // ==================== UI 部分 (V1 完全恢复) ====================
   return (
-    <div ref={containerRef} className={`w-full h-[100dvh] fixed inset-0 font-sans overflow-hidden select-none text-slate-800 touch-none relative ${wallpaper ? 'bg-slate-900' : 'bg-slate-100'}`}>
+    <div ref={containerRef} className={`w-full fixed inset-0 font-sans overflow-hidden select-none text-slate-800 touch-none relative ${wallpaper ? 'bg-slate-900' : 'bg-slate-100'}`}>
       <div className="absolute inset-0 z-[5] pointer-events-none" style={{ backgroundImage: `url('${wallpaper}')`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}></div>
       <div className="absolute inset-0 z-[5] pointer-events-none transition-colors duration-1000" style={{ backgroundColor: theme.overlay, opacity: 0.45 }}></div>
       <div className="absolute inset-0 z-[6] bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none"></div>

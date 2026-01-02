@@ -17,7 +17,7 @@ export default function App() {
         return !hasSeen;
     });
 
-    // Initialize dictionary ONCE on app start (after 2s delay)
+    // Initialize dictionary ONCE on app start
     // Use window object to survive React StrictMode remounts
     useEffect(() => {
         console.log('[App] useEffect triggered - window._dictInitialized:', window._dictInitialized);
@@ -28,18 +28,12 @@ export default function App() {
             return;
         }
 
-        console.log('[App] Scheduling dictionary initialization in 2 seconds...');
-
-        const timer = setTimeout(async () => {
-            // Mark as initialized ONLY when timer fires
-            if (window._dictInitialized) {
-                console.log('[App] Another instance already initialized, aborting');
-                return;
-            }
+        const init = async () => {
+            // Mark as initialized immediately to prevent race conditions
+            if (window._dictInitialized) return;
             window._dictInitialized = true;
 
             try {
-                console.log('[App] Timer fired, loading diagnostic tool...');
                 // Load diagnostic tool first (development mode)
                 const diagnostic = await import("../shared/services/dictionary/DiagnosticTool");
                 diagnostic.exposeToConsole();
@@ -61,12 +55,10 @@ export default function App() {
             } catch (err) {
                 console.error('[App] Dictionary initialization or diagnostic failed:', err);
             }
-        }, 2000); // Delay 2s to let app stabilize
-
-        return () => {
-            console.log('[App] useEffect cleanup, clearing timer');
-            clearTimeout(timer);
         };
+
+        // Execute immediately
+        init();
     }, []);
 
     const handleSplashComplete = () => {
