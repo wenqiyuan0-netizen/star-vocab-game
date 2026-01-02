@@ -136,20 +136,11 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
 
   // Debug: 打印用户等级信息
   useEffect(() => {
-    console.log('[WordCard Debug] ProfileContext:', profileContext);
-    console.log('[WordCard Debug] User Level:', userLevel);
-    console.log('[WordCard Debug] Required Level:', REQUIRED_LEVEL);
-    console.log('[WordCard Debug] isFocus:', isFocus);
-    console.log('[WordCard Debug] loadingAi:', loadingAi);
-
-    // 尝试读取localStorage
-    try {
-      const localProfile = localStorage.getItem('space_vocab_user_profile');
-      console.log('[WordCard Debug] localStorage profile:', localProfile);
-    } catch (e) {
-      console.error('[WordCard Debug] localStorage error:', e);
+    if (isFocus) {
+        // 仅在聚焦时打印一次，避免频繁刷新
+        // console.log('[WordCard Debug] User Level:', userLevel);
     }
-  }, [profileContext, userLevel, isFocus, loadingAi]);
+  }, [userLevel, isFocus]);
 
   // Conjugation state
   const [showConjugation, setShowConjugation] = useState(false);
@@ -315,15 +306,54 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
     }
   };
 
-  // Audio playback handler
+  // TTS 朗读函数
+  const speakWithTTS = (text) => {
+    if (!text) return;
+
+    // 停止当前播放
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'de-DE';  // 德语
+    utterance.rate = 0.85;     // 稍慢的语速，便于学习
+    utterance.pitch = 1.0;
+
+    utterance.onerror = (event) => {
+      console.error('[WordCard] TTS error:', event);
+    };
+
+    window.speechSynthesis.speak(utterance);
+    console.log(`[WordCard] TTS playing: ${text}`);
+  };
+
+  // Audio playback handler with TTS fallback
   const playAudio = (e) => {
     e.stopPropagation();
+
+    // 优先尝试使用音频URL
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.play().catch(err => {
-        console.error('[WordCard] Audio playback failed:', err);
-        alert(`音频播放失败：${err.message}`);
-      });
+
+      // 设置超时检测（3秒）
+      const timeout = setTimeout(() => {
+        console.warn('[WordCard] Audio loading timeout, falling back to TTS');
+        speakWithTTS(w.de);
+      }, 3000);
+
+      audio.play()
+        .then(() => {
+          clearTimeout(timeout);
+          console.log(`[WordCard] Audio played: ${audioUrl}`);
+        })
+        .catch(err => {
+          clearTimeout(timeout);
+          console.warn('[WordCard] Audio playback failed, using TTS:', err.message);
+          speakWithTTS(w.de);
+        });
+    } else {
+      // 没有音频URL，直接使用TTS
+      console.log('[WordCard] No audio URL, using TTS');
+      speakWithTTS(w.de);
     }
   };
 
@@ -429,8 +459,8 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
           </div>
         </div>
 
-        {/* Pronunciation: IPA & Audio */}
-        {(ipa || audioUrl) && (
+        {/* Pronunciation: IPA & Audio (with TTS fallback) */}
+        {(ipa || w.de) && (
           <div
             className={`flex items-center gap-4 ${isFocus ? 'py-3 px-4 rounded-lg' : 'py-1.5 px-3 rounded'} border`}
             style={{
@@ -446,21 +476,20 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 </span>
               </div>
             )}
-            {audioUrl && (
-              <button
-                onClick={playAudio}
-                className={`flex items-center gap-1.5 ${isFocus ? 'px-3 py-1.5' : 'px-2 py-1'} rounded-full transition-all hover:scale-105 active:scale-95`}
-                style={{
-                  backgroundColor: withOpacity(theme.text, 0.1),
-                  color: theme.text,
-                  border: `1px solid ${withOpacity(theme.text, 0.25)}`
-                }}
-                title="播放发音"
-              >
-                <Volume2 className={isFocus ? 'w-4 h-4' : 'w-3 h-3'} />
-                {isFocus && <span className="text-xs font-medium">发音</span>}
-              </button>
-            )}
+            {/* 朗读按钮：有音频URL时播放音频，否则使用TTS */}
+            <button
+              onClick={playAudio}
+              className={`flex items-center gap-1.5 ${isFocus ? 'px-3 py-1.5' : 'px-2 py-1'} rounded-full transition-all hover:scale-105 active:scale-95`}
+              style={{
+                backgroundColor: withOpacity(theme.text, 0.1),
+                color: theme.text,
+                border: `1px solid ${withOpacity(theme.text, 0.25)}`
+              }}
+              title={audioUrl ? "播放发音（音频）" : "播放发音（TTS）"}
+            >
+              <Volume2 className={isFocus ? 'w-4 h-4' : 'w-3 h-3'} />
+              {isFocus && <span className="text-xs font-medium">{audioUrl ? '发音' : 'TTS'}</span>}
+            </button>
           </div>
         )}
 

@@ -29,10 +29,16 @@ class LocalLemmatization {
             const startTime = Date.now();
 
             try {
-                const response = await fetch('/dict/local_variants.json');
-                if (!response.ok) throw new Error('Failed to load local_variants.json');
-                
-                this.variantIndex = await response.json();
+                // 尝试加载 search_index.json (优先) 或 local_variants.json (旧版)
+                const response = await fetch('/dict/search_index.json');
+                if (!response.ok) {
+                     // Fallback to old name if new one doesn't exist
+                     const oldResponse = await fetch('/dict/local_variants.json');
+                     if (!oldResponse.ok) throw new Error('Failed to load search_index.json or local_variants.json');
+                     this.variantIndex = await oldResponse.json();
+                } else {
+                     this.variantIndex = await response.json();
+                }
 
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
                 console.log(`✅ 变体索引加载完成！`);
@@ -109,32 +115,20 @@ class LocalLemmatization {
     }
 
     /**
-     * 获取词的所有变位形式
-     * @param {string} lemma - 原型词
-     * @returns {Promise<Array|null>} - 变位详情数组
+     * 获取单词的完整变位信息
+     * @param {string} word - 原型词
+     * @returns {Promise<Array|null>} - 变位列表或null
      */
-    async getWordForms(lemma) {
-        if (!lemma) return null;
-
-        // 确定首字母以加载对应块
-        // 注意：无论 lemma 大小写，我们都去对应的小写字母文件中查找
-        const firstChar = lemma.charAt(0).toLowerCase();
+    async getWordForms(word) {
+        if (!word) return null;
+        
+        const firstChar = word.charAt(0);
         const chunk = await this.loadConjugationChunk(firstChar);
         
-        if (!chunk) return null;
-
-        // 尝试多种大小写组合
-        // 1. 精确匹配
-        if (chunk[lemma]) return chunk[lemma];
-
-        // 2. 全小写 (针对传入 "Gehen" 但存储为 "gehen" 的情况)
-        const lower = lemma.toLowerCase();
-        if (chunk[lower]) return chunk[lower];
-
-        // 3. 首字母大写 (针对传入 "gehen" 但存储为 "Gehen" 的名词情况)
-        const capitalized = lower.charAt(0).toUpperCase() + lower.slice(1);
-        if (chunk[capitalized]) return chunk[capitalized];
-
+        if (chunk && chunk[word]) {
+            return chunk[word];
+        }
+        
         return null;
     }
 

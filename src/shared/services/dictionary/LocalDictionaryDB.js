@@ -294,15 +294,81 @@ class LocalDictionaryDB {
     async removeFromQueue(ids) {
         await this.initPromise;
         return new Promise((resolve, reject) => {
+            if (!Array.isArray(ids)) {
+                console.warn('[DictDB] removeFromQueue expects an array of IDs');
+                return resolve(false);
+            }
+            
             const tx = this.db.transaction([STORE_QUEUE], 'readwrite');
             const store = tx.objectStore(STORE_QUEUE);
 
-            ids.forEach(id => store.delete(id));
-
+            ids.forEach(id => {
+                if (id) store.delete(id);
+            });
+            
             tx.oncomplete = () => resolve(true);
             tx.onerror = () => reject(tx.error);
         });
     }
+
+    /**
+     * 删除所有 Goethe 来源的词条
+     * 用于清理旧数据
+     */
+    async deleteGoetheEntries() {
+        await this.ensureConnection();
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORE_ENTRIES], 'readwrite');
+            const store = tx.objectStore(STORE_ENTRIES);
+            let deletedCount = 0;
+
+            const request = store.openCursor();
+            request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const entry = cursor.value;
+                    let isGoethe = false;
+                    
+                    // Check sources array
+                    if (entry.sources && Array.isArray(entry.sources)) {
+                        isGoethe = entry.sources.some(s => s.type === 'goethe');
+                    }
+                    // Compatibility check for potential old 'source' field
+                    if (!isGoethe && entry.source === 'goethe') {
+                        isGoethe = true;
+                    }
+                    
+                    if (isGoethe) {
+                        cursor.delete();
+                        deletedCount++;
+                    }
+                    
+                    cursor.continue();
+                } else {
+                    console.log(`[DictDB] Deleted ${deletedCount} Goethe entries`);
+                    resolve(deletedCount);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * 获取词条总数
+     * @returns {Promise<number>}
+     */
+    async countEntries() {
+        await this.ensureConnection();
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORE_ENTRIES], 'readonly');
+            const store = tx.objectStore(STORE_ENTRIES);
+            const request = store.count();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+
 
     // --- 新增：按 word_lower 查询 ---
 

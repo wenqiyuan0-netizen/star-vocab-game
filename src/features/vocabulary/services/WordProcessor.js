@@ -21,11 +21,15 @@ export const processImportInput = (inputText, currentDb) => {
     const raw = line.trim();
     if (!raw) return;
 
-    const parts = raw.split(/;|；/);
+    // 清理行首的编号、符号等 (如 "1. ", "• ", "- ")
+    const cleanLine = raw.replace(/^[\s\d\.\)\]\-\*•]+/, '');
+
+    const parts = cleanLine.split(/;|；/);
     if (parts.length < 2) return;
 
     let deRaw = parts[0].trim();
-    let cn = parts[1].trim();
+    // 支持多个中文释义（如果有多个分号，将后面的所有部分合并）
+    let cn = parts.slice(1).map(p => p.trim()).filter(Boolean).join('；');
     let gender = null;
     let pos = null;
     let deClean = deRaw;

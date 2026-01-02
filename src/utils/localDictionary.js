@@ -48,6 +48,7 @@ class LocalDictionary {
                     e: item.translation ? [item.translation] : [],
                     c: item.translation_cn ? [item.translation_cn] : [],
                     i: item.ipa,
+                    audio: item.audio || item.audio_url,  // 音频 URL
                     x: item.example_de ? [item.example_de] : [],
                     xc: item.example_cn ? [item.example_cn] : []
                 })) : (rawData.entries || []);

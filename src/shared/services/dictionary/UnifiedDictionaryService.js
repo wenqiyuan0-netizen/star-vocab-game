@@ -2,6 +2,7 @@
 import { localDictDB } from './LocalDictionaryDB';
 import { aiService } from '../ai/AIService';
 import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
+import { localDict } from '../../../utils/localDictionary';
 
 class UnifiedDictionaryService {
     constructor() {
@@ -98,33 +99,95 @@ class UnifiedDictionaryService {
         return source;
     }
 
+    /**
+     * 从冠词提取性别
+     * @param {string} article - 冠词 (der, die, das)
+     * @returns {string} - 'm', 'f', 'n', 或 ''
+     */
+    extractGender(article) {
+        if (!article) return '';
+        const art = article.toLowerCase().trim();
+        if (art === 'der' || art === 'm') return 'm';
+        if (art === 'die' || art === 'f') return 'f';
+        if (art === 'das' || art === 'n') return 'n';
+        return '';
+    }
+
+    /**
+     * 格式化例句
+     * @param {Array} deExamples - 德语例句数组
+     * @param {Array} cnExamples - 中文例句数组
+     * @returns {Array} - 格式化的例句对象数组
+     */
+    formatExamples(deExamples, cnExamples) {
+        if (!deExamples || !Array.isArray(deExamples)) return [];
+        return deExamples.map((de, i) => ({
+            de: de,
+            cn: cnExamples && cnExamples[i] ? cnExamples[i] : ''
+        }));
+    }
+
     async lookup(word) {
         const normalizedWord = word.trim();
 
         // 0. 检查是否正在初始化词典
         if (window._dictInitializing) {
-            console.log(`[Dict] Dictionary initializing, skipping query for ${word}`);
-            return null;
+            console.log(`[Dict] Dictionary initializing, waiting to query ${word}...`);
+            await this.waitForInitialization();
         }
 
-        // 1. 查本地数据库 (使用 word_lower 索引)
-        // 这是用户个人的缓存或已添加的词
+        // 1. 查预置词典 (localDict - 内存缓存)
         try {
-            const localEntries = await localDictDB.getEntriesByWord(normalizedWord);
+            const localEntries = await localDict.lookup(normalizedWord);
             if (localEntries && localEntries.length > 0) {
-                console.log(`[Dict] Local DB hit for ${word} (${localEntries.length} entries found)`);
-                const merged = this.mergeEntries(localEntries);
-                
-                // 注入独立存储的例句
-                const extraExamples = await localDictDB.getExamples(normalizedWord);
-                if (extraExamples && extraExamples.length > 0) {
-                    merged.examples = [...(merged.examples || []), ...extraExamples];
+                console.log(`[Dict] Local dictionary hit for ${word} (${localEntries.length} entries found)`);
+
+                // 转换格式为统一的 Entry 格式
+                const convertedEntries = localEntries.map(e => ({
+                    id: e.w.toLowerCase(),
+                    word: e.w,
+                    pos: e.p || 'unknown',
+                    gender: this.extractGender(e.a),
+                    article: e.a,
+                    plural: e.pl,
+                    translation: e.c ? e.c.join('; ') : '',
+                    translation_cn: e.c ? e.c.join('; ') : '',
+                    definition_en: e.e ? e.e.join('; ') : '',
+                    ipa: e.i,
+                    audio: e.audio,           // 音频 URL
+                    audio_url: e.audio,       // 兼容字段
+                    audioUrl: e.audio,        // 兼容字段
+                    examples: this.formatExamples(e.x, e.xc),
+                    source: 'local_common',
+                    has_chinese: !!(e.c && e.c.length > 0)
+                }));
+
+                // 尝试找到与输入词完全匹配的条目（区分大小写）
+                const exactMatchEntries = convertedEntries.filter(e => e.word === word);
+
+                let targetEntries = convertedEntries;
+                if (exactMatchEntries.length > 0 && exactMatchEntries.length < convertedEntries.length) {
+                    console.log(`[Dict] Filtering exact case matches for "${word}"`);
+                    targetEntries = exactMatchEntries;
                 }
-                
+
+                const merged = this.mergeEntries(targetEntries);
+
+                // 注入独立存储的例句（如果有）
+                try {
+                    const extraExamples = await localDictDB.getExamples(normalizedWord);
+                    if (extraExamples && extraExamples.length > 0) {
+                        merged.examples = [...(merged.examples || []), ...extraExamples];
+                    }
+                } catch (e) {
+                    // IndexedDB 查询失败不影响主流程
+                    console.warn('[Dict] Failed to load extra examples:', e);
+                }
+
                 return merged;
             }
         } catch (e) {
-            console.error('[Dict] Local DB lookup failed:', e);
+            console.error('[Dict] Local dictionary lookup failed:', e);
         }
 
         // 2. 查统一词典 (本地 Common + Cloud + Lemmatization)
@@ -135,48 +198,62 @@ class UnifiedDictionaryService {
             if (result.found && result.entries.length > 0) {
                 console.log(`[Dict] Unified Search hit: ${result.source}`);
 
-                // 转换为 Service 期望的格式
-                const mappedEntry = {
-                    id: result.entries[0].w.toLowerCase(), // 使用原型ID
-                    word: result.entries[0].w,
-                    pos: result.entries[0].p || 'unknown',
-                    translation: result.entries[0].c ? result.entries[0].c.join('; ') : '',
-                    definition_en: result.entries[0].e ? result.entries[0].e.join('; ') : '',
+                // 转换所有 entries 为统一格式
+                const convertedEntries = result.entries.map(e => ({
+                    id: e.w.toLowerCase(), // 使用原型ID
+                    word: e.w,
+                    pos: e.p || 'unknown',
+                    translation: e.c ? e.c.join('; ') : '',
+                    definition_en: e.e ? e.e.join('; ') : '',
                     source: result.source,
-                    has_chinese: !!(result.entries[0].c && result.entries[0].c.length > 0),
-                    // 如果是变位查到的，记录原始词
-                    original_search: normalizedWord,
-                    is_lemma_result: result.searchMethod.includes('lemmatization'),
-                    lemmas: result.lemmas || []
-                };
+                    has_chinese: !!(e.c && e.c.length > 0)
+                }));
 
-                // 3. 处理结果
-                if (mappedEntry.has_chinese) {
-                    // A. 有中文 -> 完美，存入本地 DB 缓存，返回
-                    // 注意：这里我们只存入缓存，不一定算作"用户已学习"
-                    // await localDictDB.saveEntry(mappedEntry); // 暂时不自动存，由用户点击添加时存
-                    
-                    // 注入独立存储的例句
+                // 同样的精确匹配过滤逻辑
+                const exactMatchEntries = convertedEntries.filter(e => e.word === word);
+                let targetEntries = convertedEntries;
+                if (exactMatchEntries.length > 0 && exactMatchEntries.length < convertedEntries.length) {
+                    targetEntries = exactMatchEntries;
+                }
+
+                const merged = this.mergeEntries(targetEntries);
+                
+                // 补充搜索元数据
+                merged.original_search = normalizedWord;
+                merged.is_lemma_result = result.searchMethod.includes('lemmatization');
+                merged.lemmas = result.lemmas || [];
+
+                // 3. 处理翻译逻辑
+                // 检查合并后的结果是否有中文翻译
+                const hasChinese = merged.translation && /[\u4e00-\u9fa5]/.test(merged.translation);
+
+                if (hasChinese) {
+                    // A. 有中文 -> 注入例句并返回
                     const extraExamples = await localDictDB.getExamples(normalizedWord);
                     if (extraExamples && extraExamples.length > 0) {
-                        mappedEntry.examples = [...(mappedEntry.examples || []), ...extraExamples];
+                        merged.examples = [...(merged.examples || []), ...extraExamples];
                     }
-                    
-                    return mappedEntry;
+                    return merged;
                 } else {
                     // B. 只有英文 -> 加入翻译队列
                     console.log(`[Dict] Result has English only. Queuing translation...`);
                     
-                    mappedEntry.source = 'cloud_pending_translation';
-                    
-                    // 存入本地并加入队列
-                    await Promise.all([
-                        localDictDB.saveEntry(mappedEntry),
-                        localDictDB.addToTranslationQueue(mappedEntry)
-                    ]);
+                    // 我们需要保存一个具体的条目到本地数据库以供翻译
+                    // 选择最匹配的一个条目进行保存
+                    if (targetEntries.length > 0) {
+                        const candidate = { ...targetEntries[0] };
+                        candidate.source = 'cloud_pending_translation';
+                        
+                        // 存入本地并加入队列
+                        await Promise.all([
+                            localDictDB.saveEntry(candidate),
+                            localDictDB.addToTranslationQueue(candidate)
+                        ]);
 
-                    this.triggerBatchTranslation();
-                    return mappedEntry;
+                        this.triggerBatchTranslation();
+                    }
+                    
+                    return merged;
                 }
             }
         } catch (e) {
@@ -185,6 +262,114 @@ class UnifiedDictionaryService {
 
         return null;
     }
+
+    async waitForInitialization() {
+        let checks = 0;
+        while (window._dictInitializing && checks < 60) { // 30s timeout
+            await new Promise(resolve => setTimeout(resolve, 500));
+            checks++;
+        }
+        if (window._dictInitializing) {
+            console.warn('[Dict] Initialization timed out, proceeding anyway...');
+        }
+    }
+
+    /**
+     * 搜索词典并返回所有匹配结果列表（区分大小写）
+     * 用于 LibraryView 等列表展示
+     * @param {string} word 
+     * @returns {Promise<Array>}
+     */
+    async search(word) {
+        // 0. 检查是否正在初始化词典
+        if (window._dictInitializing) {
+            console.log(`[Dict] Dictionary initializing, waiting to search ${word}...`);
+            await this.waitForInitialization();
+        }
+
+        const normalizedWord = word.trim();
+        let allEntries = [];
+
+        // 1. 查统一词典 (Common + Cloud + Lemma)
+        try {
+            const result = await unifiedSearch.search(normalizedWord);
+            if (result.found && result.entries.length > 0) {
+                const converted = result.entries.map(e => {
+                    // 解析性别 (简单映射)
+                    let gender = '';
+                    let article = e.a || '';
+                    if (article) {
+                        const art = article.toLowerCase().trim();
+                        if (art === 'der' || art === 'm') gender = 'm';
+                        else if (art === 'die' || art === 'f') gender = 'f';
+                        else if (art === 'das' || art === 'n') gender = 'n';
+                    }
+
+                    return {
+                        id: `dict_${e.w}_${e.p || 'unk'}_${gender}`, // 临时 ID (包含性别以区分)
+                        word: e.w,
+                        pos: e.p || 'unknown',
+                        article: article,
+                        gender: gender,
+                        translation: e.c ? e.c.join('; ') : '',
+                        definition_en: e.e ? e.e.join('; ') : '',
+                        source: result.source,
+                        has_chinese: !!(e.c && e.c.length > 0),
+                        source_tags: [result.source]
+                    };
+                });
+                allEntries = [...allEntries, ...converted];
+            }
+        } catch (e) {
+            console.warn('[Dict] Search unified failed:', e);
+        }
+
+        // 2. 查本地数据库 (User DB)
+        try {
+            const localEntries = await localDictDB.getEntriesByWord(normalizedWord);
+            if (localEntries && localEntries.length > 0) {
+                // 标记来源
+                localEntries.forEach(e => {
+                    if (!e.source_tags) e.source_tags = ['local_db'];
+                });
+                allEntries = [...allEntries, ...localEntries];
+            }
+        } catch (e) {
+            console.warn('[Dict] Search local DB failed:', e);
+        }
+
+        // 3. 分组并合并
+        const grouped = {};
+        allEntries.forEach(e => {
+            // 区分大小写 + 词性 + 性别 分组
+            // 这样可以区分:
+            // - "morgen" (adv) vs "Morgen" (noun)
+            // - "Band" (noun, f) vs "Band" (noun, n)
+            
+            const wordKey = (e.word || e.headword || '').trim();
+            const posKey = (e.pos || 'unknown').toLowerCase();
+            const genderKey = (e.gender || '').toLowerCase();
+            
+            // 构造唯一键
+            const key = `${wordKey}|${posKey}|${genderKey}`;
+            
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(e);
+        });
+
+        const displayList = [];
+        Object.values(grouped).forEach(group => {
+            const merged = this.mergeEntries(group);
+            if (merged) {
+                // 确保有 ID
+                if (!merged.id) merged.id = `merged_${merged.word}_${merged.pos || 'unk'}_${merged.gender || ''}`;
+                displayList.push(merged);
+            }
+        });
+
+        return displayList;
+    }
+
 
     /**
      * 触发批处理翻译
@@ -222,21 +407,32 @@ class UnifiedDictionaryService {
                     await localDictDB.saveEntry(updatedEntry);
 
                     // 2. 移出队列
-                    await localDictDB.removeFromQueue([item.id]);
+                    if (item.id) {
+                        await localDictDB.removeFromQueue([item.id]);
+                    }
 
                     console.log(`[Dict] Translated and updated: ${item.word}`);
 
                 } catch (err) {
                     console.error(`[Dict] Failed to translate ${item.word}`, err);
+                    // CRITICAL FIX: Remove failed item to prevent infinite retry loop
+                    if (item.id) {
+                        try {
+                            await localDictDB.removeFromQueue([item.id]);
+                            console.log(`[Dict] Removed failed item from queue: ${item.word}`);
+                        } catch (remErr) {
+                            console.error(`[Dict] Failed to remove broken item ${item.id}`, remErr);
+                        }
+                    }
                 }
             }
         } finally {
             this.isProcessingQueue = false;
 
-            // 如果队列里还有，继续处理
+            // 如果队列里还有，继续处理 (Add delay to prevent UI freeze)
             const remaining = await localDictDB.getTranslationQueue(1);
             if (remaining.length > 0) {
-                this.triggerBatchTranslation();
+                setTimeout(() => this.triggerBatchTranslation(), 200);
             }
         }
     }

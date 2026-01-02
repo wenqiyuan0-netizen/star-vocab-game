@@ -52,29 +52,32 @@ async function processKaikki() {
                 // Let's inspect what we can get. 
                 // For the "Conjugation Table", we usually want the 'forms' list which contains objects like { "form": "lernte", "tags": ["past", "singular", ...] }
                 
-                if (entry.forms && Array.isArray(entry.forms)) {
-                    // Save the raw forms data, we can process it in frontend
-                    if (!conjugations[word]) {
-                        conjugations[word] = [];
-                    }
-                    // Merge forms if multiple entries for same word (rare but possible)
-                    conjugations[word].push(...entry.forms);
-                    
-                    // Also populate variants map from these forms
-                    entry.forms.forEach(form => {
-                        if (form.form && typeof form.form === 'string') {
-                            const variantForm = form.form;
-                            // Don't map the word to itself in the variant map
-                            if (variantForm !== word) {
-                                // Only map if it's not already mapped (or overwrite? usually unique enough)
-                                // We store lowercase variant -> prototype
-                                variants[variantForm.toLowerCase()] = word;
-                            }
+                    if (entry.forms && Array.isArray(entry.forms)) {
+                        if (!conjugations[word]) {
+                            conjugations[word] = [];
                         }
-                    });
-                    
-                    foundCount++;
-                }
+                        // Only add unique forms to avoid duplicates
+                        const existingForms = new Set(conjugations[word].map(f => f.form));
+                        
+                        entry.forms.forEach(form => {
+                            if (form.form && !existingForms.has(form.form)) {
+                                conjugations[word].push(form);
+                                existingForms.add(form.form);
+                                
+                                // Populate variants map
+                                if (typeof form.form === 'string') {
+                                    const variantForm = form.form;
+                                    if (variantForm !== word) {
+                                        variants[variantForm.toLowerCase()] = word;
+                                    }
+                                }
+                            }
+                        });
+                        
+                        if (entry.forms.length > 0) {
+                            foundCount++;
+                        }
+                    }
             }
         } catch (e) {
             console.error('Error parsing line:', e);

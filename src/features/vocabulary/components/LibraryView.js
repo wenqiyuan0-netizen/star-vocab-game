@@ -118,11 +118,10 @@ export function LibraryView({
         await localDictDB.initPromise;
         const normalizedTerm = searchTerm.trim().toLowerCase();
         
-        // 1. 尝试获取原型 (Lemmatization)
+        // 1. 尝试获取原型 (Lemmatization) - 仅用于 UI 高亮/提示
         let lemma = null;
         try {
             lemma = await localLemmatization.findLemma(searchTerm.trim());
-            // 如果原型和搜索词相同，或者找不到原型，则 lemma 为 null 或相同词
             if (lemma && lemma.toLowerCase() === normalizedTerm) {
                 lemma = null;
             }
@@ -132,41 +131,14 @@ export function LibraryView({
         
         setSearchLemma(lemma);
 
-        // 2. 搜索数据库 (原词 + 原型)
-        const searchPromises = [localDictDB.getEntriesByWord(normalizedTerm)];
-        if (lemma) {
-            console.log(`[LibraryView] Searching for lemma: ${lemma} (original: ${searchTerm})`);
-            searchPromises.push(localDictDB.getEntriesByWord(lemma));
-        }
+        // 2. 使用 UnifiedDictionaryService 搜索所有结果 (包含本地DB、Common词典、云端)
+        // search 方法已经处理了：
+        // - 大小写敏感分组 (解决 "morgen" vs "Morgen" 问题)
+        // - 词形还原搜索
+        // - 结果合并
+        const searchResults = await unifiedDictService.search(searchTerm.trim());
 
-        const results = await Promise.all(searchPromises);
-        let entries = results[0] || []; // 原词结果
-        
-        // 如果有原型结果，合并进来
-        if (results[1] && results[1].length > 0) {
-            // 简单的去重合并 (基于 ID 或 word)
-            const existingIds = new Set(entries.map(e => e.id || e.word));
-            const newEntries = results[1].filter(e => !existingIds.has(e.id || e.word));
-            entries = [...entries, ...newEntries];
-        }
-
-        // 使用统一服务合并重复词条
-        // 简单处理：如果只有一个词（或合并后被视为一个），则合并
-        // 否则，按单词分组后分别合并
-        const groupedByWord = {};
-        entries.forEach(e => {
-            const key = (e.word || e.headword || '').toLowerCase();
-            if (!groupedByWord[key]) groupedByWord[key] = [];
-            groupedByWord[key].push(e);
-        });
-        
-        const displayList = [];
-        Object.values(groupedByWord).forEach(group => {
-             const merged = unifiedDictService.mergeEntries(group);
-             if (merged) displayList.push(merged);
-        });
-
-        const convertedEntries = displayList
+        const convertedEntries = searchResults
           .filter(e => e.has_chinese || e.translation || e.translation_cn) // 只显示有翻译的
           .map(e => {
             const converted = {
@@ -182,7 +154,6 @@ export function LibraryView({
               audio: e.audio || e.audio_url,
               _fromDict: true,
               _dictEntry: e,
-              // 传递合并后的来源标签
               source_tags: e.source_tags
             };
             return converted;
@@ -215,10 +186,26 @@ export function LibraryView({
 
     // 2. 如果有搜索词，添加词典结果（排除已在用户词库中的）
     if (searchTerm && dictSearchResults.length > 0) {
-      const userWordSet = new Set(userWords.map(w => w.de.toLowerCase()));
-      const uniqueDictWords = dictSearchResults.filter(
-        d => !userWordSet.has(d.de.toLowerCase())
-      );
+      // 构建用户词库的唯一签名集合 (Word + POS + Gender)
+      const userSignatures = new Set(userWords.map(w => {
+        const word = (w.de || '').trim();
+        // 如果没有 pos，但在 dict 里可能有，这里宽容处理还是严格处理？
+        // 建议：如果用户数据缺失 pos/gender，就只匹配 word
+        // 但为了解决 "Morgen" vs "morgen" 和 "Band" (f/n) 问题，我们需要尽可能精确
+        const pos = (w.pos || 'unknown').toLowerCase();
+        const gender = (w.gender || '').toLowerCase();
+        return `${word}|${pos}|${gender}`;
+      }));
+
+      const uniqueDictWords = dictSearchResults.filter(d => {
+        const word = (d.de || '').trim();
+        const pos = (d.pos || 'unknown').toLowerCase();
+        const gender = (d.gender || '').toLowerCase();
+        const sig = `${word}|${pos}|${gender}`;
+
+        // 只有当完全匹配时才过滤掉
+        return !userSignatures.has(sig);
+      });
 
       return [...userWords, ...uniqueDictWords];
     }

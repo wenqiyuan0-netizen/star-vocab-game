@@ -1,15 +1,15 @@
 /**
  * 词典初始化服务
- * 
- * 在应用启动时检查并导入词典数据
+ *
+ * IndexedDB 现在仅用于用户数据存储，不再存储预置词典
+ * 预置词典使用 localDictionary.js (内存缓存)
  */
 
 import { localDictDB } from './LocalDictionaryDB';
-import { dictionaryImporter } from './DictionaryImporter';
 
 const DICT_VERSION_KEY = 'star_vocab_dict_version';
-// Bump version to force re-import for new Goethe data
-const CURRENT_DICT_VERSION = '2.2.0';
+// 版本 3.0.0: 移除 IndexedDB 中的预置词典，改用内存缓存
+const CURRENT_DICT_VERSION = '3.0.0';
 
 /**
  * 删除旧的 IndexedDB 数据库（带重试）
@@ -64,24 +64,24 @@ async function needsInitialization() {
     // 检查版本
     const storedVersion = localStorage.getItem(DICT_VERSION_KEY);
     if (storedVersion !== CURRENT_DICT_VERSION) {
-        console.log(`[DictInit] Version mismatch (${storedVersion} vs ${CURRENT_DICT_VERSION}), needs import`);
+        console.log(`[DictInit] Version upgrade (${storedVersion} → ${CURRENT_DICT_VERSION})`);
+        console.log('[DictInit] Cleaning IndexedDB (removing old dictionary data)...');
 
-        // 设置全局标志，阻止其他代码查询词典
+        // 设置全局标志
         window._dictInitializing = true;
 
         // 强制关闭所有数据库连接
         localDictDB.close();
 
         // 等待所有异步查询完成
-        console.log('[DictInit] Waiting for active queries to complete...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // 尝试删除旧数据库
+        // 尝试删除旧数据库（清理旧版本的词典数据）
         const deleted = await deleteOldDatabase();
         if (!deleted) {
             console.warn('[DictInit] Failed to delete database. Using fallback: clearing all stores...');
 
-            // 降级方案：清空所有表而不是删除数据库
+            // 降级方案：清空所有表
             try {
                 await localDictDB.ensureConnection();
                 await localDictDB.clearAll();
@@ -94,109 +94,79 @@ async function needsInitialization() {
         // 等待确保操作完成
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // 重新建立连接
-        console.log('[DictInit] Re-establishing database connection...');
+        // 重新建立连接（为用户数据做准备）
+        console.log('[DictInit] Re-establishing database connection for user data...');
         await localDictDB.ensureConnection();
 
         return true;
     }
 
-    // 检查是否有数据
+    // 版本匹配，无需初始化
+    // IndexedDB 现在只用于用户数据，不需要检查词条数量
     try {
         await localDictDB.ensureConnection();
-        const testEntries = await localDictDB.getEntriesByWord('und');
-        if (!testEntries || testEntries.length === 0) {
-            console.log('[DictInit] No entries found, needs import');
-            window._dictInitializing = true;
-            return true;
-        }
-        console.log('[DictInit] Dictionary already initialized');
+        console.log('[DictInit] IndexedDB ready for user data storage');
         return false;
     } catch (e) {
-        console.log('[DictInit] Error checking, clearing and reimporting:', e);
+        console.log('[DictInit] IndexedDB connection error, will reinitialize:', e);
         window._dictInitializing = true;
-        try {
-            await localDictDB.clearAll();
-        } catch (clearError) {
-            console.error('[DictInit] Clear failed:', clearError);
-        }
         return true;
     }
 }
 
 
 /**
- * 初始化词典
+ * 初始化词典系统
  * @param {Function} onProgress - 进度回调 (percent, message)
  */
 export async function initializeDictionary(onProgress = () => { }) {
     try {
         const shouldInit = await needsInitialization();
         if (!shouldInit) {
-            onProgress(100, "词典已就绪");
+            onProgress(100, "词典系统已就绪");
             return { success: true, alreadyInitialized: true };
         }
 
-        console.log('[DictInit] Starting dictionary import...');
-        onProgress(0, "正在准备词典数据...");
+        console.log('[DictInit] Starting dictionary system initialization...');
+        onProgress(10, "正在初始化 IndexedDB...");
 
-        // 1. 导入常用词典 (25000词)
-        onProgress(10, "正在下载常用词典...");
-        let commonData;
-        try {
-            // 使用动态导入替代 fetch，直接从源码目录加载
-            const commonModule = await import('./dict/Common_Vocab_local.json');
-            commonData = commonModule.default || commonModule;
-        } catch (e) {
-            throw new Error('Failed to load common dictionary: ' + e.message);
-        }
+        // IndexedDB 现在只用于存储：
+        // - 用户添加的单词 (user_words)
+        // - 翻译缓存
+        // - AI 生成的例句
+        // 预置词典使用 localDictionary.js (内存缓存)
 
-        onProgress(30, `正在导入常用词典 (${commonData.length} 条)...`);
+        onProgress(50, "正在清理旧数据...");
 
-        await dictionaryImporter.importCommonVocab(commonData, (percent) => {
-            // Map 0-100% to 30-60% global progress
-            const globalPercent = 30 + Math.round(percent * 0.3);
-            onProgress(globalPercent, `正在导入常用词典 (${percent}%)...`);
-        });
-        onProgress(60, "常用词典导入完成");
+        // 确保数据库结构正确
+        await localDictDB.ensureConnection();
 
-        // 2. 导入 Goethe 词典
-        onProgress(65, "正在下载歌德词典...");
-        try {
-            const goetheModule = await import('./dict/Goethe_A1-B1_Levels_Combined.json');
-            const goetheData = goetheModule.default || goetheModule;
-            
-            onProgress(75, `正在导入歌德词典 (${goetheData.length} 条)...`);
-            // Use 'mixed' as level to indicate it contains multiple levels, 
-            // though adapter handles internal 'level' field anyway.
-            await dictionaryImporter.importGoetheVocab(goetheData, 'mixed', (percent) => {
-                // Map 0-100% to 75-95% global progress
-                const globalPercent = 75 + Math.round(percent * 0.2);
-                onProgress(globalPercent, `正在导入歌德词典 (${percent}%)...`);
-            });
-        } catch (e) {
-            console.warn('[DictInit] Failed to load Goethe dictionary:', e);
-        }
+        onProgress(80, "IndexedDB 初始化完成");
 
-        // 完成
+        // 标记版本
         localStorage.setItem(DICT_VERSION_KEY, CURRENT_DICT_VERSION);
-        onProgress(100, "所有词典导入完成");
+        onProgress(100, "词典系统就绪");
 
-        // 清除初始化标志，允许正常查询
+        // 清除初始化标志
         window._dictInitializing = false;
-        console.log('[DictInit] Dictionary initialization complete, queries enabled');
+        console.log('[DictInit] Dictionary system initialization complete');
+        console.log('[DictInit] Note: Pre-built dictionary now uses memory cache (localDict)');
 
         return { success: true };
     } catch (error) {
         console.error('[DictInit] Initialization failed:', error);
-        onProgress(100, "词典导入失败: " + error.message);
-        window._dictInitializing = false; // 即使失败也要清除标志
-        throw error;
+
+        // 即使失败也标记为已初始化，避免无限重试
+        localStorage.setItem(DICT_VERSION_KEY, CURRENT_DICT_VERSION);
+        onProgress(100, "词典系统初始化遇到问题: " + error.message);
+        window._dictInitializing = false;
+
+        return { success: false, error: error.message };
     }
 }
 
 /**
- * 强制重新导入 (用于调试)
+ * 强制重新初始化 (用于调试)
  */
 export async function forceReimportDictionary(onProgress = () => { }) {
     localStorage.removeItem(DICT_VERSION_KEY);
@@ -206,19 +176,22 @@ export async function forceReimportDictionary(onProgress = () => { }) {
 
 /**
  * 验证词典是否可用
+ * 现在使用 localDict (内存缓存) 而不是 IndexedDB
  */
 export async function verifyDictionary(word = 'Apfel') {
     try {
-        await localDictDB.ensureConnection();
-        const entries = await localDictDB.getEntriesByWord(word.toLowerCase());
+        // 动态导入以避免循环依赖
+        const { localDict } = await import('../../../utils/localDictionary');
+
+        const entries = await localDict.lookup(word.toLowerCase());
 
         console.log(`[DictVerify] Testing word: ${word}`);
-        console.log(`[DictVerify] Found ${entries.length} entries:`);
+        console.log(`[DictVerify] Found ${entries.length} entries in memory cache:`);
 
         entries.forEach((e, i) => {
-            console.log(`  ${i + 1}. ${e.word} (${e.pos}): ${e.translation_cn || e.translation_en}`);
-            if (e.examples?.length > 0) {
-                console.log(`     Example: ${e.examples[0].de}`);
+            console.log(`  ${i + 1}. ${e.w} (${e.p}): ${e.c?.join('; ') || e.e?.join('; ')}`);
+            if (e.x && e.x.length > 0) {
+                console.log(`     Example: ${e.x[0]}`);
             }
         });
 
