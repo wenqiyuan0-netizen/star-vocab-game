@@ -88,7 +88,7 @@ npm run electron:pack     # 构建离线版并打包 Windows 安装包 + 便携�
 ## 发布流程
 
 - **CI**：每次 push / PR 运行 lint、单元测试、Web 与离线两种构建，并扫描构建产物中的密钥。
-- **Web**：静态构建发布到 GitHub Pages（`vocab.mesaculpa.xyz`，独立的公开仓库 `star-vocab-site` 仅存放构建产物）；`vercel.json` 保留用于 Vercel 部署。
+- **Web**：每次推送 `main`，GitHub Actions 构建并发布到 GitHub Pages（`vocab.mesaculpa.xyz`）；`vercel.json` 保留，也可部署到 Vercel。
 - **桌面版**：推送 `v*` 标签（如 `git tag v0.3.0 && git push --tags`）后，GitHub Actions 在 Windows runner 上打包 exe 并发布到 Releases。
 
 ## 下载

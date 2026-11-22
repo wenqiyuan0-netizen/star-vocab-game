@@ -1,0 +1,61 @@
+name: Deploy site (GitHub Pages)
+
+# Every push to main publishes the web app to https://vocab.mesaculpa.xyz
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build web app
+        run: npm run build
+        env:
+          DISABLE_ESLINT_PLUGIN: 'true'
+          # Public values (anon/publishable key is designed to ship in the client; data is protected by RLS)
+          REACT_APP_SUPABASE_URL: ${{ vars.REACT_APP_SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ vars.REACT_APP_SUPABASE_ANON_KEY }}
+
+      - name: Prepare static site
+        run: |
+          rm -f build/dict/lemma_index.json   # build-time data, unused at runtime
+          touch build/.nojekyll
+          if grep -rEl "AIza[0-9A-Za-z_-]{35}|sb_secret_|service_role" build/static; then
+            echo "::error::Possible secret found in build output"; exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
