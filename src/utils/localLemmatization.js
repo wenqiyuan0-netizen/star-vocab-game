@@ -29,16 +29,10 @@ class LocalLemmatization {
             const startTime = Date.now();
 
             try {
-                // 尝试加载 search_index.json (优先) 或 local_variants.json (旧版)
-                const response = await fetch('/dict/search_index.json');
-                if (!response.ok) {
-                     // Fallback to old name if new one doesn't exist
-                     const oldResponse = await fetch('/dict/local_variants.json');
-                     if (!oldResponse.ok) throw new Error('Failed to load search_index.json or local_variants.json');
-                     this.variantIndex = await oldResponse.json();
-                } else {
-                     this.variantIndex = await response.json();
-                }
+                // local_variants.json ships with the app (search_index.json was a local-only build artifact)
+                const response = await fetch('/dict/local_variants.json');
+                if (!response.ok) throw new Error('Failed to load local_variants.json');
+                this.variantIndex = await response.json();
 
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
                 console.log(`✅ 变体索引加载完成！`);

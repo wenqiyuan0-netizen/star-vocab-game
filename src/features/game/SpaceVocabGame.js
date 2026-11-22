@@ -37,32 +37,35 @@ import { localCorpusService } from '../../shared/services/examples/LocalCorpusSe
 import { DeckGenerator } from '../learning/services/DeckGenerator';
 import { useTheme } from '../../shared/hooks/useTheme';
 import { getLocalDateString, calculateStreakFromDates } from '../../utils/dateUtils';
+import { calculateLevel, getXPForLevel } from '../../logic/leveling';
 import { Dashboard } from '../dashboard/components/Dashboard';
 import { useSupabaseData } from '../../shared/hooks/useSupabase/useSupabaseData';
 import { useSupabaseProfile } from '../../shared/hooks/useSupabase/useSupabaseProfile';
 import { useAuth } from '../auth/contexts/AuthContext';
 import Matter from 'matter-js';
+import { useI18n, translate } from '../../shared/i18n';
 
 // CustomModal (保持 V1 原样)
-const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
+const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText, cancelText }) => {
+  const theme = useTheme();
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[999]">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
-        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Info className="w-6 h-6 text-yellow-500" />
+    <div className="layer-modal flex items-center justify-center p-4" style={{ background: 'var(--scrim)', zIndex: 999 }}>
+      <div role="alertdialog" aria-modal="true" className="card-elevated animate-card-pop rounded-[28px] p-6 w-full max-w-sm space-y-4" style={{ color: theme.text }}>
+        <h3 className="text-xl font-bold flex items-center gap-2">
+          <Info className="w-6 h-6" style={{ color: theme.accent }} />
           {title}
         </h3>
-        <p className="text-sm text-gray-600">{message}</p>
+        <p className="text-sm whitespace-pre-line" style={{ opacity: 0.75 }}>{message}</p>
         <div className="flex justify-end gap-3 pt-2">
           {onCancel && (
-            <button onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition">
-              {cancelText}
+            <button onClick={onCancel} className="card-muted px-4 py-2 text-sm font-semibold rounded-xl transition">
+              {cancelText || translate('game.cancel')}
             </button>
           )}
           {onConfirm && (
-            <button onClick={onConfirm} className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-500/30">
-              {confirmText}
+            <button onClick={onConfirm} className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition shadow-lg" style={{ backgroundColor: theme.primary }}>
+              {confirmText || translate('game.confirm')}
             </button>
           )}
         </div>
@@ -73,6 +76,7 @@ const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText 
 
 export default function SpaceVocabGame() {
   const theme = useTheme();
+  const { t } = useI18n();
   const { signOut } = useAuth();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -123,7 +127,7 @@ export default function SpaceVocabGame() {
     if (cloudError) {
       console.error("Cloud Sync Error:", cloudError);
       // Show error to user so they know why sync isn't working
-      setMessage(`同步失败: ${cloudError}`);
+      setMessage(t('game.syncFailed', { err: cloudError }));
       setTimeout(() => setMessage(null), 5000);
     }
   }, [cloudError]);
@@ -290,7 +294,8 @@ export default function SpaceVocabGame() {
       // FIX: Smart Merge for User Profile (XP/Level)
       // Always take the MAXIMUM value to prevent regression
       const mergedTotalXP = Math.max(userProfileRef.current.totalXP || 0, cloudProfile.totalXP || 0);
-      const mergedLevel = Math.max(userProfileRef.current.level || 1, cloudProfile.level || 1);
+      // Level is always derived from XP (single source of truth) so it can't drift or drop.
+      const mergedLevel = calculateLevel(mergedTotalXP);
 
       // Merge Check-in dates (Union of sets)
       const mergedDates = [...new Set([...(userProfileRef.current.checkInDates || []), ...(cloudProfile.checkInDates || [])])];
@@ -312,6 +317,7 @@ export default function SpaceVocabGame() {
       // Only update cloud if we haven't already synced this profile
       const needsCloudUpdate =
         mergedTotalXP > (cloudProfile.totalXP || 0) ||
+        mergedLevel !== (cloudProfile.level || 1) ||
         mergedDates.length > (cloudProfile.checkInDates?.length || 0);
 
       if (needsCloudUpdate) {
@@ -330,11 +336,6 @@ export default function SpaceVocabGame() {
     }
   }, [cloudProfile, profileLoading]);
 
-  const calculateLevel = (xp) => {
-    if (xp < 0) return 1;
-    return Math.floor((1 + Math.sqrt(1 + xp / 125)) / 2);
-  };
-  const getXPForLevel = (level) => 500 * (level * level - level);
 
   useEffect(() => {
     try {
@@ -348,11 +349,8 @@ export default function SpaceVocabGame() {
       }
       const savedProfile = JSON.parse(localStorage.getItem('space_vocab_user_profile'));
       if (savedProfile) {
-        // Use the saved level, but validate it matches the XP
-        // Sometimes the level gets out of sync - use the MAXIMUM of saved vs calculated
-        const savedLevel = savedProfile.level || 1;
-        const calculatedLevel = calculateLevel(savedProfile.totalXP || 0);
-        const correctLevel = Math.max(savedLevel, calculatedLevel);
+        // Level is derived from XP; a stored level that disagrees (old bug) is repaired here.
+        const correctLevel = calculateLevel(savedProfile.totalXP || 0);
 
         userProfileRef.current = {
           totalXP: savedProfile.totalXP || 0,
@@ -360,6 +358,9 @@ export default function SpaceVocabGame() {
           checkInDates: Array.isArray(savedProfile.checkInDates) ? savedProfile.checkInDates : [],
           streak: savedProfile.streak || 0
         };
+        if (correctLevel !== savedProfile.level) {
+          localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
+        }
       }
 
       // Sync check-in status (legacy fix): if daily stats says checked in, ensure it's in profile
@@ -400,6 +401,7 @@ export default function SpaceVocabGame() {
 
     userProfileRef.current = { totalXP: currentTotalXP, level: newLevel, checkInDates, streak };
     localStorage.setItem('space_vocab_user_profile', JSON.stringify(userProfileRef.current));
+    forceUpdate({});
 
     // Cloud Sync
     let currentDailyPlan = null;
@@ -417,7 +419,7 @@ export default function SpaceVocabGame() {
     if (safeNewXP > 0) {
       // 如果同时升级，优先显示升级信息
       if (newLevel > oldLevel) {
-        setMessage(`升级了！达到 Lv.${newLevel}！ (+${safeNewXP} XP)`);
+        setMessage(translate('game.levelUpXp', { level: newLevel, xp: safeNewXP }));
         setTimeout(() => setMessage(null), 3000);
         soundManager.playVictory();
       } else {
@@ -427,7 +429,7 @@ export default function SpaceVocabGame() {
       }
     } else if (newLevel > oldLevel) {
       // 防御性检查：即使没有新XP（罕见），如果计算导致升级也提示
-      setMessage(`升级了！达到 Lv.${newLevel}！`);
+      setMessage(translate('game.levelUp', { level: newLevel }));
       setTimeout(() => setMessage(null), 3000);
       soundManager.playVictory();
     }
@@ -439,7 +441,6 @@ export default function SpaceVocabGame() {
   const [uiDeckCount, setUiDeckCount] = useState(0);
   const [gameState, setGameState] = useState('menu');
   const currentSentenceRef = useRef(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [customInput, setCustomInput] = useState('');
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
@@ -799,7 +800,7 @@ export default function SpaceVocabGame() {
       const newLimit = settingsRef.current.dailyNewLimit || 0;
       const reviewLimit = settingsRef.current.dailyReviewLimit || 0;
       const total = newLimit + reviewLimit;
-      setMessage(`每日目标已更新为 ${total} 个！`);
+      setMessage(translate('game.goalUpdated', { n: total }));
       setTimeout(() => setMessage(null), 2000);
     }
 
@@ -953,17 +954,17 @@ export default function SpaceVocabGame() {
   };
 
   const [customCancelAction, setCustomCancelAction] = useState(null);
-  const [customConfirmText, setCustomConfirmText] = useState('确认');
-  const [customCancelText, setCustomCancelText] = useState('取消');
+  const [customConfirmText, setCustomConfirmText] = useState(null);
+  const [customCancelText, setCustomCancelText] = useState(null);
 
   // Review积压清理Modal状态
   const [showClearanceModal, setShowClearanceModal] = useState(false);
   const [clearanceInfo, setClearanceInfo] = useState(null);
 
   const showResumeDialog = () => {
-    setConfirmMessage('检测到今日未完成的游戏进度。');
-    setCustomConfirmText('继续挑战');
-    setCustomCancelText('重新开始');
+    setConfirmMessage(t('game.resume.msg'));
+    setCustomConfirmText(t('game.resume.continue'));
+    setCustomCancelText(t('game.resume.restart'));
     setConfirmAction(() => () => {
       if (loadGameSession()) {
         try { soundManager.unlock(); } catch (e) { }
@@ -992,8 +993,8 @@ export default function SpaceVocabGame() {
   };
 
   const resetModalTexts = () => {
-    setCustomConfirmText('确认');
-    setCustomCancelText('取消');
+    setCustomConfirmText(null);
+    setCustomCancelText(null);
     setCustomCancelAction(null);
   };
 
@@ -1002,10 +1003,10 @@ export default function SpaceVocabGame() {
     if (code) {
       setSaveString(code);
       setShowSaveArea(true);
-      setMessage('存档码已生成！');
+      setMessage(t('game.save.generated'));
       setTimeout(() => setMessage(null), 2000);
     } else {
-      setMessage('导出失败，数据可能过大');
+      setMessage(t('game.save.exportFail'));
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -1014,27 +1015,27 @@ export default function SpaceVocabGame() {
     const data = parseSaveCode(importString);
     if (data) {
       setGlobalWordDb(data);
-      setMessage(`成功恢复 ${data.length} 个单词的进度！`);
+      setMessage(t('game.save.restored', { n: data.length }));
       setImportString('');
       setShowSaveModal(false);
       setTimeout(() => setMessage(null), 2000);
     } else {
-      setMessage('无效的存档码');
+      setMessage(t('game.save.invalid'));
       setTimeout(() => setMessage(null), 2000);
     }
   };
 
   const handleCopySave = () => {
     if (copyTextToClipboard(saveString)) {
-      setMessage("存档码已复制到剪贴板！");
+      setMessage(t('game.save.copied'));
     } else {
-      setMessage("复制失败，请手动复制");
+      setMessage(t('game.save.copyFail'));
     }
     setTimeout(() => setMessage(null), 2000);
   };
 
   const handleResetData = () => {
-    setConfirmMessage('确定要清空所有数据并恢复默认设置吗？此操作不可撤销！');
+    setConfirmMessage(t('game.reset.confirm'));
     setConfirmAction(() => async () => {
       try {
         if (cloudWords.length > 0) {
@@ -1047,13 +1048,13 @@ export default function SpaceVocabGame() {
         localStorage.clear();
         setGlobalWordDb([]);
         setShowConfirmModal(false);
-        setMessage('所有数据已重置为默认。');
+        setMessage(t('game.reset.done'));
         setTimeout(() => setMessage(null), 2000);
         window.dispatchEvent(new Event('wallpaper-changed'));
         window.location.reload();
       } catch (e) {
         setShowConfirmModal(false);
-        setMessage('重置失败: ' + e.message);
+        setMessage(t('game.reset.fail', { err: e.message }));
         setTimeout(() => setMessage(null), 3000);
       }
     });
@@ -1061,9 +1062,9 @@ export default function SpaceVocabGame() {
   };
 
   const handleDeleteAccount = async () => {
-    setConfirmMessage('警告：此操作将永久删除云端数据、清空本地缓存并注销账户。无法撤销！\n(Background images and settings will also be reset)');
+    setConfirmMessage(t('game.deleteCloud.confirm'));
     setConfirmAction(() => async () => {
-      setMessage('正在销毁数据...');
+      setMessage(t('game.deleteCloud.working'));
       setShowConfirmModal(false);
       try {
         // 1. Delete all cloud words
@@ -1085,7 +1086,7 @@ export default function SpaceVocabGame() {
         window.location.reload();
       } catch (err) {
         console.error(err);
-        setMessage('注销失败: ' + err.message);
+        setMessage(t('game.deleteCloud.fail', { err: err.message }));
         setTimeout(() => setMessage(null), 3000);
       }
     });
@@ -1500,9 +1501,9 @@ export default function SpaceVocabGame() {
     } else if (dailyStatsRef.current.isCheckedIn) {
       let bonusGain = 1;
       const extraCount = currentProgress - todayGoal;
-      if (extraCount === 5) { bonusGain += 10; setMessage("超额完成 5 词！获得额外奖励！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
-      else if (extraCount === 15) { bonusGain += 30; setMessage("超额完成 15 词！奖励翻倍！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
-      else if (extraCount === 30) { bonusGain += 100; setMessage("超额完成 30 词！太强了！"); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
+      if (extraCount === 5) { bonusGain += 10; setMessage(translate('game.bonus5')); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
+      else if (extraCount === 15) { bonusGain += 30; setMessage(translate('game.bonus15')); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
+      else if (extraCount === 30) { bonusGain += 100; setMessage(translate('game.bonus30')); setTimeout(() => setMessage(null), 3000); soundManager.playVictory(); }
       dailyStatsRef.current.bonusXP = (dailyStatsRef.current.bonusXP || 0) + bonusGain;
       saveUserProfile(bonusGain);
     }
@@ -1592,7 +1593,7 @@ export default function SpaceVocabGame() {
         comboRef.current = 0; adaptiveSpeedRef.current = 1.0; shakeIntensityRef.current = 12;
         for (let i = 0; i < 10; i++) particlesRef.current.push(new Particle(first.x, first.y, '#ef4444'));
         for (let i = 0; i < 10; i++) particlesRef.current.push(new Particle(second.x, second.y, '#ef4444'));
-        setMessage('配对错误!'); setTimeout(() => setMessage(null), 1000);
+        setMessage(translate('game.wrongPair')); setTimeout(() => setMessage(null), 1000);
         setGlobalWordDb(prev => prev.map(w => {
           if (w.id === first.wordId.id || w.id === second.wordId.id) {
             const updated = processWordResult(w, { type: 'error' });
@@ -1665,14 +1666,14 @@ export default function SpaceVocabGame() {
     updateCloudProfile({ dailyPlan: currentPlan });
 
     // Only show Bonus Mode message if we are actually in bonus mode (cleared all due words)
-    if (mode === 'bonus' && deck.length > 0) { setMessage("进入额外复习模式！"); setTimeout(() => setMessage(null), 2500); }
+    if (mode === 'bonus' && deck.length > 0) { setMessage(t('game.bonusMode')); setTimeout(() => setMessage(null), 2500); }
     if (deck.length < MIN_DECK_SIZE && globalWordDb.length > 0) {
       const currentIds = new Set(deck.map(w => w.id));
       const fillerCandidates = globalWordDb.filter(w => !currentIds.has(w.id)).sort(() => Math.random() - 0.5);
       const needed = MIN_DECK_SIZE - deck.length;
       if (fillerCandidates.length > 0) deck = [...deck, ...fillerCandidates.slice(0, needed)];
     }
-    if (deck.length === 0) { setMessage('没有可学习的单词'); setTimeout(() => setMessage(null), 2000); return; }
+    if (deck.length === 0) { setMessage(t('game.noWords')); setTimeout(() => setMessage(null), 2000); return; }
     deck = deck.sort(() => Math.random() - 0.5);
     gameDeckRef.current = deck;
     scoreRef.current = 0; livesRef.current = 5;
@@ -1692,7 +1693,7 @@ export default function SpaceVocabGame() {
     // 检查并自动恢复原设置（如果review已清理完）
     const restored = checkAndRestoreSettings(globalWordDb, settingsRef.current, updateSettings);
     if (restored) {
-      setMessage('Review已清理完成，已恢复原设置！');
+      setMessage(t('game.clearanceDone'));
       setTimeout(() => setMessage(null), 3000);
     }
 
@@ -1729,12 +1730,12 @@ export default function SpaceVocabGame() {
   };
 
   const handleDeleteWord = (id) => {
-    setConfirmMessage('确定要从词库中删除此单词吗？');
+    setConfirmMessage(t('game.deleteWord.confirm'));
     setConfirmAction(() => () => {
       setGlobalWordDb(prev => prev.filter(w => w.id !== id));
       deleteCloudWord(id);
       setShowConfirmModal(false);
-      setMessage('单词已删除。');
+      setMessage(t('game.deleteWord.done'));
       setTimeout(() => setMessage(null), 1500);
     });
     setShowConfirmModal(true);
@@ -1747,7 +1748,7 @@ export default function SpaceVocabGame() {
       syncWord(resetW);
       return resetW;
     }));
-    setMessage('单词进度已重置'); setTimeout(() => setMessage(null), 1000);
+    setMessage(t('game.resetWord.done')); setTimeout(() => setMessage(null), 1000);
   };
 
   const toggleSelect = (id) => {
@@ -1757,12 +1758,12 @@ export default function SpaceVocabGame() {
 
   const handleBulkDeleteRequest = () => {
     if (selectedIds.size === 0) return;
-    setConfirmMessage(`确定删除选中的 ${selectedIds.size} 个单词吗？此操作不可恢复。`);
+    setConfirmMessage(t('game.bulkDelete.confirm', { n: selectedIds.size }));
     setConfirmAction(() => () => {
       setGlobalWordDb(prev => prev.filter(w => !selectedIds.has(w.id)));
       deleteCloudWordsBatch(Array.from(selectedIds));
       clearSelection(); setShowConfirmModal(false);
-      setMessage('已批量删除。'); setTimeout(() => setMessage(null), 1500);
+      setMessage(t('game.bulkDelete.done')); setTimeout(() => setMessage(null), 1500);
     });
     setShowConfirmModal(true);
   };
@@ -1794,21 +1795,21 @@ export default function SpaceVocabGame() {
           {showSettingsOverlay && (
             <div className="absolute top-20 right-4 w-64 glass-panel text-white p-5 rounded-2xl z-30 animate-modal-in pointer-events-auto">
               <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-2">
-                <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: theme.primary }}><Settings className="w-4 h-4" />系统设置</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: theme.primary }}><Settings className="w-4 h-4" />{t('game.settings')}</h3>
                 <button onClick={() => { setShowSettingsOverlay(false); isPausedRef.current = false; }}><X className="w-4 h-4 text-gray-400 hover:text-white" /></button>
               </div>
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <div className="text-xs font-bold text-gray-500 uppercase">游戏难度</div>
+                  <div className="text-xs font-bold text-gray-500 uppercase">{t('game.difficulty')}</div>
                   <div>
-                    <div className="flex justify-between text-xs mb-1.5 text-gray-300"><span>难度</span><span className="font-mono" style={{ color: theme.primary }}>{(settingsState.difficulty ?? 5)}</span></div>
+                    <div className="flex justify-between text-xs mb-1.5 text-gray-300"><span>{t('game.difficultyLabel')}</span><span className="font-mono" style={{ color: theme.primary }}>{(settingsState.difficulty ?? 5)}</span></div>
                     <input type="range" min="1" max="10" step="1" value={(settingsState.difficulty ?? 5)} onChange={e => updateSettings({ difficulty: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" style={{ accentColor: theme.primary }} />
-                    <div className="mt-2 text-[10px] text-gray-400">速度: {Math.max(0.1, settingsState.speed).toFixed(1)}x · 同屏: {settingsState.maxOnScreen} · 刷新: {settingsState.spawnRate}ms</div>
+                    <div className="mt-2 text-[10px] text-gray-400">{t('game.difficultyInfo', { speed: Math.max(0.1, settingsState.speed).toFixed(1), n: settingsState.maxOnScreen, rate: settingsState.spawnRate })}</div>
                   </div>
                 </div>
 
                 <div className="space-y-3 border-t border-white/10 pt-4">
-                  <div className="text-xs font-bold text-gray-500 uppercase">语音合成 (TTS)</div>
+                  <div className="text-xs font-bold text-gray-500 uppercase">{t('game.tts')}</div>
                   <div className="flex flex-col gap-2">
                     <div className="flex glass-panel rounded-lg p-1 gap-1">
                       {['none', 'word', 'sentence'].map(mode => (
@@ -1816,14 +1817,14 @@ export default function SpaceVocabGame() {
                           if (mode === 'sentence') updateSettings({ ttsMode: mode, speakDe: true, speakCn: settingsState.speakCn });
                           else if (mode === 'none') updateSettings({ ttsMode: mode, speakDe: false, speakCn: false });
                           else updateSettings({ ttsMode: mode });
-                        }} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all font-bold ${settingsState.ttsMode === mode ? 'text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`} style={settingsState.ttsMode === mode ? { backgroundColor: theme.primary } : {}}>{mode === 'none' ? '静音' : mode === 'word' ? '单词' : '例句'}</button>
+                        }} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all font-bold ${settingsState.ttsMode === mode ? 'text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`} style={settingsState.ttsMode === mode ? { backgroundColor: theme.primary } : {}}>{t('game.tts.' + mode)}</button>
                       ))}
                     </div>
                     {settingsState.ttsMode !== 'none' && (
                       <div className="flex gap-2 mt-1">
-                        <button onClick={() => updateSettings({ speakDe: !settingsState.speakDe })} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all border ${settingsState.speakDe ? '' : 'glass-button border-transparent text-gray-500'}`} style={settingsState.speakDe ? { backgroundColor: `${theme.primary}33`, borderColor: `${theme.primary}80`, color: theme.primary } : {}}>德语发音</button>
+                        <button onClick={() => updateSettings({ speakDe: !settingsState.speakDe })} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all border ${settingsState.speakDe ? '' : 'glass-button border-transparent text-gray-500'}`} style={settingsState.speakDe ? { backgroundColor: `${theme.primary}33`, borderColor: `${theme.primary}80`, color: theme.primary } : {}}>{t('profile.tts.de')}</button>
                         {settingsState.ttsMode === 'word' && (
-                          <button onClick={() => updateSettings({ speakCn: !settingsState.speakCn })} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all border ${settingsState.speakCn ? '' : 'glass-button border-transparent text-gray-500'}`} style={settingsState.speakCn ? { backgroundColor: `${theme.primary}33`, borderColor: `${theme.primary}80`, color: theme.primary } : {}}>中文发音</button>
+                          <button onClick={() => updateSettings({ speakCn: !settingsState.speakCn })} className={`flex-1 py-1.5 text-[10px] rounded-md transition-all border ${settingsState.speakCn ? '' : 'glass-button border-transparent text-gray-500'}`} style={settingsState.speakCn ? { backgroundColor: `${theme.primary}33`, borderColor: `${theme.primary}80`, color: theme.primary } : {}}>{t('profile.tts.cn')}</button>
                         )}
                       </div>
                     )}
@@ -1835,11 +1836,10 @@ export default function SpaceVocabGame() {
         </>
       )}
 
-      {isAiLoading && (<div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-xs flex items-center gap-2 backdrop-blur-md border border-white/10 z-50"><Zap className="w-3 h-3 animate-pulse text-yellow-400" />AI 生成中...</div>)}
-      {message && (<div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-white text-slate-900 px-6 py-3 rounded-full shadow-2xl font-bold z-50 border text-sm animate-bounce" style={{ borderColor: `${theme.primary}40` }}>{message}</div>)}
+      {message && (<div role="status" aria-live="polite" className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"><div className="card-elevated animate-card-pop px-6 py-3 rounded-full font-bold text-sm" style={{ color: theme.text }}>{message}</div></div>)}
       <style>{`@keyframes modalIn { from { opacity: 0; transform: translateY(-8px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } } .animate-modal-in { animation: modalIn 0.25s ease-out forwards; } @keyframes modalPop { 0% { opacity: 0; transform: scale(0.9) translateY(8px); } 60% { opacity: 1; transform: scale(1.02) translateY(0); } 100% { transform: scale(1); } } .animate-modal-pop { animation: modalPop 0.28s ease-out forwards; }`}</style>
 
-      <CustomModal isOpen={showConfirmModal} title="操作确认" message={confirmMessage} onConfirm={confirmAction} onCancel={customCancelAction || (() => setShowConfirmModal(false))} confirmText={customConfirmText} cancelText={customCancelText} />
+      <CustomModal isOpen={showConfirmModal} title={t('game.confirmTitle')} message={confirmMessage} onConfirm={confirmAction} onCancel={customCancelAction || (() => setShowConfirmModal(false))} confirmText={customConfirmText} cancelText={customCancelText} />
 
       {/* Review积压清理确认Modal */}
       {showClearanceModal && clearanceInfo && (
@@ -1849,7 +1849,7 @@ export default function SpaceVocabGame() {
             activateClearanceMode(clearanceInfo);
             setShowClearanceModal(false);
             setClearanceInfo(null);
-            setMessage('已启用智能清理模式！每日目标已临时调整');
+            setMessage(t('game.clearanceOn'));
             setTimeout(() => setMessage(null), 3000);
             // 继续启动游戏
             _startGameLogic();
@@ -1864,19 +1864,19 @@ export default function SpaceVocabGame() {
       )}
 
       {showExitModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center transform scale-100 animate-modal-pop">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">退出游戏</h2>
-            <p className="text-slate-500 mb-6 text-sm">是否保存当前进度？<br /><span className="text-xs text-slate-400">保存后可于今日内继续挑战 (24:00 失效)</span></p>
+        <div className="layer-modal flex items-center justify-center p-6" style={{ background: 'var(--scrim)', zIndex: 100 }}>
+          <div role="alertdialog" aria-modal="true" className="card-elevated animate-card-pop w-full max-w-sm rounded-[28px] p-6 text-center" style={{ color: theme.text }}>
+            <h2 className="text-xl font-bold mb-4">{t('game.exit.title')}</h2>
+            <p className="mb-6 text-sm" style={{ opacity: 0.7 }}>{t('game.exit.body')}<br /><span className="text-xs" style={{ opacity: 0.75 }}>{t('game.exit.note')}</span></p>
             <div className="space-y-3">
-              <button onClick={() => { saveGameSession(); setShowExitModal(false); setGameState('dashboard'); }} className="w-full py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" style={{ backgroundColor: theme.primary }}><Save className="w-4 h-4" />退出并存档</button>
+              <button onClick={() => { saveGameSession(); setShowExitModal(false); setGameState('dashboard'); }} className="w-full py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" style={{ backgroundColor: theme.primary }}><Save className="w-4 h-4" />{t('game.exit.save')}</button>
               <button onClick={() => {
                 saveUserProfile(scoreRef.current); // 直接退出也保存分数
                 clearGameSession();
                 setShowExitModal(false);
                 setGameState('dashboard');
-              }} className="w-full py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">直接退出 (结算积分)</button>
-              <button onClick={() => { setShowExitModal(false); isPausedRef.current = false; }} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600">取消</button>
+              }} className="card-muted w-full py-3 rounded-xl font-bold transition-colors">{t('game.exit.settle')}</button>
+              <button onClick={() => { setShowExitModal(false); isPausedRef.current = false; }} className="w-full py-2 text-xs" style={{ opacity: 0.55 }}>{t('game.exit.cancel')}</button>
             </div>
           </div>
         </div>
@@ -1886,31 +1886,31 @@ export default function SpaceVocabGame() {
 
 
       {showSaveModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[999] flex items-end justify-center sm:items-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="layer-modal flex items-end justify-center sm:items-center p-4" style={{ background: 'var(--scrim)', zIndex: 999 }}>
+          <div role="dialog" aria-modal="true" className="card-elevated animate-card-pop w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-6 flex flex-col max-h-[90vh]" style={{ color: theme.text }}>
             <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Save className="w-6 h-6" style={{ color: theme.primary }} />手动存档模式</h2>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Save className="w-6 h-6" style={{ color: theme.primary }} />{t('game.saveMode')}</h2>
               <button onClick={() => setShowSaveModal(false)}><X className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
             </div>
             <div className="overflow-y-auto flex-1 space-y-6 pr-1">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
-                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2"><Info className="w-4 h-4" style={{ color: theme.primary }} />使用说明</h3>
-                <p className="mb-2">欢迎使用手动存档功能...</p>
+                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2"><Info className="w-4 h-4" style={{ color: theme.primary }} />{t('game.saveHelp')}</h3>
+                <p className="mb-2">{t('game.saveHelpBody')}</p>
               </div>
               <div className="p-4 rounded-xl border" style={{ backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}33` }}>
-                <div className="text-xs font-bold mb-2 uppercase flex justify-between" style={{ color: theme.primary }}><span>导出进度</span></div>
+                <div className="text-xs font-bold mb-2 uppercase flex justify-between" style={{ color: theme.primary }}><span>{t('game.export')}</span></div>
                 <div className="flex flex-col gap-3">
                   <div className="flex gap-2">
-                    <button onClick={handleExportSave} className="flex-1 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md" style={{ backgroundColor: theme.primary }}>生成存档码</button>
-                    {saveString && (<button onClick={handleCopySave} className="bg-white border px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2" style={{ color: theme.primary, borderColor: `${theme.primary}40` }}><Copy className="w-4 h-4" />复制</button>)}
+                    <button onClick={handleExportSave} className="flex-1 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md" style={{ backgroundColor: theme.primary }}>{t('game.genCode')}</button>
+                    {saveString && (<button onClick={handleCopySave} className="bg-white border px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2" style={{ color: theme.primary, borderColor: `${theme.primary}40` }}><Copy className="w-4 h-4" />{t('game.copy')}</button>)}
                   </div>
                   {saveString && (<textarea value={saveString} readOnly onClick={(e) => e.target.select()} className="w-full h-24 p-3 text-[10px] text-gray-600 bg-white rounded-lg border resize-none font-mono" style={{ borderColor: `${theme.primary}40` }} />)}
                 </div>
               </div>
               <div className="p-4 rounded-xl border" style={{ backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}33` }}>
-                <div className="text-xs font-bold mb-2 uppercase" style={{ color: theme.primary }}>恢复进度</div>
-                <textarea value={importString} onChange={e => setImportString(e.target.value)} placeholder="在此粘贴存档码以恢复..." className="w-full h-24 p-3 text-xs rounded-lg border mb-3 resize-none bg-white" style={{ borderColor: `${theme.primary}40` }} />
-                <button onClick={handleImportSave} className="w-full text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-md" style={{ backgroundColor: theme.primary }}><Upload className="w-4 h-4" />确认恢复</button>
+                <div className="text-xs font-bold mb-2 uppercase" style={{ color: theme.primary }}>{t('game.restore')}</div>
+                <textarea value={importString} onChange={e => setImportString(e.target.value)} placeholder={t('game.restore.placeholder')} className="w-full h-24 p-3 text-xs rounded-lg border mb-3 resize-none bg-white" style={{ borderColor: `${theme.primary}40` }} />
+                <button onClick={handleImportSave} className="w-full text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-md" style={{ backgroundColor: theme.primary }}><Upload className="w-4 h-4" />{t('game.restoreBtn')}</button>
               </div>
             </div>
           </div>
@@ -1970,28 +1970,28 @@ export default function SpaceVocabGame() {
               <div className="mb-6 p-4 rounded-full border backdrop-blur-md" style={{ backgroundColor: `${theme.primary}1A`, borderColor: `${theme.primary}33`, color: theme.primary, boxShadow: `0 0 15px ${theme.primary}4D` }}>
                 {gameState === 'win' ? <Activity className="w-12 h-12" /> : <AlertCircle className="w-12 h-12" />}
               </div>
-              <h2 className="mb-2 text-3xl font-bold text-white">{gameState === 'win' ? '任务完成' : '连接中断'}</h2>
-              <p className="mb-8 text-sm text-gray-400">{gameState === 'win' ? '你已成功记忆所有单词！' : '信号丢失，请重新建立连接。'}</p>
+              <h2 className="mb-2 text-3xl font-bold text-white">{gameState === 'win' ? t('game.win') : t('game.lose')}</h2>
+              <p className="mb-8 text-sm text-gray-400">{gameState === 'win' ? t('game.winBody') : t('game.loseBody')}</p>
 
               {gameState === 'win' && dailyStatsRef.current.newCount < settingsRef.current.dailyNewLimit && !globalWordDb.some(w => w.state === 'new') && (
                 <div className="mb-6 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-yellow-200 text-sm animate-pulse">
                   <div className="flex items-center justify-center gap-2 mb-1 font-bold text-yellow-400">
                     <AlertCircle className="w-4 h-4" />
-                    <span>词库告急</span>
+                    <span>{t('game.lowStock')}</span>
                   </div>
-                  <p className="opacity-80">剩余新词不足以完成今日目标，<br />请前往词库添加更多单词。</p>
+                  <p className="opacity-80">{t('game.lowStockBody')}</p>
                 </div>
               )}
 
               <div className="flex justify-center w-full mb-8">
                 <div className="flex flex-col items-center px-8 py-3 border rounded-2xl bg-slate-800/50 border-white/5">
-                  <span className="text-xs font-medium text-white uppercase tracking-wider">本次得分</span>
+                  <span className="text-xs font-medium text-white uppercase tracking-wider">{t('game.score')}</span>
                   <span className="text-3xl font-black text-white font-mono mt-1">{uiScore}</span>
                 </div>
               </div>
               <div className="w-full space-y-3">
-                <GlassButton variant="homePrimary" fullWidth onClick={startGame} leadingIcon={RotateCcw}>再次挑战</GlassButton>
-                <GlassButton variant="homeSecondary" fullWidth onClick={() => setGameState('dashboard')} leadingIcon={BarChart2}>查看分析</GlassButton>
+                <GlassButton variant="homePrimary" fullWidth onClick={startGame} leadingIcon={RotateCcw}>{t('game.again')}</GlassButton>
+                <GlassButton variant="homeSecondary" fullWidth onClick={() => setGameState('dashboard')} leadingIcon={BarChart2}>{t('game.analysis')}</GlassButton>
               </div>
             </div>
           </div>

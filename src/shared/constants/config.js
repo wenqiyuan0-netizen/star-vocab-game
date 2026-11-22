@@ -15,3 +15,8 @@ const getDefaultWallpaperUrl = () => {
 }
 
 export const DEFAULT_WALLPAPER_URL = getDefaultWallpaperUrl()
+
+// Desktop / Android builds are attached to GitHub Releases with version-less file
+// names, so "latest/download/<name>" always points at the newest build.
+export const RELEASES_URL = 'https://github.com/wenqiyuan0-netizen/star-vocab-game/releases'
+export const latestAsset = (name) => `${RELEASES_URL}/latest/download/${name}`

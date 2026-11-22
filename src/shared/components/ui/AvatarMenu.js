@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { Image as ImageIcon, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { useI18n } from '../../i18n';
 
-export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout, logoutLabel = '退出登录' }) {
+export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout, logoutLabel }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const fileRef = useRef(null);
 
@@ -51,7 +53,7 @@ export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onL
             style={{ color: theme.text }}
           >
             <ImageIcon className="w-4 h-4" />
-            <span className="text-sm">自定义头像</span>
+            <span className="text-sm">{t('profile.avatar')}</span>
           </button>
           
           {onLogout && (
@@ -63,7 +65,7 @@ export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onL
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/10"
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-sm">{logoutLabel}</span>
+              <span className="text-sm">{logoutLabel || t('profile.logout')}</span>
             </button>
           )}
           <input 

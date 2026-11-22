@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
-import { withOpacity, getBrightestVariant, mixColors } from '../../../utils/colorUtils';
+import { withOpacity, getBrightestVariant } from '../../../utils/colorUtils';
 import { DeckGenerator } from '../services/DeckGenerator';
 import { generateGenderColors } from '../../../utils/colorUtils';
 import { WordCardModal, FrontFace, BackFace } from '../../vocabulary/components/WordCard';
 import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
 import { soundManager } from '../../../shared/services/audio/SoundManager';
+import { useI18n } from '../../../shared/i18n';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -31,6 +32,7 @@ const shuffleArray = (array) => {
 
 export function TodayView(props) {
   const theme = useTheme();
+  const { t } = useI18n();
   const genderColors = useMemo(() => generateGenderColors(theme), [theme]);
   
   const cardBgColor = useMemo(() => getBrightestVariant(theme.primary, 0.9), [theme.primary]);
@@ -52,11 +54,16 @@ export function TodayView(props) {
     return DeckGenerator.getOrGeneratePlan(globalWordDb, props.settingsState);
   }, [globalWordDb, props.settingsState]);
 
-  // Pseudo-random sequence for Focus Mode
+  // Deck membership, stable across progress updates (which create new word objects).
+  const deckSignature = effectiveDeck.map(w => w.id).join('|');
+  const deckRef = useRef(effectiveDeck);
+  deckRef.current = effectiveDeck;
+
+  // Pseudo-random sequence for Focus Mode — reshuffle only when the deck itself changes
   const playSequence = useMemo(() => {
-    const indices = effectiveDeck.map((_, i) => i);
+    const indices = deckRef.current.map((_, i) => i);
     return shuffleArray(indices);
-  }, [effectiveDeck]);
+  }, [deckSignature]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { 
     currentIndex: focusIndex, 
@@ -67,13 +74,15 @@ export function TodayView(props) {
     hasPrev: hasFocusPrev
   } = useFocusNavigation(playSequence.length);
 
-  // Reset focus state when deck changes
+  // Reset focus state only when the deck's *content* changes. effectiveDeck is a new array on
+  // every render, so depending on it directly re-opened the card right after it was closed.
   useEffect(() => {
-    if (effectiveDeck.length > 0) {
+    if (deckSignature) {
       setFocusIndex(0);
       setViewMode('focus'); // Auto-enter focus mode on new deck
     }
-  }, [effectiveDeck]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckSignature]);
 
   // 新逻辑：当 deck 变化时，异步加载其中单词的词典详情
   useEffect(() => {
@@ -81,7 +90,7 @@ export function TodayView(props) {
     const loadDefinitions = async () => {
         const newMap = new Map();
         // 并行查询所有单词
-        const promises = effectiveDeck.map(async (w) => {
+        const promises = deckRef.current.map(async (w) => {
             try {
                 const entry = await unifiedDictService.lookup(w.de);
                 if (entry && active) {
@@ -98,12 +107,14 @@ export function TodayView(props) {
         }
     };
     
-    if (effectiveDeck.length > 0) {
+    if (deckRef.current.length > 0) {
         loadDefinitions();
     }
-    
+
     return () => { active = false; };
-  }, [effectiveDeck]);
+    // Only when deck membership changes — not on every progress update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckSignature]);
 
   // 移除旧的 useEffect (L73-L97)
 
@@ -158,14 +169,6 @@ export function TodayView(props) {
       return { w, entry };
   }, [playSequence, focusIndex, effectiveDeck, dictEntriesMap]);
 
-  // Calculate dynamic background for Focus Mode
-  const focusCardBg = useMemo(() => {
-    if (!currentFocusCard) return cardBgColor;
-    const g = currentFocusCard.w.gender;
-    const gc = g ? genderColors[g.toLowerCase()] : null;
-    return gc ? mixColors(cardBgColor, gc, 0.15) : cardBgColor;
-  }, [currentFocusCard, cardBgColor, genderColors]);
-
   return (
     <div className="h-full flex flex-col gap-4 p-4 relative">
       {/* Focus Mode Overlay */}
@@ -179,13 +182,13 @@ export function TodayView(props) {
              hasNext={hasFocusNext}
              currentIndex={focusIndex}
              totalCount={playSequence.length}
-             cardBgColor={focusCardBg}
+             inline
           />
       ) : (
         <>
-          <div className="glass-panel rounded-xl p-4 flex items-center justify-between">
+          <div className="card-surface rounded-2xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-lg" style={{ color: theme.text }}>今日词卡</span>
+          <span className="font-bold text-lg" style={{ color: theme.text }}>{t('today.title')}</span>
           {deckMode === 'bonus' && (
              <span className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
                style={{
@@ -195,7 +198,7 @@ export function TodayView(props) {
                }}
              >
                <Sparkles className="w-3 h-3" />
-               奖赏模式 (额外练习)
+               {t('today.bonus')}
              </span>
           )}
           <span className="text-xs px-2 py-0.5 rounded-full"
@@ -211,28 +214,23 @@ export function TodayView(props) {
       </div>
 
       {effectiveDeck.length === 0 ? (
-        <div className="glass-panel rounded-xl p-8 text-center text-gray-300">今日暂无卡池，请在“主页”开始游戏生成卡池</div>
+        <div className="card-surface rounded-3xl p-8 text-center text-sm" style={{ color: withOpacity(theme.text, 0.6) }}>{t('today.empty')}</div>
       ) : (
-        <div className="flex-1 overflow-hidden glass-panel rounded-xl relative">
+        <div className="flex-1 overflow-hidden rounded-3xl relative">
           <div className="absolute inset-0 overflow-y-auto p-3 custom-scrollbar">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleCards.map(({ w, entry }) => {
                 const flipped = flippedIds.has(w.id);
                 const gColor = w.gender ? genderColors[w.gender.toLowerCase()] : null;
-                const finalBg = gColor ? mixColors(cardBgColor, gColor, 0.15) : cardBgColor;
                 
                 return (
                   <div
                     key={w.id}
                     onClick={() => toggleFlip(w.id)}
-                    className={`p-4 rounded-2xl transition-all border cursor-pointer`}
-                    style={{
-                      borderColor: withOpacity(theme.primary, 0.2),
-                      minHeight: '200px',
-                      backgroundColor: withOpacity(finalBg, 1),
-                      isolation: 'isolate'
-                    }}
+                    className="card-surface relative overflow-hidden p-4 pt-5 rounded-3xl cursor-pointer transition-transform hover:-translate-y-0.5"
+                    style={{ minHeight: '200px', color: theme.text }}
                   >
+                    <div className="absolute inset-x-0 top-0 h-1" style={{ background: gColor || withOpacity(theme.primary, 0.5) }} />
                     <div className="relative h-full flex flex-col">
                       <div className="flex-1 pb-8">
                         {flipped ? <BackFace w={w} entry={entry} genderColors={genderColors} /> : <FrontFace w={w} entry={entry} genderColors={genderColors} />}
@@ -245,19 +243,14 @@ export function TodayView(props) {
                             e.stopPropagation();
                             handleCardDoubleClick(w);
                           }}
-                          className="pointer-events-auto flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border transition-all hover:bg-white/20 hover:shadow-lg group active:scale-95 backdrop-blur-md"
-                          style={{
-                            backgroundColor: withOpacity(theme.primary, 0.2),
-                            color: withOpacity(theme.text, 0.95),
-                            borderColor: withOpacity(theme.primary, 0.3),
-                            boxShadow: `0 4px 12px ${withOpacity(theme.primary, 0.15)}`
-                          }}
-                          title="放大查看"
+                          className="icon-btn pointer-events-auto gap-1.5 px-3 py-1 text-xs font-medium group"
+                          style={{ color: theme.primary }}
+                          title={t('today.zoomTitle')}
                         >
                           <svg className="w-3.5 h-3.5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                           </svg>
-                          <span>放大</span>
+                          <span>{t('today.zoom')}</span>
                         </button>
                       </div>
                     </div>

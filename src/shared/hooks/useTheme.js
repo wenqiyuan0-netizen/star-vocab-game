@@ -148,10 +148,18 @@ export function ThemeProvider({ children }) {
     root.style.setProperty('--theme-primary', theme.primary)
     root.style.setProperty('--theme-accent', theme.accent)
     root.style.setProperty('--theme-text', theme.text)
-    root.style.setProperty('--glass-bg', light ? 'rgba(255,255,255,0.58)' : 'rgba(18,18,28,0.48)')
-    root.style.setProperty('--glass-bg-hover', light ? 'rgba(255,255,255,0.72)' : 'rgba(28,28,40,0.58)')
-    root.style.setProperty('--glass-border', light ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.12)')
-    root.style.setProperty('--glass-shadow', light ? '0 10px 30px -12px rgba(30,27,46,0.18)' : '0 12px 34px -12px rgba(0,0,0,0.55)')
+    // Glass panels are the same family as cards: the card surface, slightly translucent.
+    root.style.setProperty('--glass-bg', light ? 'rgba(252,251,248,0.80)' : 'rgba(28,27,38,0.78)')
+    root.style.setProperty('--glass-bg-hover', light ? 'rgba(252,251,248,0.92)' : 'rgba(34,33,46,0.88)')
+    root.style.setProperty('--glass-border', light ? 'rgba(30,27,46,0.07)' : 'rgba(255,255,255,0.10)')
+    root.style.setProperty('--glass-shadow', light ? '0 1px 2px rgba(30,27,46,0.05), 0 8px 24px -12px rgba(30,27,46,0.16)' : '0 1px 2px rgba(0,0,0,0.4), 0 10px 28px -12px rgba(0,0,0,0.6)')
+    // Unified card system: one surface, one border, two elevations, one scrim.
+    root.style.setProperty('--card-surface', light ? 'rgba(252,251,248,0.97)' : 'rgba(28,27,38,0.97)')
+    root.style.setProperty('--card-surface-muted', light ? 'rgba(30,27,46,0.04)' : 'rgba(255,255,255,0.05)')
+    root.style.setProperty('--card-border', light ? 'rgba(30,27,46,0.08)' : 'rgba(255,255,255,0.10)')
+    root.style.setProperty('--card-shadow', light ? '0 1px 2px rgba(30,27,46,0.06), 0 4px 12px -6px rgba(30,27,46,0.12)' : '0 1px 2px rgba(0,0,0,0.4), 0 6px 16px -8px rgba(0,0,0,0.6)')
+    root.style.setProperty('--card-shadow-lg', light ? '0 24px 60px -20px rgba(30,27,46,0.35), 0 2px 6px rgba(30,27,46,0.06)' : '0 28px 70px -20px rgba(0,0,0,0.8)')
+    root.style.setProperty('--scrim', light ? 'rgba(24,22,36,0.32)' : 'rgba(0,0,0,0.55)')
   }, [theme])
 
   const roles = useMemo(() => ({

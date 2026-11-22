@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useI18n } from '../../../shared/i18n';
+import { useTabActive } from '../../../shared/contexts/TabActiveContext';
 import { ChevronLeft, ChevronRight, Minimize2, Sparkles, Volume2 } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
-import { generateGenderColors, withOpacity, desaturate } from '../../../utils/colorUtils';
+import { generateGenderColors, withOpacity } from '../../../utils/colorUtils';
 import { aiService } from '../../../shared/services/ai/AIService';
 import { localLemmatization } from '../../../utils/localLemmatization';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
@@ -19,6 +22,7 @@ const genderToArticle = g => {
 
 export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
   const theme = useTheme();
+  const { t } = useI18n();
 
   // Helper to strip article
   const stripArticle = (s) => (s || '').replace(/^(der|die|das)\s+/i, '').trim();
@@ -84,7 +88,7 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
         className={`${isFocus ? 'text-xl font-light tracking-wider font-serif' : 'text-sm'}`}
         style={{ color: isFocus ? withOpacity(theme.text, 0.6) : withOpacity(theme.secondary, 0.8) }}
       >
-        {isFocus ? <span className="italic opacity-80">pl. {plural}</span> : <span className="font-medium">复数: {plural}</span>}
+        {isFocus ? <span className="italic opacity-80">pl. {plural}</span> : <span className="font-medium">{t('card.pluralShort', { p: plural })}</span>}
       </div> : null}
 
       {pos ? <div
@@ -107,6 +111,7 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
 
 export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) => {
   const theme = useTheme();
+  const { t } = useI18n();
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [aiExample, setAiExample] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
@@ -181,7 +186,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
       }
     } catch (err) {
       console.error("AI Gen Error:", err);
-      setAiError(err.message || '生成失败');
+      setAiError(err.message || t('ai.err.generic'));
     } finally {
       setLoadingAi(false);
     }
@@ -412,7 +417,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
             className={`${isFocus ? 'text-2xl pl-1' : 'text-base'} font-medium leading-relaxed`}
             style={{ color: isFocus ? theme.text : withOpacity(theme.text, 0.95) }}
           >
-            {w.cn || entry?.cn || entry?.translation || '暂无释义'}
+            {w.cn || entry?.cn || entry?.translation || t('card.noMeaning')}
           </div>
         </div>
 
@@ -427,7 +432,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
           >
             {ipa && (
               <div className="flex items-center gap-3 flex-1">
-                <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 font-medium">音标</span>
+                <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 font-medium">{t('card.ipa')}</span>
                 <span className={`font-mono ${isFocus ? 'text-base' : 'text-sm'}`} style={{ color: withOpacity(theme.text, 0.85) }}>
                   {ipa}
                 </span>
@@ -442,10 +447,10 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 color: theme.text,
                 border: `1px solid ${withOpacity(theme.text, 0.25)}`
               }}
-              title={audioUrl ? "播放发音（音频）" : "播放发音（TTS）"}
+              title={t('card.playAudio')}
             >
               <Volume2 className={isFocus ? 'w-4 h-4' : 'w-3 h-3'} />
-              {isFocus && <span className="text-xs font-medium">{audioUrl ? '发音' : 'TTS'}</span>}
+              {isFocus && <span className="text-xs font-medium">{audioUrl ? t('card.pronounce') : 'TTS'}</span>}
             </button>
           </div>
         )}
@@ -462,7 +467,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
           >
             {plural && (
               <div className="flex items-center gap-4">
-                <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 font-medium">复数</span>
+                <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 font-medium">{t('card.plural')}</span>
                 <span className="font-mono text-sm" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.9) }}>{plural}</span>
               </div>
             )}
@@ -471,7 +476,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
               <div className="flex flex-col gap-2 w-full">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
-                    <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">变位</span>
+                    <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="w-16 flex-shrink-0 mt-0.5 font-medium">{t('card.conjugation')}</span>
                     {!showConjugation && conjugations && (
                       <span className="font-mono text-sm italic" style={{ color: isFocus ? withOpacity(theme.text, 0.9) : withOpacity(theme.text, 0.8) }}>
                         {typeof conjugations === 'string' ? conjugations : (Array.isArray(conjugations) ? conjugations.join(', ') : JSON.stringify(conjugations))}
@@ -488,7 +493,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                       backgroundColor: withOpacity(theme.primary, 0.1)
                     }}
                   >
-                    {showConjugation ? '收起' : '查看变位表'}
+                    {showConjugation ? t('card.hide') : t('card.showConj')}
                   </button>
                 </div>
 
@@ -497,7 +502,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                     {loadingConjugation ? (
                       <div className="text-sm opacity-70 py-2 flex items-center gap-2">
                         <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.text }}></div>
-                        正在加载变位表...
+                        {t('card.loadingConj')}
                       </div>
                     ) : (conjugationData && conjugationData.length > 0) ? (
                       <div className="grid grid-cols-2 gap-2 text-sm max-h-60 overflow-y-auto custom-scrollbar pr-1">
@@ -510,7 +515,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                       </div>
                     ) : (
                       <div className="text-sm opacity-70 py-2 italic">
-                        {conjugationData ? '暂无详细变位信息' : '未找到变位数据'}
+                        {conjugationData ? t('card.noConjDetail') : t('card.noConj')}
                       </div>
                     )}
                   </div>
@@ -524,7 +529,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
         {(allExamples.length > 0 || isFocus) && (
           <div className="flex flex-col gap-3 mt-2">
             <div className="flex items-center justify-between mb-1">
-              <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="font-medium">示例</span>
+              <span style={isFocus ? { ...labelStyle, color: withOpacity(theme.text, 0.6) } : labelStyle} className="font-medium">{t('card.examples')}</span>
               {isFocus && (
                 <button
                   onClick={handleGenerateExample}
@@ -536,15 +541,27 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                     border: `1px solid ${withOpacity(theme.accent, 0.3)}`,
                     cursor: loadingAi ? 'not-allowed' : 'pointer'
                   }}
-                  title="AI 智能造句（使用你自己的 Gemini Key）"
+                  title={t('card.aiTitle')}
                 >
                   <Sparkles className="w-3 h-3" />
-                  {loadingAi ? '生成中...' : 'AI 造句'}
+                  {loadingAi ? t('card.aiLoading') : t('card.ai')}
                 </button>
               )}
             </div>
 
             <div className="space-y-3">
+              {allExamples.length === 0 && !aiExample && isFocus && (
+                <div className="card-muted rounded-2xl px-4 py-3 text-sm" style={{ color: withOpacity(theme.text, 0.55) }}>
+                  {entry === null ? (
+                    <span className="animate-pulse">{t('card.loadingExamples')}</span>
+                  ) : (
+                    <>
+                      <div className="font-medium">{t('card.noExamples')}</div>
+                      <div className="text-xs mt-0.5 opacity-80">{t('card.noExamplesHint')}</div>
+                    </>
+                  )}
+                </div>
+              )}
               {/* AI Generated Example Display */}
               {aiExample && (
                 <div
@@ -581,7 +598,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                         color: theme.accent,
                         border: `1px solid ${withOpacity(theme.accent, 0.3)}`
                       }}
-                      title="朗读例句"
+                      title={t('card.speakExample')}
                     >
                       <Volume2 className="w-3.5 h-3.5" />
                     </button>
@@ -640,7 +657,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                           color: withOpacity(theme.text, 0.7),
                           border: `1px solid ${withOpacity(theme.text, 0.15)}`
                         }}
-                        title="朗读例句"
+                        title={t('card.speakExample')}
                       >
                         <Volume2 className="w-3.5 h-3.5" />
                       </button>
@@ -673,7 +690,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                 className="text-xs self-start mt-1 hover:underline"
                 style={{ color: theme.secondary }}
               >
-                {showAllExamples ? '收起' : `+${allExamples.length - (isFocus ? 5 : 3)} 更多`}
+                {showAllExamples ? t('card.hide') : t('card.more', { n: allExamples.length - (isFocus ? 5 : 3) })}
               </button>
             )}
           </div>
@@ -693,154 +710,119 @@ export const WordCardModal = ({
   currentIndex,
   totalCount,
   showNavigation = true,
-  cardBgColor: propCardBgColor
+  inline = false, // render in place (no scrim/portal) — used where the card IS the page
 }) => {
+  const { t } = useI18n();
+  const tabActive = useTabActive();
   const theme = useTheme();
-
-  // Use theme variables directly for consistent coloring
-  const genderColors = useMemo(() => generateGenderColors(theme), [theme]);
-  // Use glass style for the card background, default if not passed
-  // Desaturate the background to make text and buttons more visible
-  const cardBgColor = useMemo(() => {
-    const baseColor = propCardBgColor || withOpacity(theme.background, 0.65);
-    return desaturate(baseColor, 0.4); // Reduce saturation by 40%
-  }, [theme.background, propCardBgColor]);
+  const isDark = (theme.mode || 'light') === 'dark';
+  const genderColors = useMemo(() => generateGenderColors(theme, isDark), [theme, isDark]);
 
   const [flipped, setFlipped] = useState(false);
+  const [flipKey, setFlipKey] = useState(0);
 
   // Reset flip state when word changes
   useEffect(() => {
     setFlipped(false);
   }, [word?.w?.id]);
 
-  if (!word) return null;
+  const flip = React.useCallback(() => {
+    soundManager.playFlip();
+    setFlipped(f => !f);
+    setFlipKey(k => k + 1);
+  }, []);
 
-  return (
-    <div
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-fade-in"
-      onClick={onClose}
-      style={{
-        backgroundColor: 'transparent'
-      }}
-    >
+  // Keyboard: Esc close · ←/→ navigate · Space/Enter flip
+  useEffect(() => {
+    if (!word || !tabActive) return undefined;
+    const onKey = (e) => {
+      if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+      if (e.key === 'Escape') onClose && onClose();
+      else if (e.key === 'ArrowLeft' && hasPrev && onPrev) onPrev();
+      else if (e.key === 'ArrowRight' && hasNext && onNext) onNext();
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [word, tabActive, onClose, onPrev, onNext, hasPrev, hasNext, flip]);
+
+  if (!word || !tabActive) return null;
+
+  const g = (word.entry?.article || word.w?.gender || '').toString().toLowerCase();
+  const accent = genderColors[g] || genderColors[{ der: 'm', die: 'f', das: 'n' }[g]] || theme.primary;
+
+  const body = (
       <div
-        className="w-full max-w-md aspect-[3/4] rounded-3xl shadow-2xl relative transition-all duration-500 transform hover:scale-[1.01] overflow-hidden group"
-        onClick={(e) => {
-          e.stopPropagation();
-          soundManager.playFlip();
-          setFlipped(!flipped);
-        }}
-        style={{
-          backgroundColor: cardBgColor,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: `1px solid ${withOpacity(theme.text, 0.1)}`,
-          boxShadow: `0 25px 50px ${withOpacity(theme.text, 0.15)}, inset 0 1px 0 ${withOpacity(theme.text, 0.1)}`,
-          isolation: 'isolate'
-        }}
+        className={inline
+          ? 'absolute inset-0 flex flex-col items-center justify-center p-4 pointer-events-none'
+          : 'layer-modal flex flex-col items-center justify-center p-4 pointer-events-none'}
+        role={inline ? 'region' : 'dialog'}
+        aria-modal={inline ? undefined : 'true'}
+        aria-label={word.w?.de}
       >
+        <div
+          key={`${word.w?.id}-${flipKey}`}
+          className={`card-elevated pointer-events-auto w-full max-w-md aspect-[3/4] max-h-[78vh] rounded-[28px] relative overflow-hidden cursor-pointer ${flipKey ? 'animate-card-flip' : 'animate-card-pop'}`}
+          onClick={(e) => { e.stopPropagation(); flip(); }}
+          style={{ color: theme.text }}
+        >
+          {/* Gender accent: der / die / das at a glance */}
+          <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: `linear-gradient(90deg, ${accent}, ${withOpacity(accent, 0.35)})` }} />
 
-        {/* Card Content */}
-        <div className="absolute inset-0 p-8 flex flex-col z-10" style={{ color: theme.text }}>
-          {flipped ? (
-            <BackFace
-              w={word.w}
-              entry={word.entry}
-              isFocus={true}
-              genderColors={genderColors}
-            />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center relative">
-              <div className="scale-100 w-full h-full flex items-center justify-center">
-                <FrontFace
-                  w={word.w}
-                  entry={word.entry}
-                  isFocus={true}
-                  genderColors={genderColors}
-                />
+          <div className="absolute inset-0 pt-9 px-7 pb-7 flex flex-col">
+            {flipped ? (
+              <BackFace w={word.w} entry={word.entry} isFocus={true} genderColors={genderColors} />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center relative">
+                <div className="w-full h-full flex items-center justify-center">
+                  <FrontFace w={word.w} entry={word.entry} isFocus={true} genderColors={genderColors} />
+                </div>
+                <div
+                  className="card-muted absolute bottom-1 text-xs tracking-wider px-4 py-2 rounded-full flex items-center gap-2"
+                  style={{ color: withOpacity(theme.text, 0.6) }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.5 7.5l3 3" />
+                  </svg>
+                  {t('card.tapToFlip')}
+                </div>
               </div>
-              <div
-                className="absolute bottom-4 text-xs tracking-wider px-4 py-2 rounded-full border backdrop-blur-sm flex items-center gap-2"
-                style={{
-                  color: withOpacity(theme.text, 0.7),
-                  backgroundColor: withOpacity(theme.background, 0.4),
-                  borderColor: withOpacity(theme.text, 0.25),
-                  boxShadow: `0 4px 12px ${withOpacity(theme.text, 0.05)}`
-                }}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.5 7.5l3 3" />
-                </svg>
-                点击卡片翻转
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 顶部操作按钮区域 */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
-          {/* 缩小按钮 */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="p-2 rounded-full transition-all duration-300 backdrop-blur-sm border group"
-            style={{
-              backgroundColor: withOpacity(theme.background, 0.3),
-              color: withOpacity(theme.text, 0.9),
-              borderColor: withOpacity(theme.text, 0.25)
-            }}
-            title="返回网格视图"
-          >
-            <Minimize2 className="w-5 h-5 transition-transform group-hover:scale-110" />
-          </button>
-        </div>
-      </div>
-
-      {/* Navigation Controls (Outside Card) */}
-      {showNavigation && (
-        <div className="mt-8 flex justify-center items-center gap-8" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={onPrev}
-            disabled={!hasPrev}
-            className="p-4 rounded-full transition-all duration-300 shadow-lg group/btn"
-            style={{
-              backgroundColor: withOpacity(Array.isArray(theme.analogous) && theme.analogous[0] ? theme.analogous[0] : theme.secondary, 0.85),
-              color: theme.text,
-              border: `1px solid ${withOpacity(theme.text, 0.25)}`
-            }}
-            title="上一张"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-
-          <div className="px-4 py-1 rounded-full text-xs font-mono tracking-widest backdrop-blur-md shadow-sm"
-            style={{
-              backgroundColor: withOpacity(Array.isArray(theme.analogous) && theme.analogous[0] ? theme.analogous[0] : theme.secondary, 0.6),
-              color: withOpacity(theme.text, 0.8),
-              border: `1px solid ${withOpacity(theme.text, 0.2)}`
-            }}
-          >
-            {currentIndex + 1} / {totalCount}
+            )}
           </div>
 
           <button
-            onClick={onNext}
-            disabled={!hasNext}
-            className="p-4 rounded-full transition-all duration-300 shadow-lg group/btn"
-            style={{
-              backgroundColor: withOpacity(Array.isArray(theme.analogous) && theme.analogous[1] ? theme.analogous[1] : theme.secondary, 0.85),
-              color: theme.text,
-              border: `1px solid ${withOpacity(theme.text, 0.25)}`
-            }}
-            title="下一张"
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="icon-btn absolute top-4 right-4 w-9 h-9 z-10"
+            style={{ color: withOpacity(theme.text, 0.75) }}
+            title={t('card.close')}
+            aria-label={t('card.close')}
           >
-            <ChevronRight className="w-6 h-6" />
+            <Minimize2 className="w-4 h-4" />
           </button>
         </div>
-      )}
-    </div>
+
+        {showNavigation && (
+          <div className="mt-6 flex justify-center items-center gap-5 pointer-events-auto" onClick={e => e.stopPropagation()}>
+            <button onClick={onPrev} disabled={!hasPrev} className="icon-btn w-12 h-12" style={{ color: theme.text }} title={t('card.prev')} aria-label={t('card.prev')}>
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="card-surface px-4 py-1.5 rounded-full text-xs font-mono tracking-widest tabular-nums" style={{ color: withOpacity(theme.text, 0.75) }}>
+              {currentIndex + 1} / {totalCount}
+            </div>
+            <button onClick={onNext} disabled={!hasNext} className="icon-btn w-12 h-12" style={{ color: theme.text }} title={t('card.next')} aria-label={t('card.next')}>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      </div>
+  );
+
+  if (inline) return body;
+  return createPortal(
+    <>
+      <div className="layer-scrim" onClick={onClose} aria-hidden="true" />
+      {body}
+    </>,
+    document.body
   );
 };
-

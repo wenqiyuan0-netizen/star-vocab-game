@@ -1,5 +1,6 @@
 
 import { localDictDB } from './LocalDictionaryDB';
+import { translate } from '../../i18n';
 import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
 import { localDict } from '../../../utils/localDictionary';
 
@@ -92,9 +93,9 @@ class UnifiedDictionaryService {
 
     formatSource(source) {
         if (!source) return 'Unknown';
-        if (source.includes('common')) return '常用词表';
-        if (source.includes('goethe')) return '歌德词汇';
-        if (source.includes('cloud')) return '云端词典';
+        if (source.includes('common')) return translate('src.common');
+        if (source.includes('goethe')) return translate('src.goethe');
+        if (source.includes('cloud')) return translate('src.cloud');
         return source;
     }
 
@@ -191,7 +192,9 @@ class UnifiedDictionaryService {
 
         // 1.5 查本地数据库 (IndexedDB - 用户导入/缓存)
         try {
-            const dbEntries = await localDictDB.getEntriesByWord(normalizedWord);
+            const dbEntries = (await localDictDB.getEntriesByWord(normalizedWord))
+                // never surface placeholder meanings written by an old build
+                .filter(e => !String(e.translation || '').startsWith('[AI翻译]'));
             if (dbEntries && dbEntries.length > 0) {
                 console.log(`[Dict] Local DB hit for ${word} (${dbEntries.length} entries found)`);
 
@@ -272,24 +275,8 @@ class UnifiedDictionaryService {
                     }
                     return merged;
                 } else {
-                    // B. 只有英文 -> 加入翻译队列
-                    console.log(`[Dict] Result has English only. Queuing translation...`);
-                    
-                    // 我们需要保存一个具体的条目到本地数据库以供翻译
-                    // 选择最匹配的一个条目进行保存
-                    if (targetEntries.length > 0) {
-                        const candidate = { ...targetEntries[0] };
-                        candidate.source = 'cloud_pending_translation';
-                        
-                        // 存入本地并加入队列
-                        await Promise.all([
-                            localDictDB.saveEntry(candidate),
-                            localDictDB.addToTranslationQueue(candidate)
-                        ]);
-
-                        this.triggerBatchTranslation();
-                    }
-                    
+                    // B. English-only result: show the English definition as-is.
+                    // (A former placeholder pipeline wrote fake "[AI翻译] …" meanings here.)
                     return merged;
                 }
             }
@@ -412,68 +399,6 @@ class UnifiedDictionaryService {
      * 触发批处理翻译
      * 建议在空闲时或积累了一定数量后调用
      */
-    async triggerBatchTranslation() {
-        if (this.isProcessingQueue) return;
-
-        // 简单策略：检查队列是否有 5 个以上，或者直接开始处理
-        const queue = await localDictDB.getTranslationQueue(10);
-        if (queue.length === 0) return;
-
-        this.isProcessingQueue = true;
-        console.log(`[Dict] Starting batch translation for ${queue.length} items...`);
-
-        try {
-            // 这里演示逐个翻译，实际可以打包发给 AI
-            for (const item of queue) {
-                try {
-                    // 调用 AI 翻译
-                    // const translated = await aiService.translate(item.word, context...);
-
-                    // 模拟 AI 翻译结果
-                    const mockTranslation = `[AI翻译] ${item.word} 的中文意思`;
-
-                    // 更新词条
-                    const updatedEntry = {
-                        ...item,
-                        translation: mockTranslation,
-                        has_chinese: true,
-                        source: 'cloud_translated' // 标记为已翻译
-                    };
-
-                    // 1. 更新主词库
-                    await localDictDB.saveEntry(updatedEntry);
-
-                    // 2. 移出队列
-                    if (item.id) {
-                        await localDictDB.removeFromQueue([item.id]);
-                    }
-
-                    console.log(`[Dict] Translated and updated: ${item.word}`);
-
-                } catch (err) {
-                    console.error(`[Dict] Failed to translate ${item.word}`, err);
-                    // CRITICAL FIX: Remove failed item to prevent infinite retry loop
-                    if (item.id) {
-                        try {
-                            await localDictDB.removeFromQueue([item.id]);
-                            console.log(`[Dict] Removed failed item from queue: ${item.word}`);
-                        } catch (remErr) {
-                            console.error(`[Dict] Failed to remove broken item ${item.id}`, remErr);
-                        }
-                    }
-                }
-            }
-        } finally {
-            this.isProcessingQueue = false;
-
-            // 如果队列里还有，继续处理 (Add delay to prevent UI freeze)
-            const remaining = await localDictDB.getTranslationQueue(1);
-            if (remaining.length > 0) {
-                setTimeout(() => this.triggerBatchTranslation(), 200);
-            }
-        }
-    }
-
     /**
      * 导入数据工具函数
      * @param {Array} commonDictItems - 常用词典数组

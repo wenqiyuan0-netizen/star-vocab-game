@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, X } from 'lucide-react';
+import { useI18n } from '../../i18n';
 
 export const UpdateNotification = () => {
+  const { t } = useI18n();
   const [registration, setRegistration] = useState(null);
   const [show, setShow] = useState(false);
 
@@ -44,8 +46,8 @@ export const UpdateNotification = () => {
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] w-[90%] max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-300">
       <div className="bg-slate-900/90 backdrop-blur-md border border-white/20 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
         <div className="flex-1">
-          <h4 className="font-bold text-sm">发现新版本</h4>
-          <p className="text-xs text-slate-300">应用内容已更新，请刷新以应用。</p>
+          <h4 className="font-bold text-sm">{t('update.title')}</h4>
+          <p className="text-xs text-slate-300">{t('update.body')}</p>
         </div>
         <div className="flex gap-2">
            <button 
@@ -59,7 +61,7 @@ export const UpdateNotification = () => {
              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-500/20"
            >
              <RefreshCw size={16} className="animate-pulse" />
-             刷新
+             {t('update.refresh')}
            </button>
         </div>
       </div>

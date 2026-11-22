@@ -614,6 +614,41 @@ class LocalDictionaryDB {
     /**
      * 检查索引是否已填充
      */
+    /**
+     * Delete dictionary entries that hold the old placeholder translation
+     * ("[AI翻译] <word> 的中文意思") and clear the translation queue.
+     * Real entries and saved example sentences are left untouched.
+     * @returns {Promise<number>} number of entries removed
+     */
+    async purgeFakeTranslations() {
+        const db = await this.ensureConnection();
+        const removeEntries = new Promise((resolve) => {
+            let removed = 0;
+            const tx = db.transaction([STORE_ENTRIES], 'readwrite');
+            const req = tx.objectStore(STORE_ENTRIES).openCursor();
+            req.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (!cursor) return;
+                const v = cursor.value || {};
+                if (String(v.translation || '').startsWith('[AI翻译]') || v.source === 'cloud_pending_translation') {
+                    cursor.delete();
+                    removed++;
+                }
+                cursor.continue();
+            };
+            tx.oncomplete = () => resolve(removed);
+            tx.onerror = () => resolve(removed);
+        });
+        const clearQueue = new Promise((resolve) => {
+            if (!db.objectStoreNames.contains(STORE_QUEUE)) return resolve();
+            const tx = db.transaction([STORE_QUEUE], 'readwrite');
+            tx.objectStore(STORE_QUEUE).clear();
+            tx.oncomplete = tx.onerror = () => resolve();
+        });
+        const [removed] = await Promise.all([removeEntries, clearQueue]);
+        return removed;
+    }
+
     async isSearchIndexPopulated() {
         const db = await this.ensureConnection();
         return new Promise((resolve) => {

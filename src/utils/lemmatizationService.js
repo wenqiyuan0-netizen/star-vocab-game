@@ -12,6 +12,12 @@ import { localDictDB } from '../shared/services/dictionary/LocalDictionaryDB';
 // Self-hosted with the app (web + desktop) so it never depends on a cloud bucket being online.
 const INDEX_FILE_URL = `${process.env.PUBLIC_URL || ''}/dict/search_index.json.gz`;
 
+// The cloud dictionary tables this service queries ("dictionary", "search_index") were never
+// populated (0 rows / table absent), so every lookup was a wasted round-trip — or a timeout when
+// the free-tier project is paused — and the 430k-entry index import blocked IndexedDB on first
+// visit. Local lemmatization (localLemmatization.js) covers word forms instead.
+const CLOUD_DICTIONARY_ENABLED = false;
+
 export class LemmatizationService {
     constructor() {
         this.initPromise = null;
@@ -22,6 +28,7 @@ export class LemmatizationService {
      * (在后台运行，不阻塞)
      */
     async ensureIndexLoaded() {
+        if (!CLOUD_DICTIONARY_ENABLED) return;
         // 如果已经在加载中，直接返回 promise
         if (this.initPromise) return this.initPromise;
 
@@ -80,7 +87,7 @@ export class LemmatizationService {
      * @returns {Promise<Array>} - 原型词条数组
      */
     async findLemma(variant) {
-        if (!variant || typeof variant !== 'string') {
+        if (!CLOUD_DICTIONARY_ENABLED || !variant || typeof variant !== 'string') {
             return [];
         }
 
@@ -173,6 +180,7 @@ export class LemmatizationService {
      * 检查服务是否可用 (Supabase 连接检查)
      */
     async isAvailable() {
+        if (!CLOUD_DICTIONARY_ENABLED) return false;
         try {
             // 简单检查 Supabase 连接
             const { data, error } = await supabase

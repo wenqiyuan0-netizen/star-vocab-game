@@ -1,4 +1,5 @@
 import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
+import { translate } from '../../i18n';
 
 // Simple TextRank Implementation for German
 class TextRank {
@@ -350,7 +351,7 @@ class AIService {
     // sent straight to Google. No project-owned key, no proxy server.
     const { apiKey, model } = getAiConfig();
     if (!apiKey) {
-      const err = new Error('未配置 Gemini API Key：请在「我的 → AI 造句」中填写你自己的 Key');
+      const err = new Error(translate('ai.err.noKey'));
       err.code = 'NO_API_KEY';
       throw err;
     }
@@ -376,8 +377,8 @@ class AIService {
       }
       if (!res.ok) {
         const msg = res.status === 400 || res.status === 403
-          ? 'Gemini 拒绝了请求：请检查 API Key 是否有效'
-          : `Gemini 请求失败 (${res.status})`;
+          ? translate('ai.err.rejected')
+          : translate('ai.err.failed', { status: res.status });
         throw new Error(msg);
       }
       data = await res.json();

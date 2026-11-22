@@ -41,6 +41,6 @@ describe('AIService (bring your own key)', () => {
   it('surfaces an invalid key as a readable error', async () => {
     setAiConfig({ apiKey: 'bad' });
     global.fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
-    await expect(aiService.generateExample('Haus', '房子')).rejects.toThrow(/API Key/);
+    await expect(aiService.generateExample('Haus', '房子')).rejects.toThrow(/API key/i);
   });
 });

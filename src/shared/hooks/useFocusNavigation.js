@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 export function useFocusNavigation(totalCount, initialIndex = 0) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -11,20 +11,8 @@ export function useFocusNavigation(totalCount, initialIndex = 0) {
     setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
   }, []);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Only handle arrow keys
-      if (e.key === 'ArrowRight') {
-        goNext();
-      } else if (e.key === 'ArrowLeft') {
-        goPrev();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev]);
+  // Keyboard navigation lives in WordCardModal, which only listens while open and
+  // while its tab is active (a global listener here double-stepped and fired from hidden tabs).
 
   return {
     currentIndex,

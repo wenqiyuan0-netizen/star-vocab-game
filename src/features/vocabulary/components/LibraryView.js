@@ -15,6 +15,7 @@ import { aiService } from '../../../shared/services/ai/AIService';
 import { exampleService } from '../../../shared/services/examples/ExampleService';
 import { sanitizeCn } from '../../../logic/utils';
 import { WordCardModal } from './WordCard';
+import { useI18n } from '../../../shared/i18n';
 import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
 import { generateGenderColors, getBrightestVariant, mixColors, withOpacity } from '../../../utils/colorUtils';
 import { genderToArticle } from '../../../utils/genderUtils';
@@ -52,6 +53,7 @@ export function LibraryView({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const theme = useTheme();
+  const { t } = useI18n();
 
   // 新增状态：预设词库导入
   const [importedLibraries, setImportedLibraries] = useState(() => {
@@ -268,8 +270,11 @@ export function LibraryView({
         const load = async () => {
           try {
             const entry = await exampleService.getDictEntry(cardWord.de);
-            if (active) setCardEntry(entry);
-          } catch { }
+            // false = looked up and not found (vs. null = still loading)
+            if (active) setCardEntry(entry || false);
+          } catch {
+            if (active) setCardEntry(false);
+          }
         };
         load();
       }, 200); // 200ms delay to wait for user to stop rapid clicking
@@ -287,13 +292,6 @@ export function LibraryView({
   }, [cardWord, cardEntry]);
 
   // Calculate dynamic background for Focus Mode (same as TodayView)
-  const focusCardBg = React.useMemo(() => {
-    if (!modalWordData) return cardBgColor;
-    const g = modalWordData.w.gender;
-    const gc = g ? darkGenderColors[g.toLowerCase()] : null;
-    return gc ? mixColors(cardBgColor, gc, 0.15) : cardBgColor;
-  }, [modalWordData, cardBgColor, darkGenderColors]);
-
   const handleWordClick = (w) => {
     if (selectionMode) {
       handleToggleSelect(w.id);
@@ -345,19 +343,19 @@ export function LibraryView({
       const recent = getRecentFive();
       const source = String(articleInput || '').trim();
       if (!source) {
-        setAiError('请先粘贴德语短文');
+        setAiError(t('lib.err.noArticle'));
         return;
       }
 
       const raw = await aiService.generateVocabularyFromArticle(source, recent);
       if (!raw) {
-        setAiError('生成失败');
+        setAiError(t('lib.err.extract'));
       } else {
         const cleaned = normalizeVocabText(raw);
         if (cleaned) setCustomInput(cleaned);
       }
     } catch (e) {
-      setAiError('网络或服务错误');
+      setAiError(t('lib.err.network'));
     } finally {
       setAiLoading(false);
     }
@@ -367,13 +365,13 @@ export function LibraryView({
     if (!articleInput || !articleInput.trim()) return;
     setAiLoading(true);
     try {
-      const count = await localCorpusService.addArticle('手动导入 ' + new Date().toLocaleString(), articleInput);
-      setAiError(`已成功写入 ${count} 个例句到本地库`);
+      const count = await localCorpusService.addArticle(t('lib.corpus.name', { date: new Date().toLocaleString() }), articleInput);
+      setAiError(t('lib.corpus.ok', { n: count }));
       // 成功后可选：清空短文输入框
       // setArticleInput('');
     } catch (e) {
       console.error(e);
-      setAiError('写入例句库失败');
+      setAiError(t('lib.corpus.fail'));
     } finally {
       setAiLoading(false);
     }
@@ -406,7 +404,7 @@ export function LibraryView({
     localStorage.setItem('imported_preset_libraries', JSON.stringify(newImportedLibraries));
 
     // 显示提示
-    alert(`已删除 ${libraryName}\n删除了 ${deletedCount} 个未学习的单词，保留了 ${learnedWords.length} 个已学习的单词`);
+    alert(t('lib.removed', { name: libraryName, deleted: deletedCount, kept: learnedWords.length }));
   };
 
   // 处理预设词库导入
@@ -442,31 +440,31 @@ export function LibraryView({
       {/* 顶部工具栏 */}
       <div className="flex items-center justify-between p-4 glass-panel rounded-none border-x-0 border-t-0 sticky top-0 z-20">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          词库 <span className="text-sm font-semibold glass-panel px-2 py-0.5 rounded-full" style={{ color: theme.primary }}>{globalWordDb.length}</span>
+          {t('lib.title')} <span className="text-sm font-semibold glass-panel px-2 py-0.5 rounded-full" style={{ color: theme.primary }}>{globalWordDb.length}</span>
         </h2>
 
         <div className="flex items-center gap-2">
           <div className="relative group">
             <button
               onClick={() => setShowAddPanel(!showAddPanel)}
-              title="增加新词"
+              title={t('lib.add')}
               className={`p-2 rounded-full glass-button transition ${!showAddPanel ? 'text-gray-400' : ''}`}
-              style={showAddPanel ? { backgroundColor: theme.primary, color: theme.text } : {}}
+              style={showAddPanel ? { backgroundColor: theme.primary, color: '#fff' } : {}}
             >
               <Plus className="w-5 h-5" />
             </button>
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">增加新词</div>
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">{t('lib.add')}</div>
           </div>
           <div className="relative group">
             <button
               onClick={() => setSelectionMode(!selectionMode)}
-              title={selectionMode ? '退出批量' : '批量管理'}
+              title={selectionMode ? t('lib.bulkExit') : t('lib.bulk')}
               className={`p-2 rounded-full glass-button transition ${!selectionMode ? 'text-gray-400' : ''}`}
               style={selectionMode ? { backgroundColor: `${theme.accent}33`, color: theme.accent } : {}}
             >
               {selectionMode ? <X className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
             </button>
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">{selectionMode ? '退出批量' : '批量管理'}</div>
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-xs glass-button opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">{selectionMode ? t('lib.bulkExit') : t('lib.bulk')}</div>
           </div>
         </div>
       </div>
@@ -479,7 +477,7 @@ export function LibraryView({
               <textarea
                 value={articleInput}
                 onChange={handleArticleChange}
-                placeholder="粘贴德语短文（仅德语，最长 3000 字）"
+                placeholder={t('lib.article.placeholder')}
                 className="w-full text-left cursor-text rounded-lg p-3 text-sm outline-none placeholder:text-gray-500 overflow-y-auto custom-scrollbar resize-none"
                 style={{
                   backgroundColor: cardBgColor,
@@ -492,18 +490,18 @@ export function LibraryView({
                 name="articleInput"
               />
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">仅德语 | {articleInput.length}/{ARTICLE_LIMIT}</span>
+                <span className="text-xs" style={{ color: withOpacity(theme.text, 0.45) }}>{t('lib.article.count', { n: articleInput.length, max: ARTICLE_LIMIT })}</span>
                 <div className="flex gap-2">
                   {articleInput.length > 0 && (
-                    <GlassButton onClick={() => setArticleInput('')} tone="secondary" variant="ghost" size="sm" title="清空短文">
+                    <GlassButton onClick={() => setArticleInput('')} tone="secondary" variant="ghost" size="sm" title={t('lib.article.clear')}>
                       <Trash2 className="w-4 h-4" />
                     </GlassButton>
                   )}
                   <GlassButton onClick={handleAiExtract} tone="primary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
-                    {aiLoading ? '整理中...' : 'AI 生词整理'}
+                    {aiLoading ? t('lib.extracting') : t('lib.extract')}
                   </GlassButton>
                   <GlassButton onClick={handleAddToCorpus} tone="secondary" variant="solid" size="sm" disabled={aiLoading || !articleInput.trim()}>
-                    写入例句库
+                    {t('lib.toCorpus')}
                   </GlassButton>
                 </div>
               </div>
@@ -513,7 +511,7 @@ export function LibraryView({
               <textarea
                 value={customInput}
                 onChange={e => setCustomInput(e.target.value)}
-                placeholder="输入单词... (格式: der Apfel；苹果)"
+                placeholder={t('lib.words.placeholder')}
                 className="w-full text-left cursor-text rounded-lg p-3 pr-10 text-sm outline-none placeholder:text-gray-500 overflow-y-auto custom-scrollbar resize-none"
                 style={{
                   backgroundColor: cardBgColor,
@@ -529,7 +527,7 @@ export function LibraryView({
                 <button
                   onClick={() => setCustomInput('')}
                   className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                  title="清空单词"
+                  title={t('lib.words.clear')}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -545,7 +543,7 @@ export function LibraryView({
                   size="md"
                   className="rounded-lg"
                 >
-                  添加
+                  {t('lib.addBtn')}
                 </GlassButton>
 
                 <button
@@ -555,10 +553,10 @@ export function LibraryView({
                     backgroundColor: `${theme.accent}33`,
                     color: theme.accent
                   }}
-                  title="导入预设词库"
+                  title={t('lib.presets.title')}
                 >
                   <BookOpen className="w-4 h-4" />
-                  预设词库
+                  {t('lib.presets')}
                 </button>
               </div>
             </div>
@@ -572,11 +570,11 @@ export function LibraryView({
           className="border-b p-2 flex items-center justify-between px-4"
           style={{ backgroundColor: `${theme.accent}33`, borderColor: `${theme.accent}33` }}
         >
-          <span className="text-sm" style={{ color: theme.accent }}>已选 {selectedIds.size} 项</span>
+          <span className="text-sm" style={{ color: theme.accent }}>{t('lib.selected', { n: selectedIds.size })}</span>
           <div className="flex gap-2">
-            <button onClick={() => setSelectedIds(new Set(globalWordDb.map(w => w.id)))} className="text-xs hover:underline" style={{ color: theme.accent }}>全选</button>
-            <button onClick={clearSelection} className="text-xs hover:underline" style={{ color: theme.accent }}>清空</button>
-            <button onClick={handleBulkDeleteRequest} className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">删除</button>
+            <button onClick={() => setSelectedIds(new Set(globalWordDb.map(w => w.id)))} className="text-xs hover:underline" style={{ color: theme.accent }}>{t('lib.selectAll')}</button>
+            <button onClick={clearSelection} className="text-xs hover:underline" style={{ color: theme.accent }}>{t('lib.clear')}</button>
+            <button onClick={handleBulkDeleteRequest} className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">{t('lib.delete')}</button>
           </div>
         </div>
       )}
@@ -589,7 +587,7 @@ export function LibraryView({
             type="search"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="搜索单词..."
+            placeholder={t('lib.search')}
             className="w-full glass-panel cursor-text rounded-full pl-10 pr-4 py-2 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 transition-colors duration-200"
             style={{ '--tw-ring-color': theme.primary, borderColor: searchTerm ? theme.primary : undefined }}
             name="librarySearch"
@@ -606,7 +604,7 @@ export function LibraryView({
         onScroll={handleListScroll}
       >
         {filteredWords.length === 0 ? (
-          <div className="text-center text-gray-500 py-10">未找到单词</div>
+          <div className="text-center py-10" style={{ color: withOpacity(theme.text, 0.5) }}>{t('lib.none')}</div>
         ) : (
           visibleWords.map(w => (
             <div
@@ -625,9 +623,8 @@ export function LibraryView({
                 '--card-hover-bg': cardHoverColor,
                 borderColor: selectionMode && selectedIds.has(w.id) ? `${theme.primary}80` : 'var(--glass-border)',
                 borderWidth: '1px',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                // No per-row backdrop blur: dozens of live blur layers made scrolling and tab switches janky.
+                boxShadow: 'var(--card-shadow)'
               }}
             >
               <div className="flex items-center gap-3 overflow-hidden">
@@ -694,9 +691,9 @@ export function LibraryView({
                               color: theme.accent,
                               border: `1px solid ${withOpacity(theme.accent, 0.25)}`
                             }}
-                            title="来自词典"
+                            title={t('lib.fromDict')}
                           >
-                            词典
+                            {t('lib.dict')}
                           </span>
                         )}
                       </div>
@@ -729,10 +726,10 @@ export function LibraryView({
               {/* 悬停操作按钮 (非批量模式下) */}
               {!selectionMode && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-yellow-600" title="重置进度">
+                  <button onClick={(e) => { e.stopPropagation(); handleResetWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-yellow-600" title={t('lib.resetWord')}>
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-red-600" title="删除">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWord(w.id); }} className="p-2 hover:bg-black/5 rounded-full text-gray-400 hover:text-red-600" title={t('lib.delete')}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -742,14 +739,14 @@ export function LibraryView({
               {hoveringId === w.id && !selectionMode && (
                 <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-white/95 backdrop-blur shadow-xl p-3 rounded-lg text-sm pointer-events-none border border-gray-100">
                   {loadingExampleId === w.id ? (
-                    <span className="text-gray-500 animate-pulse">正在生成例句...</span>
+                    <span className="text-gray-500 animate-pulse">{t('lib.genExample')}</span>
                   ) : examplesById[w.id] ? (
                     <>
                       <p className="text-slate-900 font-medium mb-1">{examplesById[w.id].de}</p>
                       <p className="text-gray-600 text-xs">{examplesById[w.id].cn}</p>
                     </>
                   ) : (
-                    <span className="text-gray-400">暂无例句</span>
+                    <span className="text-gray-400">{t('lib.noExample')}</span>
                   )}
                 </div>
               )}
@@ -760,7 +757,6 @@ export function LibraryView({
 
       {showCard && modalWordData && (
         <WordCardModal
-          cardBgColor={focusCardBg}
           word={modalWordData}
           onClose={() => setShowCard(false)}
           onPrev={goPrev}

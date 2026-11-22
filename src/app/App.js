@@ -46,6 +46,14 @@ export default function App() {
 
                 console.log('[App] Dictionary init complete:', result);
 
+                // One-time cleanup of placeholder "[AI翻译] …" meanings written by an old build.
+                if (!localStorage.getItem('star_vocab_purged_fake_tr')) {
+                    const { localDictDB } = await import("../shared/services/dictionary/LocalDictionaryDB");
+                    const removed = await localDictDB.purgeFakeTranslations().catch(() => 0);
+                    console.log(`[App] Purged ${removed} placeholder translations`);
+                    localStorage.setItem('star_vocab_purged_fake_tr', '1');
+                }
+
                 // Only after init: the upgrade path deletes/recreates the IndexedDB database,
                 // so loading the lemmatization index in parallel would race with it.
                 import("../utils/lemmatizationService").then(({ lemmatizationService }) => {
