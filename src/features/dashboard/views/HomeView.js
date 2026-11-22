@@ -85,12 +85,13 @@ export function HomeView({
             <BrandLogo size={72} />
           </div>
         </div>
-        <div className="text-center space-y-1.5">
+        {/* Soft halo in the background colour keeps text legible over busy wallpapers */}
+        <div className="text-center space-y-1.5" style={{ textShadow: `0 0 18px ${theme.background}, 0 0 6px ${theme.background}, 0 0 2px ${theme.background}` }}>
           <p className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: theme.primary }}>{greeting}</p>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: theme.text }}>
             {t('home.title')}
           </h1>
-          <p className="text-sm font-medium tracking-wide" style={{ color: muted }}>{t('app.tagline')}</p>
+          <p className="text-sm font-semibold tracking-wide" style={{ color: withOpacity(theme.text, 0.72) }}>{t('app.tagline')}</p>
         </div>
       </div>
 
