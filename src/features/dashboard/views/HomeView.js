@@ -1,5 +1,9 @@
-import React, { useMemo } from 'react';
-import { Play, BookOpen, Sparkles, Library } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useI18n } from '../../../shared/i18n';
+import { LanguageSwitcher } from '../../../shared/components/ui/LanguageSwitcher';
+import { DownloadPanel } from '../components/DownloadPanel';
+import { IS_OFFLINE_BUILD } from '../../../shared/constants/config';
+import { Play, BookOpen, Sparkles, Library, Download } from 'lucide-react';
 import BrandLogo from '../../../shared/components/ui/BrandLogo';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { GlassButton } from '../../../shared/components/ui/GlassButton';
@@ -13,6 +17,8 @@ export function HomeView({
   dailyStats = { newCount: 0, reviewCount: 0 }
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
+  const [showDownload, setShowDownload] = useState(false);
   
   // 计算今日任务
   const stats = useMemo(() => {
@@ -42,7 +48,7 @@ export function HomeView({
   const learnedPct = stats.total ? Math.round((learnedCount / stats.total) * 100) : 0;
   const muted = withOpacity(theme.text, 0.55);
   const hour = new Date().getHours();
-  const greeting = hour < 6 ? '夜深了，再背几个？' : hour < 12 ? 'Guten Morgen ☀️' : hour < 18 ? 'Guten Tag 👋' : 'Guten Abend 🌙';
+  const greeting = t(hour < 6 ? 'home.greeting.night' : hour < 12 ? 'home.greeting.morning' : hour < 18 ? 'home.greeting.day' : 'home.greeting.evening');
 
   const StatCard = ({ icon: Icon, value, label, color }) => (
     <div className="glass-panel p-5 rounded-3xl flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-1 group">
@@ -58,7 +64,20 @@ export function HomeView({
   );
 
   return (
-    <div className="h-full flex flex-col items-center justify-center p-6 space-y-10 animate-fade-in">
+    <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-10 animate-fade-in">
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+        {!IS_OFFLINE_BUILD && (
+          <button
+            onClick={() => setShowDownload(true)}
+            className="card-surface inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            style={{ color: theme.text }}
+          >
+            <Download className="w-3.5 h-3.5" style={{ color: theme.primary }} />{t('home.download')}
+          </button>
+        )}
+        <LanguageSwitcher compact />
+      </div>
+      {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} />}
       <div className="flex flex-col items-center space-y-4">
         <div className="relative">
           <div className="absolute -inset-6 rounded-full blur-2xl opacity-40 animate-pulse" style={{ backgroundColor: theme.primary }} />
@@ -66,24 +85,25 @@ export function HomeView({
             <BrandLogo size={72} />
           </div>
         </div>
-        <div className="text-center space-y-1.5">
+        {/* Soft halo in the background colour keeps text legible over busy wallpapers */}
+        <div className="text-center space-y-1.5" style={{ textShadow: `0 0 18px ${theme.background}, 0 0 6px ${theme.background}, 0 0 2px ${theme.background}` }}>
           <p className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: theme.primary }}>{greeting}</p>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: theme.text }}>
-            就爱背单词！
+            {t('home.title')}
           </h1>
-          <p className="text-sm font-medium tracking-wide" style={{ color: muted }}>德语词汇 · 间隔重复 · 配对闯关</p>
+          <p className="text-sm font-semibold tracking-wide" style={{ color: withOpacity(theme.text, 0.72) }}>{t('app.tagline')}</p>
         </div>
       </div>
 
       {!isLibraryEmpty ? (
         <div className="w-full max-w-md space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <StatCard icon={BookOpen} value={stats.reviewCount} label="待复习" color={theme.primary} />
-            <StatCard icon={Sparkles} value={stats.dailyNew} label="今日新词" color={theme.accent} />
+            <StatCard icon={BookOpen} value={stats.reviewCount} label={t('home.dueReview')} color={theme.primary} />
+            <StatCard icon={Sparkles} value={stats.dailyNew} label={t('home.newToday')} color={theme.accent} />
           </div>
           <div className="glass-panel rounded-2xl px-5 py-3">
             <div className="flex justify-between text-xs font-semibold mb-2" style={{ color: muted }}>
-              <span>已学 {learnedCount} / {stats.total}</span>
+              <span>{t('home.learned', { n: learnedCount, total: stats.total })}</span>
               <span style={{ color: theme.primary }}>{learnedPct}%</span>
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: withOpacity(theme.text, 0.08) }}>
@@ -97,8 +117,8 @@ export function HomeView({
       ) : (
         <div className="glass-panel p-6 rounded-3xl max-w-md text-center">
           <Library className="w-10 h-10 mx-auto mb-3" style={{ color: theme.accent }} />
-          <h3 className="text-lg font-bold mb-2" style={{ color: theme.text }}>词库是空的</h3>
-          <p className="text-sm mb-4" style={{ color: muted }}>导入歌德 A1–B1 预设词库，或粘贴自己的单词表开始学习。</p>
+          <h3 className="text-lg font-bold mb-2" style={{ color: theme.text }}>{t('home.empty.title')}</h3>
+          <p className="text-sm mb-4" style={{ color: muted }}>{t('home.empty.body')}</p>
           <GlassButton
             onClick={onNavigateToLibrary}
             tone="secondary"
@@ -106,7 +126,7 @@ export function HomeView({
             size="md"
             className="rounded-xl px-5 py-2 text-sm font-bold"
           >
-            前往词库
+            {t('home.empty.cta')}
           </GlassButton>
         </div>
       )}
@@ -122,7 +142,7 @@ export function HomeView({
       >
         <span className="relative z-10 flex items-center gap-3">
           <Play className="w-5 h-5 fill-current transition-transform group-hover:scale-125" />
-          START LEARNING
+          {t('home.start')}
         </span>
       </button>
     </div>

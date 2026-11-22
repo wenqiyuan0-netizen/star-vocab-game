@@ -1,0 +1,11 @@
+{
+  "appId": "xyz.mesaculpa.starvocab",
+  "appName": "Star Vocab",
+  "webDir": "build",
+  "android": {
+    "backgroundColor": "#f4f2ec"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

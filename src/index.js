@@ -7,13 +7,16 @@ import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 import { AuthProvider } from './features/auth/contexts/AuthContext';
 import { IS_OFFLINE_BUILD } from './shared/constants/config';
+import { I18nProvider } from './shared/i18n';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </I18nProvider>
   </React.StrictMode>
 );
 

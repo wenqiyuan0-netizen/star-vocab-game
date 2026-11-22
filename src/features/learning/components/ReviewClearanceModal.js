@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, TrendingDown, Calendar, CheckCircle } from 'lucide-react';
+import { useI18n } from '../../../shared/i18n';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { withOpacity } from '../../../utils/colorUtils';
 
@@ -9,6 +10,7 @@ export function ReviewClearanceModal({
     onCancel
 }) {
     const theme = useTheme();
+    const { t } = useI18n();
 
     if (!backlogInfo || !backlogInfo.needsAdjustment) return null;
 
@@ -25,16 +27,14 @@ export function ReviewClearanceModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
-            style={{ backgroundColor: withOpacity(theme.text, 0.5) }}
+            className="layer-modal flex items-center justify-center p-4"
+            style={{ background: 'var(--scrim)', zIndex: 100 }}
             onClick={onCancel}
         >
             <div
-                className="w-full max-w-md rounded-2xl p-6 shadow-2xl backdrop-blur-xl"
-                style={{
-                    backgroundColor: withOpacity(theme.background, 0.95),
-                    border: `1px solid ${withOpacity(theme.primary, 0.3)}`
-                }}
+                role="dialog"
+                aria-modal="true"
+                className="card-elevated animate-card-pop w-full max-w-md rounded-[28px] p-6"
                 onClick={e => e.stopPropagation()}
             >
                 {/* 标题 */}
@@ -50,10 +50,10 @@ export function ReviewClearanceModal({
                     </div>
                     <div>
                         <h2 className="text-xl font-bold" style={{ color: theme.text }}>
-                            检测到Review积压
+                            {t('clear.title')}
                         </h2>
                         <p className="text-sm" style={{ color: withOpacity(theme.text, 0.6) }}>
-                            建议临时调整学习比例
+                            {t('clear.subtitle')}
                         </p>
                     </div>
                 </div>
@@ -69,24 +69,24 @@ export function ReviewClearanceModal({
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="w-4 h-4" style={{ color: theme.accent }} />
                         <span className="text-sm font-semibold" style={{ color: theme.text }}>
-                            当前状况
+                            {t('clear.status')}
                         </span>
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between text-sm">
-                            <span style={{ color: withOpacity(theme.text, 0.7) }}>待复习词数</span>
+                            <span style={{ color: withOpacity(theme.text, 0.7) }}>{t('clear.backlog')}</span>
                             <span className="font-mono font-bold" style={{ color: theme.accent }}>
-                                {backlogCount} 个
+                                {t('clear.count', { n: backlogCount })}
                             </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                            <span style={{ color: withOpacity(theme.text, 0.7) }}>正常上限</span>
+                            <span style={{ color: withOpacity(theme.text, 0.7) }}>{t('clear.normal')}</span>
                             <span className="font-mono" style={{ color: withOpacity(theme.text, 0.8) }}>
-                                {originalReviewLimit} 个/天
+                                {t('clear.perDay', { n: originalReviewLimit })}
                             </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                            <span style={{ color: withOpacity(theme.text, 0.7) }}>积压程度</span>
+                            <span style={{ color: withOpacity(theme.text, 0.7) }}>{t('clear.level')}</span>
                             <span className="font-mono" style={{ color: theme.accent }}>
                                 {Math.round(backlogCount / threshold * 100)}%
                             </span>
@@ -105,14 +105,14 @@ export function ReviewClearanceModal({
                     <div className="flex items-center gap-2 mb-2">
                         <CheckCircle className="w-4 h-4" style={{ color: theme.secondary }} />
                         <span className="text-sm font-semibold" style={{ color: theme.text }}>
-                            建议调整为
+                            {t('clear.suggest')}
                         </span>
                     </div>
 
                     <div className="space-y-3">
                         <div>
                             <div className="flex justify-between text-xs mb-1">
-                                <span style={{ color: withOpacity(theme.text, 0.6) }}>每日复习上限</span>
+                                <span style={{ color: withOpacity(theme.text, 0.6) }}>{t('clear.reviewLimit')}</span>
                                 <span className="font-mono">
                                     <span style={{ color: withOpacity(theme.text, 0.5) }}>{originalReviewLimit}</span>
                                     <span style={{ color: withOpacity(theme.text, 0.5) }} className="mx-1">→</span>
@@ -132,7 +132,7 @@ export function ReviewClearanceModal({
 
                         <div>
                             <div className="flex justify-between text-xs mb-1">
-                                <span style={{ color: withOpacity(theme.text, 0.6) }}>每日新词上限</span>
+                                <span style={{ color: withOpacity(theme.text, 0.6) }}>{t('clear.newLimit')}</span>
                                 <span className="font-mono">
                                     <span style={{ color: withOpacity(theme.text, 0.5) }}>{originalNewLimit}</span>
                                     <span style={{ color: withOpacity(theme.text, 0.5) }} className="mx-1">→</span>
@@ -163,7 +163,7 @@ export function ReviewClearanceModal({
                     <div className="flex items-center gap-2 mb-2">
                         <Calendar className="w-4 h-4" style={{ color: theme.primary }} />
                         <span className="text-sm font-semibold" style={{ color: theme.text }}>
-                            预计清理时间
+                            {t('clear.eta')}
                         </span>
                     </div>
                     <div className="text-center py-2">
@@ -171,11 +171,11 @@ export function ReviewClearanceModal({
                             {estimatedDays}
                         </span>
                         <span className="text-lg ml-2" style={{ color: withOpacity(theme.text, 0.7) }}>
-                            天
+                            {t('clear.days')}
                         </span>
                     </div>
                     <p className="text-xs text-center mt-2" style={{ color: withOpacity(theme.text, 0.5) }}>
-                        清理完成后将自动恢复原设置
+                        {t('clear.restoreNote')}
                     </p>
                 </div>
 
@@ -190,7 +190,7 @@ export function ReviewClearanceModal({
                             border: `1px solid ${withOpacity(theme.text, 0.2)}`
                         }}
                     >
-                        保持当前设置
+                        {t('clear.keep')}
                     </button>
                     <button
                         onClick={onConfirm}
@@ -201,7 +201,7 @@ export function ReviewClearanceModal({
                             border: `1px solid ${withOpacity(theme.primary, 0.5)}`
                         }}
                     >
-                        启用智能清理
+                        {t('clear.enable')}
                     </button>
                 </div>
             </div>

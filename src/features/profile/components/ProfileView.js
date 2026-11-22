@@ -19,6 +19,9 @@ import { getLocalDateString } from '../../../utils/dateUtils';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import { getEffectiveSettings } from '../../learning/services/ClearanceHelper';
 import { AiKeyCard } from './AiKeyCard';
+import { levelProgress as getLevelProgress } from '../../../logic/leveling';
+import { useI18n } from '../../../shared/i18n';
+import { LanguageSwitcher } from '../../../shared/components/ui/LanguageSwitcher';
 import { SoundCard } from './SoundCard';
 
 
@@ -47,6 +50,7 @@ const ExpandableSection = ({ isOpen, children, className = "" }) => (
 
 // Delete Confirmation Modal
 const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
+  const { t } = useI18n();
   if (!isOpen) return null;
 
   return (
@@ -75,10 +79,9 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
           </div>
 
           <div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>退出并清除本机数据？</h3>
+            <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>{t('profile.deleteCloud.title')}</h3>
             <p className="text-sm opacity-70 leading-relaxed" style={{ color: theme.text }}>
-              此操作将<span className="font-bold text-red-500">删除所有本地数据</span>并退出登录。<br />
-              云端已同步的数据会保留，下次登录可恢复。
+              {t('profile.deleteCloud.body')}
             </p>
           </div>
 
@@ -91,7 +94,7 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
                 color: withOpacity(theme.text, 0.8)
               }}
             >
-              取消
+              {t('profile.cancel')}
             </button>
             <button
               onClick={onConfirm}
@@ -101,7 +104,7 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
                 boxShadow: `0 4px 12px ${withOpacity(theme.accent, 0.3)}`
               }}
             >
-              确认
+              {t('profile.confirm')}
             </button>
           </div>
         </div>
@@ -127,6 +130,7 @@ export function ProfileView({
   const [showCalendar, setShowCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const theme = useTheme();
+  const { t } = useI18n();
   const { user, signOut, cloudEnabled } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('space_vocab_avatar'));
 
@@ -147,13 +151,9 @@ export function ProfileView({
   const displayName = userProfile?.name || (user?.email ? user.email.split('@')[0] : 'Star Explorer');
 
   // Calculate Level Progress
-  const level = userProfile?.level || 1;
   const totalXP = userProfile?.totalXP || 0;
-  const currentLevelBaseXP = getXPForLevel ? getXPForLevel(level) : 0;
-  const nextLevelBaseXP = getXPForLevel ? getXPForLevel(level + 1) : 1000;
-  const levelProgress = Math.min(100, Math.max(0,
-    ((totalXP - currentLevelBaseXP) / (nextLevelBaseXP - currentLevelBaseXP)) * 100
-  ));
+  const { level, intoLevel, span } = getLevelProgress(totalXP);
+  const levelProgress = Math.min(100, Math.max(0, (intoLevel / span) * 100));
 
   // Determine if today is completed (Mock logic based on quotas)
   const isMissionComplete =
@@ -211,9 +211,9 @@ export function ProfileView({
   const currentRetentionPercent = Math.round(currentRetentionValue * 100);
 
   const getRetentionText = (val) => {
-    if (val <= 0.85) return "轻松浏览";
-    if (val <= 0.90) return "标准平衡";
-    return "深度记忆";
+    if (val <= 0.85) return t('profile.retention.light');
+    if (val <= 0.90) return t('profile.retention.balanced');
+    return t('profile.retention.deep');
   };
 
 
@@ -232,7 +232,7 @@ export function ProfileView({
       setShowWallpaperSettings(false);
     } catch (e) {
       console.error("Failed to save wallpaper", e);
-      alert("保存壁纸失败，可能是图片过大");
+      alert(t('profile.wallpaper.saveFailed'));
     }
   };
 
@@ -288,13 +288,14 @@ export function ProfileView({
 
   return (
     <div className="h-full overflow-y-auto p-6 pb-24 animate-fade-in custom-scrollbar">
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-end items-center gap-2 mb-2">
+        <LanguageSwitcher compact />
         <AvatarMenu
           avatarUrl={avatarUrl}
           displayName={displayName}
           onChangeAvatar={handleChangeAvatar}
           onLogout={cloudEnabled ? handleLogout : null}
-          logoutLabel={user ? '退出登录' : '登录 / 注册（云同步）'}
+          logoutLabel={user ? t('profile.logout') : t('profile.loginToSync')}
         />
       </div>
 
@@ -314,16 +315,16 @@ export function ProfileView({
             displayName.charAt(0).toUpperCase()
           )}
           {isOnline && (
-            <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full border-2" title="已连接 Supabase"
+            <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full border-2" title={t('profile.connected')}
               style={{ backgroundColor: (Array.isArray(theme.complementary) && theme.complementary[0] ? theme.complementary[0] : theme.accent), borderColor: (theme.roles ? theme.roles.buttonPrimaryText : theme.text) }} />
           )}
         </div>
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2" style={{ color: withOpacity(theme.text, 0.6) }}>
             {displayName}
-            {isOnline && <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ backgroundColor: (Array.isArray(theme.complementary) && theme.complementary[0] ? withOpacity(theme.complementary[0], 0.2) : withOpacity(theme.accent, 0.2)), color: (Array.isArray(theme.complementary) && theme.complementary[0] ? theme.complementary[0] : theme.accent) }}>云端已连接</span>}
+            {isOnline && <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ backgroundColor: (Array.isArray(theme.complementary) && theme.complementary[0] ? withOpacity(theme.complementary[0], 0.2) : withOpacity(theme.accent, 0.2)), color: (Array.isArray(theme.complementary) && theme.complementary[0] ? theme.complementary[0] : theme.accent) }}>{t('profile.connected')}</span>}
           </h2>
-          <p className="opacity-60" style={{ color: withOpacity(theme.text, 0.6) }}>Level {level} Explorer</p>
+          <p className="opacity-60" style={{ color: withOpacity(theme.text, 0.6) }}>{t('profile.explorer', { level })}</p>
         </div>
       </div>
 
@@ -337,7 +338,7 @@ export function ProfileView({
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-1">
               <Award className="w-5 h-5" style={{ color: highlightColor }} />
-              <span className="text-xs font-bold uppercase tracking-wider opacity-70" style={{ color: highlightColor }}>Level Status</span>
+              <span className="text-xs font-bold uppercase tracking-wider opacity-70" style={{ color: highlightColor }}>{t('profile.levelStatus')}</span>
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-5xl font-black" style={{ color: highlightColor }}>{level}</span>
@@ -345,8 +346,8 @@ export function ProfileView({
             </div>
             <div className="mt-4">
               <div className="flex justify-between text-xs font-bold mb-1 opacity-70" style={{ color: highlightColor }}>
-                <span>{Math.floor(totalXP - currentLevelBaseXP)} XP</span>
-                <span>{Math.floor(nextLevelBaseXP - currentLevelBaseXP)} XP</span>
+                <span>{Math.floor(intoLevel)} XP</span>
+                <span>{Math.floor(span)} XP</span>
               </div>
               <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: withOpacity(highlightColor, 0.2) }}>
                 <div
@@ -365,13 +366,13 @@ export function ProfileView({
                 }}
               >
                 <div className="text-[10px] font-bold mb-1" style={{ color: theme.accent }}>
-                  🔧 智能清理模式已启用
+                  🔧 {t('profile.clearance.on')}
                 </div>
                 <div className="text-[9px] opacity-70" style={{ color: withOpacity(theme.text, 0.7) }}>
-                  原设置: New {effectiveSettings.originalNewLimit} / Review {effectiveSettings.originalReviewLimit}
+                  {t('profile.clearance.orig', { n: effectiveSettings.originalNewLimit, r: effectiveSettings.originalReviewLimit })}
                 </div>
                 <div className="text-[9px] opacity-70" style={{ color: withOpacity(theme.text, 0.7) }}>
-                  清理完成后将自动恢复
+                  {t('profile.clearance.restore')}
                 </div>
               </div>
             )}
@@ -390,11 +391,11 @@ export function ProfileView({
         >
           <div className="flex items-center justify-between z-10">
             <Calendar className="w-5 h-5" style={{ color: highlightColor }} />
-            <span className="text-xs font-bold opacity-60" style={{ color: highlightColor }}>Streak</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: highlightColor }}>{t('profile.streak')}</span>
           </div>
           <div className="z-10 mt-2 text-center">
             <span className="text-4xl font-black" style={{ color: highlightColor }}>{userProfile?.streak || 1}</span>
-            <span className="text-xs font-bold ml-1 opacity-60" style={{ color: highlightColor }}>Days</span>
+            <span className="text-xs font-bold ml-1 opacity-60" style={{ color: highlightColor }}>{t('profile.days')}</span>
           </div>
           {/* Mini Calendar Visual */}
           <div className="grid grid-cols-7 gap-1 mt-3 opacity-40 group-hover:opacity-60 transition-opacity">
@@ -434,8 +435,8 @@ export function ProfileView({
                 <Volume2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-lg leading-tight" style={{ color: safeSettings.ttsMode !== 'none' ? highlightColor : withOpacity(theme.text, 0.6) }}>语音朗读</h3>
-                <p className="text-xs opacity-60" style={{ color: withOpacity(theme.text, 0.6) }}>Text-to-Speech</p>
+                <h3 className="font-bold text-lg leading-tight" style={{ color: safeSettings.ttsMode !== 'none' ? highlightColor : withOpacity(theme.text, 0.6) }}>{t('profile.tts')}</h3>
+                <p className="text-xs opacity-60" style={{ color: withOpacity(theme.text, 0.6) }}>{t('profile.tts.sub')}</p>
               </div>
             </div>
             <button
@@ -460,7 +461,7 @@ export function ProfileView({
                       }`}
                     style={safeSettings.ttsMode === mode ? { backgroundColor: withOpacity(highlightColor, 0.12), color: highlightColor } : { color: textColor, opacity: 0.6 }}
                   >
-                    {mode === 'word' ? '单词模式' : '例句模式'}
+                    {mode === 'word' ? t('profile.tts.word') : t('profile.tts.sentence')}
                   </button>
                 ))}
               </div>
@@ -475,7 +476,7 @@ export function ProfileView({
                     style={safeSettings.speakDe ? { backgroundColor: withOpacity(highlightColor, 0.12), borderColor: withOpacity(highlightColor, 0.3), color: highlightColor } : { borderColor: withOpacity(theme.text, 0.1), color: theme.text }}
                   >
                     <div className={`w-2 h-2 rounded-full ${safeSettings.speakDe ? 'animate-pulse' : ''}`} style={{ backgroundColor: safeSettings.speakDe ? highlightColor : getOffToggleColor(theme) }} />
-                    德语发音
+                    {t('profile.tts.de')}
                   </button>
                   <button
                     onClick={() => updateSettings({ speakCn: !safeSettings.speakCn })}
@@ -484,7 +485,7 @@ export function ProfileView({
                     style={safeSettings.speakCn ? { backgroundColor: withOpacity(highlightColor, 0.12), borderColor: withOpacity(highlightColor, 0.3), color: highlightColor } : { borderColor: withOpacity(theme.text, 0.1), color: theme.text }}
                   >
                     <div className={`w-2 h-2 rounded-full ${safeSettings.speakCn ? 'animate-pulse' : ''}`} style={{ backgroundColor: safeSettings.speakCn ? highlightColor : getOffToggleColor(theme) }} />
-                    中文发音
+                    {t('profile.tts.cn')}
                   </button>
                 </div>
               )}
@@ -499,7 +500,7 @@ export function ProfileView({
           <div className="flex items-center justify-between mb-1 opacity-90" style={{ color: highlightColor }}>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              <span className="text-xs font-bold">Daily Goals</span>
+              <span className="text-xs font-bold">{t('profile.goals')}</span>
             </div>
             {/* Save Button for Daily Goals */}
             <button
@@ -512,14 +513,14 @@ export function ProfileView({
                 // Optional: Show a visual feedback or toast could go here
               }}
               className="text-[10px] px-2 py-1 rounded-lg font-bold bg-white/20 hover:bg-white/30 transition-colors"
-              title="保存并立即生效"
+              title={t('profile.save.title')}
             >
-              保存
+              {t('profile.save')}
             </button>
           </div>
           <div className="space-y-3">
             <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.25) }}>
-              <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>New</span>
+              <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>{t('profile.goals.new')}</span>
               <input
                 type="number"
                 value={safeSettings.dailyNewLimit}
@@ -529,7 +530,7 @@ export function ProfileView({
               />
             </div>
             <div className="rounded-xl p-2 px-3 flex items-center justify-between" style={{ backgroundColor: withOpacity(highlightColor, 0.25) }}>
-              <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>Review</span>
+              <span className="text-xs font-bold opacity-90" style={{ color: highlightColor }}>{t('profile.goals.review')}</span>
               <input
                 type="number"
                 value={safeSettings.dailyReviewLimit}
@@ -548,7 +549,7 @@ export function ProfileView({
           <div className="flex items-center justify-between mb-0 opacity-90" style={{ color: highlightColor }}>
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
-              <span className="text-xs font-bold">个性化</span>
+              <span className="text-xs font-bold">{t('profile.retention')}</span>
             </div>
             <span className="text-[10px] font-bold opacity-80">{Math.round((safeSettings.reviewRetention || 0.9) * 100)}%</span>
           </div>
@@ -610,8 +611,8 @@ export function ProfileView({
                   style={{ opacity: currentRetentionPercent <= 85 ? (isDragging ? 1 : 0.8) : 0.3 }}
                 >
                   <div className="flex flex-col">
-                    <span>混个脸熟</span>
-                    <span className="font-normal opacity-70 scale-90 origin-left">低负担</span>
+                    <span>{t('profile.retention.low')}</span>
+                    <span className="font-normal opacity-70 scale-90 origin-left">{t('profile.retention.lowSub')}</span>
                   </div>
                 </div>
 
@@ -620,8 +621,8 @@ export function ProfileView({
                   style={{ opacity: currentRetentionPercent >= 90 ? (isDragging ? 1 : 0.8) : 0.3 }}
                 >
                   <div className="flex flex-col">
-                    <span>刻入灵魂</span>
-                    <span className="font-normal opacity-70 scale-90 origin-right">抗遗忘</span>
+                    <span>{t('profile.retention.high')}</span>
+                    <span className="font-normal opacity-70 scale-90 origin-right">{t('profile.retention.highSub')}</span>
                   </div>
                 </div>
               </div>
@@ -649,8 +650,8 @@ export function ProfileView({
             <Image className="w-6 h-6" />
           </div>
           <div>
-            <span className="block text-sm font-black" style={{ color: highlightColor }}>壁纸设置</span>
-            <span className="text-[10px] opacity-80" style={{ color: highlightColor }}>自定义主题</span>
+            <span className="block text-sm font-black" style={{ color: highlightColor }}>{t('profile.wallpaper')}</span>
+            <span className="text-[10px] opacity-80" style={{ color: highlightColor }}>{t('profile.wallpaper.sub')}</span>
           </div>
         </button>
 
@@ -670,7 +671,7 @@ export function ProfileView({
             className="rounded-2xl opacity-80"
             leadingIcon={Download}
           >
-            导出本地存档 (Backup)
+            {t('profile.export')}
           </GlassButton>
 
           <GlassButton
@@ -681,7 +682,7 @@ export function ProfileView({
             fullWidth
             className="rounded-2xl opacity-60"
           >
-            重置所有游戏数据
+            {t('profile.reset')}
           </GlassButton>
 
           {user && <GlassButton
@@ -693,7 +694,7 @@ export function ProfileView({
             className="rounded-2xl opacity-80 text-red-400 hover:text-red-300 hover:bg-red-900/20 border-red-900/30"
             leadingIcon={AlertTriangle}
           >
-            退出并清除本机数据
+            {t('profile.deleteCloud')}
           </GlassButton>}
         </div>
 

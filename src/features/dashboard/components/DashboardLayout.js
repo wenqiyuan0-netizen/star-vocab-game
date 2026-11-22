@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useI18n } from '../../../shared/i18n';
+import { TabActiveContext } from '../../../shared/contexts/TabActiveContext';
 import { Home, Book, User, Calendar } from 'lucide-react';
 import { HomeView } from '../views/HomeView';
 import { LibraryView } from '../../vocabulary/components/LibraryView';
@@ -27,11 +29,14 @@ const preloadImage = (url) => {
 };
 
 export function DashboardLayout(props) {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('home');
   const [previousTab, setPreviousTab] = useState('home');
   const [slideDirection, setSlideDirection] = useState('none');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [wallpaper, setWallpaper] = useState(null);
+  const [wallpapers, setWallpapers] = useState({ home: null, sys: null });
+  // Tabs stay mounted after their first visit so switching back is instant.
+  const [visited, setVisited] = useState(() => new Set(['home']));
   const [cachedWallpapers, setCachedWallpapers] = useState({});
   const theme = useTheme();
 
@@ -110,9 +115,7 @@ export function DashboardLayout(props) {
         window.dispatchEvent(new Event('wallpaper-changed'));
       }
 
-      // 设置当前壁纸 - 立即设置，避免加载延迟
-      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
-      setWallpaper(currentWallpaper);
+      setWallpapers({ home: homeWall, sys: sysWall });
 
       const wallpapersToPreload = [homeWall, sysWall].filter(Boolean);
 
@@ -132,20 +135,26 @@ export function DashboardLayout(props) {
     };
 
     loadAllWallpapers();
-  }, [activeTab]);
+    // Runs once: wallpaper choice per tab is derived below, so tab switches do no I/O.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const onWallChange = () => {
-      const homeWall = localStorage.getItem('star-vocab-wallpaper-home');
-      const sysWall = localStorage.getItem('star-vocab-wallpaper-system');
-      const currentWallpaper = activeTab === 'home' ? (homeWall || sysWall) : (sysWall || homeWall);
-      setWallpaper(currentWallpaper);
+      setWallpapers({
+        home: localStorage.getItem('star-vocab-wallpaper-home'),
+        sys: localStorage.getItem('star-vocab-wallpaper-system'),
+      });
     };
     window.addEventListener('wallpaper-changed', onWallChange);
     return () => {
       window.removeEventListener('wallpaper-changed', onWallChange);
     };
-  }, [activeTab]);
+  }, []);
+
+  const wallpaper = activeTab === 'home'
+    ? (wallpapers.home || wallpapers.sys)
+    : (wallpapers.sys || wallpapers.home);
 
   const handleTabChange = (newTab) => {
     if (newTab === activeTab || isAnimating) return;
@@ -154,6 +163,7 @@ export function DashboardLayout(props) {
     const newIndex = TABS.indexOf(newTab);
 
     setPreviousTab(activeTab);
+    setVisited(prev => (prev.has(newTab) ? prev : new Set(prev).add(newTab)));
   
     setSlideDirection(newIndex > oldIndex ? 'right' : 'left');
     setIsAnimating(true);
@@ -205,55 +215,28 @@ export function DashboardLayout(props) {
       }
     };
 
+    const views = {
+      home: <HomeView {...props} onStartGame={props.onStartGame} onNavigateToLibrary={() => handleTabChange('library')} />,
+      today: <TodayView {...props} />,
+      library: <LibraryView {...props} />,
+      profile: <ProfileView {...props} />,
+    };
+
     return (
       <>
-        {/* Home View - 只在激活或动画中渲染 */}
-        {(activeTab === 'home' || (isAnimating && previousTab === 'home')) && (
+        {TABS.filter(tab => visited.has(tab) || tab === activeTab).map(tab => (
           <div
-            ref={contentRefs.current.home}
-            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('home')}`}
-            style={getViewStyle('home')}
+            key={tab}
+            ref={contentRefs.current[tab]}
+            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass(tab)}`}
+            style={getViewStyle(tab)}
+            aria-hidden={tab !== activeTab}
           >
-            <HomeView
-              {...props}
-              onStartGame={props.onStartGame}
-              onNavigateToLibrary={() => handleTabChange('library')}
-            />
+            <TabActiveContext.Provider value={tab === activeTab}>
+              {views[tab]}
+            </TabActiveContext.Provider>
           </div>
-        )}
-
-        {/* Today View - 只在激活或动画中渲染 */}
-        {(activeTab === 'today' || (isAnimating && previousTab === 'today')) && (
-          <div
-            ref={contentRefs.current.today}
-            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('today')}`}
-            style={getViewStyle('today')}
-          >
-            <TodayView {...props} />
-          </div>
-        )}
-
-        {/* Library View - 只在激活或动画中渲染 */}
-        {(activeTab === 'library' || (isAnimating && previousTab === 'library')) && (
-          <div
-            ref={contentRefs.current.library}
-            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('library')}`}
-            style={getViewStyle('library')}
-          >
-            <LibraryView {...props} />
-          </div>
-        )}
-
-        {/* Profile View - 只在激活或动画中渲染 */}
-        {(activeTab === 'profile' || (isAnimating && previousTab === 'profile')) && (
-          <div
-            ref={contentRefs.current.profile}
-            className={`absolute inset-0 pt-safe-top ${getViewAnimationClass('profile')}`}
-            style={getViewStyle('profile')}
-          >
-            <ProfileView {...props} />
-          </div>
-        )}
+        ))}
       </>
     );
   };
@@ -289,28 +272,28 @@ export function DashboardLayout(props) {
         <div className="flex justify-around items-center h-16 pt-2">
           <NavButton
             icon={Home}
-            label="主页"
+            label={t('nav.home')}
             isActive={activeTab === 'home'}
             onClick={() => handleTabChange('home')}
             activeColor={theme.primary}
           />
           <NavButton
             icon={Calendar}
-            label="今日"
+            label={t('nav.today')}
             isActive={activeTab === 'today'}
             onClick={() => handleTabChange('today')}
             activeColor={theme.primary}
           />
           <NavButton
             icon={Book}
-            label="词库"
+            label={t('nav.library')}
             isActive={activeTab === 'library'}
             onClick={() => handleTabChange('library')}
             activeColor={theme.primary}
           />
           <NavButton
             icon={User}
-            label="我的"
+            label={t('nav.profile')}
             isActive={activeTab === 'profile'}
             onClick={() => handleTabChange('profile')}
             activeColor={theme.primary}
@@ -325,6 +308,8 @@ function NavButton({ icon: Icon, label, isActive, onClick, activeColor }) {
   return (
     <button
       onClick={onClick}
+      aria-label={label}
+      aria-current={isActive ? 'page' : undefined}
       className={`flex flex-col items-center justify-center w-16 space-y-1 transition-colors duration-200 ${isActive ? '' : 'text-gray-400 hover:text-gray-200'
         }`}
       style={{ color: isActive ? activeColor : undefined }}

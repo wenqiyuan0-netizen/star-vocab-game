@@ -32,12 +32,21 @@ class LocalDictionary {
             const startTime = Date.now();
 
             try {
-                // 加载 common_2500.json
-                const response = await fetch('/dict/common_2500.json');
+                // 加载 common_2500.json + goethe_core.json (Goethe A1–B1, bilingual examples)
+                const [response, goetheRes] = await Promise.all([
+                    fetch('/dict/common_2500.json'),
+                    fetch('/dict/goethe_core.json').catch(() => null),
+                ]);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const rawData = await response.json();
+                let goethe = [];
+                try {
+                    if (goetheRes && goetheRes.ok) goethe = await goetheRes.json();
+                } catch (e) {
+                    console.warn('[LocalDict] goethe_core.json unavailable:', e);
+                }
 
                 // 转换格式以匹配内部结构
                 const entries = Array.isArray(rawData) ? rawData.map((item, index) => ({
@@ -62,6 +71,10 @@ class LocalDictionary {
                 // 构建索引（单词 -> 词条位置）
                 this.buildIndex();
 
+                // Merge the Goethe list: it covers core words missing from common_2500
+                // and brings level-appropriate examples with Chinese translations.
+                this.mergeGoethe(goethe);
+
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
                 console.log(`✅ 词典加载完成！`);
                 console.log(`   词条数: ${this.dict.totalEntries.toLocaleString()}`);
@@ -78,6 +91,52 @@ class LocalDictionary {
         })();
 
         return this.loading;
+    }
+
+    /**
+     * Merge Goethe entries: prepend their examples to matching words, fill missing
+     * Chinese meanings / IPA / audio, and add words the main dictionary lacks.
+     */
+    mergeGoethe(goethe) {
+        if (!Array.isArray(goethe) || goethe.length === 0) return;
+        let enriched = 0, added = 0;
+        for (const g of goethe) {
+            const keys = [g.w, ...(g.alt || [])].map(k => k.toLowerCase());
+            const gx = (g.x || []).map(([de]) => de);
+            const gxc = (g.x || []).map(([, cn]) => cn || '');
+            const existing = keys.map(k => this.index.get(k)).find(Boolean);
+            if (existing) {
+                for (const idx of existing) {
+                    const e = this.dict.entries[idx];
+                    const seen = new Set(e.x || []);
+                    const newDe = gx.filter(de => !seen.has(de));
+                    const newCn = gxc.filter((_, i) => !seen.has(gx[i]));
+                    e.x = [...newDe, ...(e.x || [])];
+                    e.xc = [...newCn, ...(e.xc || [])];
+                    if ((!e.c || e.c.length === 0) && g.c) e.c = [g.c];
+                    if (!e.i && g.i) e.i = g.i;
+                    if (!e.audio && g.au) e.audio = g.au;
+                    if (!e.a && g.a) e.a = g.a;
+                    if (!e.pl && g.pl) e.pl = g.pl;
+                    e.level = e.level || g.l;
+                }
+                enriched++;
+            } else {
+                const idx = this.dict.entries.length;
+                this.dict.entries.push({
+                    w: g.w.replace(/\(([^)]*)\)/g, '$1'), p: g.p, a: g.a, pl: g.pl,
+                    e: [], c: g.c ? [g.c] : [], i: g.i, audio: g.au,
+                    x: gx, xc: gxc, level: g.l, rank: 999999,
+                });
+                for (const k of keys) {
+                    if (!this.index.has(k)) this.index.set(k, []);
+                    this.index.get(k).push(idx);
+                }
+                added++;
+            }
+        }
+        this.dict.totalEntries = this.dict.entries.length;
+        console.log(`✅ Goethe merge: ${enriched} enriched, ${added} added`);
     }
 
     /**

@@ -2,6 +2,7 @@
 import { sortWords } from '../../../logic/utils';
 import { extractArticleFromWord } from '../../../utils/genderUtils';
 import { generateStableId } from '../../../utils/idUtils';
+import { translate } from '../../../shared/i18n';
 
 export const processImportInput = (inputText, currentDb) => {
   if (!inputText || !inputText.trim()) {
@@ -87,9 +88,9 @@ export const processImportInput = (inputText, currentDb) => {
   // 返回处理结果，不直接操作 State
   if (newWords.length > 0) {
     const updatedDb = sortWords([...currentDb, ...newWords]);
-    let msg = `成功导入 ${newWords.length} 个新词`;
+    let msg = translate('import.ok', { n: newWords.length });
     if (duplicateCount > 0) {
-      msg += ` (自动过滤了 ${duplicateCount} 个重复词)`;
+      msg += translate('import.dupes', { n: duplicateCount });
     }
     return {
       success: true,
@@ -100,7 +101,7 @@ export const processImportInput = (inputText, currentDb) => {
   } else if (duplicateCount > 0) {
     return {
       success: false,
-      message: `未导入，所有 ${duplicateCount} 个词均已存在`
+      message: translate('import.allDupes', { n: duplicateCount })
     };
   }
 

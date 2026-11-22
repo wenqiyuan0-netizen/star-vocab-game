@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image, Upload, Move, ZoomIn, Sun, Moon, Droplet, Layers, X, Monitor, CheckCircle, Home, Zap } from 'lucide-react';
 import { extractPaletteFromImage } from '../../../utils/colorUtils';
+import { useI18n } from '../../../shared/i18n';
 import { useTheme } from '../../../shared/hooks/useTheme';
 
 export function WallpaperSettings({ type, onSave, onClose }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [selectedImage, setSelectedImage] = useState(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -34,10 +36,10 @@ export function WallpaperSettings({ type, onSave, onClose }) {
   };
 
   const filters = [
-    { name: '原图', value: 'none', icon: Layers },
-    { name: '黑白', value: 'grayscale(100%)', icon: Moon },
-    { name: '复古', value: 'sepia(60%) contrast(110%) brightness(90%)', icon: Sun },
-    { name: '冷调', value: 'hue-rotate(180deg) saturate(80%)', icon: Layers },
+    { name: t('wall.filter.none'), value: 'none', icon: Layers },
+    { name: t('wall.filter.gray'), value: 'grayscale(100%)', icon: Moon },
+    { name: t('wall.filter.retro'), value: 'sepia(60%) contrast(110%) brightness(90%)', icon: Sun },
+    { name: t('wall.filter.cool'), value: 'hue-rotate(180deg) saturate(80%)', icon: Layers },
   ];
 
   const handleFileChange = (e) => {
@@ -170,14 +172,14 @@ export function WallpaperSettings({ type, onSave, onClose }) {
         <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white">
           <X className="w-6 h-6" />
         </button>
-        <h3 className="text-white font-bold text-lg">壁纸编辑器</h3>
+        <h3 className="text-white font-bold text-lg">{t('wall.title')}</h3>
         <div className="w-10"></div> {/* Spacer */}
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto">
       {!selectedImage ? (
         <div className="w-full max-w-md space-y-6">
-           <div className="grid grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 gap-4 max-w-xs mx-auto w-full">
              <button 
                 onClick={() => fileInputRef.current.click()}
                 onMouseEnter={() => setHoverTarget('upload')}
@@ -191,14 +193,9 @@ export function WallpaperSettings({ type, onSave, onClose }) {
                 >
                     <Upload className="w-8 h-8 text-gray-400 group-hover:text-white" />
                 </div>
-                <span className="text-sm font-bold text-gray-400 group-hover:text-white">上传图片</span>
+                <span className="text-sm font-bold text-gray-400 group-hover:text-white">{t('wall.upload')}</span>
              </button>
              
-             <div className="aspect-[3/4] rounded-2xl glass-panel border border-white/10 flex flex-col items-center justify-center gap-2 opacity-50 cursor-not-allowed">
-                <Image className="w-8 h-8 text-gray-600" />
-                <span className="text-sm font-bold text-gray-500">系统壁纸库</span>
-                <span className="text-[10px] text-gray-600">(敬请期待)</span>
-             </div>
            </div>
            <input 
             ref={fileInputRef}
@@ -231,7 +228,7 @@ export function WallpaperSettings({ type, onSave, onClose }) {
             onTouchEnd={handleMouseUp}
           >
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-               <span className="text-white text-xs font-bold drop-shadow-md flex items-center gap-1"><Move className="w-3 h-3"/> 拖拽移动</span>
+               <span className="text-white text-xs font-bold drop-shadow-md flex items-center gap-1"><Move className="w-3 h-3"/> {t('wall.drag')}</span>
             </div>
             <img 
               ref={imgRef}
@@ -255,10 +252,10 @@ export function WallpaperSettings({ type, onSave, onClose }) {
           {/* 色卡预览 */}
           {extractedPalette && (
              <div className="flex items-center justify-center gap-2">
-                <span className="text-[10px] text-gray-500 mr-2">提取色卡</span>
-                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.primary }} title="主色" />
-                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.secondary }} title="辅色" />
-                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.accent }} title="强调色" />
+                <span className="text-[10px] text-gray-500 mr-2">{t('wall.palette')}</span>
+                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.primary }} title={t('wall.primary')} />
+                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.secondary }} title={t('wall.secondary')} />
+                <div className="w-6 h-6 rounded-full shadow-md" style={{ backgroundColor: extractedPalette.accent }} title={t('wall.accent')} />
              </div>
           )}
 
@@ -346,7 +343,7 @@ export function WallpaperSettings({ type, onSave, onClose }) {
                    ) : (
                       <CheckCircle className="w-5 h-5" />
                    )}
-                   <span className="font-bold">应用壁纸</span>
+                   <span className="font-bold">{t('wall.apply')}</span>
                 </button>
             ) : (
                 <div className="flex gap-4 animate-fade-in w-full justify-center">
@@ -367,7 +364,7 @@ export function WallpaperSettings({ type, onSave, onClose }) {
                        >
                            <Home className="w-5 h-5" />
                        </div>
-                       <span className="text-xs font-bold">设为主页</span>
+                       <span className="text-xs font-bold">{t('wall.setHome')}</span>
                     </button>
                     <button 
                        disabled={isProcessing}
@@ -386,7 +383,7 @@ export function WallpaperSettings({ type, onSave, onClose }) {
                        >
                            <Monitor className="w-5 h-5" />
                        </div>
-                       <span className="text-xs font-bold">设为系统</span>
+                       <span className="text-xs font-bold">{t('wall.setSystem')}</span>
                     </button>
                 </div>
             )}
@@ -394,7 +391,7 @@ export function WallpaperSettings({ type, onSave, onClose }) {
           
           <div className="flex justify-center">
              <button onClick={() => setSelectedImage(null)} className="text-xs text-gray-500 hover:text-gray-300 underline">
-                重新上传
+                {t('wall.reupload')}
              </button>
           </div>
 

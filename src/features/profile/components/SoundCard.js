@@ -3,9 +3,11 @@ import { Music2, VolumeX } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { withOpacity, getOffToggleColor } from '../../../utils/colorUtils';
 import { soundManager } from '../../../shared/services/audio/SoundManager';
+import { useI18n } from '../../../shared/i18n';
 
 export function SoundCard({ accentColor }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const color = accentColor || theme.primary;
   const [muted, setMuted] = useState(soundManager.muted);
   const [volume, setVolume] = useState(soundManager.volume);
@@ -23,7 +25,7 @@ export function SoundCard({ accentColor }) {
         {muted ? <VolumeX className="w-5 h-5" /> : <Music2 className="w-5 h-5" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold" style={{ color: theme.text }}>音效与触感</div>
+        <div className="text-sm font-bold" style={{ color: theme.text }}>{t('sound.title')}</div>
         <input
           type="range"
           min="0"
@@ -35,7 +37,7 @@ export function SoundCard({ accentColor }) {
           onPointerUp={() => soundManager.playMatch()}
           className="w-full mt-1 disabled:opacity-40"
           style={{ accentColor: color }}
-          aria-label="音效音量"
+          aria-label={t('sound.volume')}
         />
       </div>
       <button
@@ -45,7 +47,7 @@ export function SoundCard({ accentColor }) {
         data-silent
         className="relative inline-flex h-6 w-11 items-center rounded-full shadow-inner"
         style={{ backgroundColor: !muted ? color : getOffToggleColor(theme) }}
-        aria-label="音效开关"
+        aria-label={t('sound.toggle')}
       >
         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${!muted ? 'translate-x-6' : 'translate-x-1'}`} />
       </button>

@@ -2,14 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import BrandLogo from '../../../shared/components/ui/BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../../../infrastructure/supabaseClient';
+import { useI18n } from '../../../shared/i18n';
+import { LanguageSwitcher } from '../../../shared/components/ui/LanguageSwitcher';
 
 export default function LoginForm() {
   const { signIn, signUp, enterGuest } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Anti-bot & Validation State
@@ -23,6 +27,7 @@ export default function LoginForm() {
 
   useEffect(() => {
     setError('');
+    setOk(false);
     setNicknameError('');
     setIsNicknameAvailable(null);
   }, [mode]);
@@ -37,12 +42,12 @@ export default function LoginForm() {
 
     const checkAvailability = async () => {
       if (nickname.length < 2) {
-        setNicknameError('昵称至少需要2个字符');
+        setNicknameError(t('login.err.nickShort'));
         setIsNicknameAvailable(false);
         return;
       }
       if (nickname.length > 20) {
-        setNicknameError('昵称不能超过20个字符');
+        setNicknameError(t('login.err.nickLong'));
         setIsNicknameAvailable(false);
         return;
       }
@@ -61,7 +66,7 @@ export default function LoginForm() {
           setIsNicknameAvailable(true);
         } else {
           if (data) {
-            setNicknameError('该昵称已被使用');
+            setNicknameError(t('login.err.nickTaken'));
             setIsNicknameAvailable(false);
           } else {
             setIsNicknameAvailable(true);
@@ -168,6 +173,7 @@ export default function LoginForm() {
   }, []);
 
   const handleLogin = async () => {
+    setOk(false);
     setLoading(true);
     const cleanEmail = email.trim();
     const cleanPassword = password.trim();
@@ -175,7 +181,7 @@ export default function LoginForm() {
     const { error } = await signIn(cleanEmail, cleanPassword);
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        setError('邮箱或密码错误');
+        setError(t('login.err.credentials'));
       } else {
         setError(error.message);
       }
@@ -185,6 +191,7 @@ export default function LoginForm() {
 
   const handleRegister = async () => {
     setError('');
+    setOk(false);
 
     // Anti-Bot Checks
     if (honeyPot) {
@@ -194,17 +201,17 @@ export default function LoginForm() {
 
     const timeElapsed = Date.now() - mountTimeRef.current;
     if (timeElapsed < 2000) {
-      setError('操作太快了，请稍后再试');
+      setError(t('login.err.rate'));
       return;
     }
 
     if (!email || !password || !nickname) {
-      setError('请填写完整信息');
+      setError(t('login.err.incomplete'));
       return;
     }
 
     if (nicknameError || isNicknameAvailable === false) {
-      setError('昵称不可用，请修改');
+      setError(t('login.err.nickInvalid'));
       return;
     }
 
@@ -217,12 +224,12 @@ export default function LoginForm() {
 
     if (error) {
       if (error.message.includes('profiles_username_key')) {
-        setError('该昵称已被使用');
+        setError(t('login.err.nickTaken'));
       } else {
         setError(error.message);
       }
     } else {
-      setError('注册成功！请检查邮箱或直接登录');
+      setOk(true); setError(t('login.ok.registered'));
       setMode('login');
     }
     setLoading(false);
@@ -239,6 +246,7 @@ export default function LoginForm() {
       <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-orange-100/40 rounded-full blur-[120px] pointer-events-none mix-blend-multiply"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-green-100/40 rounded-full blur-[150px] pointer-events-none mix-blend-multiply"></div>
 
+      <div className="absolute top-4 right-4 z-20"><LanguageSwitcher compact /></div>
       <div className="relative z-10 w-full max-w-md px-6 animate-fade-in-up">
         {/* Glass Card - Light Theme */}
         <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white/50 overflow-hidden relative group">
@@ -255,7 +263,7 @@ export default function LoginForm() {
                 </div>
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-                不想背单词可恶！
+                {t('login.title')}
               </h1>
             </div>
 
@@ -268,20 +276,20 @@ export default function LoginForm() {
                 className={`flex-1 py-2.5 text-sm font-bold rounded-lg relative z-10 transition-colors duration-300 ${mode === 'login' ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
                 onClick={() => setMode('login')}
               >
-                登录
+                {t('login.tab.login')}
               </button>
               <button
                 className={`flex-1 py-2.5 text-sm font-bold rounded-lg relative z-10 transition-colors duration-300 ${mode === 'register' ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
                 onClick={() => setMode('register')}
               >
-                注册
+                {t('login.tab.register')}
               </button>
             </div>
 
             <div className="space-y-4">
               {/* Nickname Field (Register Only) */}
               <div className={`space-y-1.5 overflow-hidden transition-all duration-300 ease-in-out ${mode === 'register' ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <label className="text-xs font-bold text-slate-400 ml-1">昵称</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">{t('login.nickname')}</label>
                 <div className="relative">
                   <input
                     value={nickname}
@@ -290,10 +298,10 @@ export default function LoginForm() {
                         isNicknameAvailable ? 'border-green-200 focus:border-green-400 focus:ring-green-100' :
                           'border-slate-200 focus:border-orange-300 focus:ring-orange-100'
                       }`}
-                    placeholder="请输入昵称"
+                    placeholder={t('login.nickname.placeholder')}
                   />
                   <div className="absolute right-3 top-3.5 text-xs">
-                    {isNicknameChecking && <span className="text-slate-400 animate-pulse">检查中...</span>}
+                    {isNicknameChecking && <span className="text-slate-400 animate-pulse">{t('login.checking')}</span>}
                   </div>
                 </div>
                 {nicknameError && <p className="text-[10px] text-red-500 ml-1 font-medium">{nicknameError}</p>}
@@ -311,7 +319,7 @@ export default function LoginForm() {
               />
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 ml-1">邮箱</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">{t('login.email')}</label>
                 <input
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -321,7 +329,7 @@ export default function LoginForm() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 ml-1">密码</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">{t('login.password')}</label>
                 <input
                   type="password"
                   value={password}
@@ -337,7 +345,7 @@ export default function LoginForm() {
               </div>
 
               {error && (
-                <div className={`text-xs px-4 py-3 rounded-xl border font-medium ${error.includes('成功')
+                <div className={`text-xs px-4 py-3 rounded-xl border font-medium ${ok
                   ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                   : 'bg-red-50 text-red-600 border-red-100'
                   }`}>
@@ -350,23 +358,23 @@ export default function LoginForm() {
                 disabled={loading || (mode === 'register' && (!!nicknameError || !isNicknameAvailable))}
                 className="w-full py-3.5 mt-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-slate-200 active:scale-[0.98]"
               >
-                {loading ? '处理中...' : (mode === 'login' ? '登 录' : '注 册')}
+                {loading ? t('login.processing') : (mode === 'login' ? t('login.submit.login') : t('login.submit.register'))}
               </button>
             </div>
           </div>
 
           <div className="px-8 pb-6 text-center space-y-3">
             <div className="flex items-center gap-3 text-[10px] text-slate-300 uppercase tracking-widest">
-              <span className="flex-1 h-px bg-slate-200" />或<span className="flex-1 h-px bg-slate-200" />
+              <span className="flex-1 h-px bg-slate-200" />{t('login.or')}<span className="flex-1 h-px bg-slate-200" />
             </div>
             <button
               onClick={enterGuest}
               className="w-full py-3 rounded-xl font-bold text-slate-600 bg-white/60 border border-slate-200 hover:bg-white hover:border-orange-200 transition-all active:scale-[0.98]"
             >
-              游客体验（数据仅保存在本机）
+              {t('login.guest')}
             </button>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">
-              登录后可云端同步 · Cloud sync optional
+              {t('login.cloudNote')}
             </p>
           </div>
         </div>
