@@ -11,6 +11,8 @@
     <meta property="og:description" content="游戏化德语词汇训练，间隔重复 + 配对闯关，可离线使用。" />
     <meta property="og:image" content="%PUBLIC_URL%/logo512.png" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <!-- Static hosts (e.g. GitHub Pages) can't send headers, so the CSP also ships as a meta tag. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://upload.wikimedia.org; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Star Vocab" />

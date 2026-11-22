@@ -39,19 +39,20 @@ export default function App() {
                 const dictModule = await import("../shared/services/dictionary/DictionaryInit");
                 console.log('[App] Starting dictionary initialization...');
 
-                // Start lemmatization index download in background (non-blocking)
-                import("../utils/lemmatizationService").then(({ lemmatizationService }) => {
-                    console.log('[App] Triggering background index download...');
-                    lemmatizationService.ensureIndexLoaded().catch(e => 
-                        console.warn('[App] Background index download warning:', e)
-                    );
-                });
 
                 const result = await dictModule.initializeDictionary((p, m) => {
                     console.log(`[Dict] ${p}%: ${m}`);
                 });
 
                 console.log('[App] Dictionary init complete:', result);
+
+                // Only after init: the upgrade path deletes/recreates the IndexedDB database,
+                // so loading the lemmatization index in parallel would race with it.
+                import("../utils/lemmatizationService").then(({ lemmatizationService }) => {
+                    lemmatizationService.ensureIndexLoaded().catch(e =>
+                        console.warn('[App] Background index download warning:', e)
+                    );
+                });
             } catch (err) {
                 console.error('[App] Dictionary initialization failed:', err);
             }

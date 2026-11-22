@@ -58,6 +58,14 @@ class LocalDictionaryDB {
             request.onsuccess = (event) => {
                 this.db = event.target.result;
 
+                // Another context (e.g. a dictionary upgrade) wants to delete/upgrade the DB:
+                // release our handle so it isn't blocked; the next call reconnects.
+                this.db.onversionchange = () => {
+                    try { this.db && this.db.close(); } catch (e) { }
+                    this.db = null;
+                    this.initPromise = null;
+                };
+
                 // Handle version mismatch error during use
                 this.db.onerror = (e) => {
                     console.error('[DictDB] Database error:', e.target.error);
@@ -156,8 +164,8 @@ class LocalDictionaryDB {
             this.db = null;
             console.log('[DictDB] Database connection closed');
         }
-        // 不要设置 initPromise = null，保持原有的 Promise
-        // 如果需要重新连接，调用 ensureConnection()
+        // Force the next call to reopen instead of reusing a closed connection.
+        this.initPromise = null;
     }
 
     /**
@@ -309,7 +317,7 @@ class LocalDictionaryDB {
     // --- 队列管理 (旧版兼容) ---
 
     async addToTranslationQueue(entry) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_QUEUE], 'readwrite');
             const store = tx.objectStore(STORE_QUEUE);
@@ -320,7 +328,7 @@ class LocalDictionaryDB {
     }
 
     async getTranslationQueue(limit = 20) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_QUEUE], 'readonly');
             const store = tx.objectStore(STORE_QUEUE);
@@ -332,7 +340,7 @@ class LocalDictionaryDB {
     }
 
     async removeFromQueue(ids) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             if (!Array.isArray(ids)) {
                 console.warn('[DictDB] removeFromQueue expects an array of IDs');
@@ -433,7 +441,7 @@ class LocalDictionaryDB {
      * @param {Object} task
      */
     async saveTranslationTask(task) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_TASKS], 'readwrite');
             const store = tx.objectStore(STORE_TASKS);
@@ -448,7 +456,7 @@ class LocalDictionaryDB {
      * @param {string} entryId
      */
     async getTranslationTask(entryId) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_TASKS], 'readonly');
             const store = tx.objectStore(STORE_TASKS);
@@ -464,7 +472,7 @@ class LocalDictionaryDB {
      * @param {number} limit
      */
     async getIncompleteTasks(limit = 10) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_TASKS], 'readonly');
             const store = tx.objectStore(STORE_TASKS);
@@ -491,7 +499,7 @@ class LocalDictionaryDB {
      * @param {string} status
      */
     async getTasksByStatus(status) {
-        await this.initPromise;
+        await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction([STORE_TASKS], 'readonly');
             const store = tx.objectStore(STORE_TASKS);
@@ -505,7 +513,7 @@ class LocalDictionaryDB {
     // --- 清空数据库 ---
 
     async clearAll() {
-        await this.initPromise;
+        await this.ensureConnection();
         const stores = [STORE_ENTRIES, STORE_QUEUE, STORE_EXAMPLES, STORE_TASKS];
         const tx = this.db.transaction(stores, 'readwrite');
         stores.forEach(name => {
@@ -522,7 +530,7 @@ class LocalDictionaryDB {
      * 获取翻译任务
      */
     async getTask(taskId) {
-        const db = await this.initPromise;
+        const db = await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_TASKS, 'readonly');
             const store = tx.objectStore(STORE_TASKS);
@@ -542,7 +550,7 @@ class LocalDictionaryDB {
      * @param {Object} indexData - { variant: lemma_id, ... }
      */
     async bulkPutSearchIndex(indexData) {
-        const db = await this.initPromise;
+        const db = await this.ensureConnection();
         const keys = Object.keys(indexData);
         const total = keys.length;
         const BATCH_SIZE = 2000; // 每批 2000 条，适中
@@ -592,7 +600,7 @@ class LocalDictionaryDB {
      * @returns {Promise<number|undefined>} lemma_id
      */
     async getLemmaId(variant) {
-        const db = await this.initPromise;
+        const db = await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_SEARCH_INDEX, 'readonly');
             const store = tx.objectStore(STORE_SEARCH_INDEX);
@@ -607,7 +615,7 @@ class LocalDictionaryDB {
      * 检查索引是否已填充
      */
     async isSearchIndexPopulated() {
-        const db = await this.initPromise;
+        const db = await this.ensureConnection();
         return new Promise((resolve) => {
             const tx = db.transaction(STORE_SEARCH_INDEX, 'readonly');
             const store = tx.objectStore(STORE_SEARCH_INDEX);

@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <b><a href="https://vocab.mesaculpa.xyz">在线体验 · vocab.mesaculpa.xyz</a></b> · <a href="https://github.com/wenqiyuan0-netizen/star-vocab-game/releases">下载 Windows 版</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/wenqiyuan0-netizen/star-vocab-game/actions/workflows/ci.yml"><img src="https://github.com/wenqiyuan0-netizen/star-vocab-game/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/wenqiyuan0-netizen/star-vocab-game/releases"><img src="https://img.shields.io/github/v/release/wenqiyuan0-netizen/star-vocab-game?label=desktop" alt="Release" /></a>
 </p>
@@ -61,7 +65,7 @@ src/
 - 仓库与构建产物中**不含任何私密 Key**；CI 会扫描构建产物。
 - Supabase 只使用 anon/publishable key（设计上公开），所有表启用 **RLS**；调试用 RPC 已移除，触发器函数撤销了公开执行权限，函数固定 `search_path`（见 `supabase/migrations/20261122_security_hardening.sql`）。
 - AI 功能采用 **Bring Your Own Key**：Key 仅存于用户浏览器，通过请求头直连 Google，不经过任何中转服务器。
-- 部署启用 CSP、HSTS、`nosniff` 等安全响应头（`vercel.json`）。
+- CSP 同时以 `<meta>` 标签内置于页面（静态托管无法设置响应头时依然生效）；Vercel 部署另配 HSTS、`nosniff` 等响应头（`vercel.json`）。
 
 ## 本地运行
 
@@ -84,7 +88,7 @@ npm run electron:pack     # 构建离线版并打包 Windows 安装包 + 便携�
 ## 发布流程
 
 - **CI**：每次 push / PR 运行 lint、单元测试、Web 与离线两种构建，并扫描构建产物中的密钥。
-- **Web**：Vercel 关联 GitHub 仓库，`main` 分支自动部署生产环境，PR 自动生成预览环境。
+- **Web**：静态构建发布到 GitHub Pages（`vocab.mesaculpa.xyz`，独立的公开仓库 `star-vocab-site` 仅存放构建产物）；`vercel.json` 保留用于 Vercel 部署。
 - **桌面版**：推送 `v*` 标签（如 `git tag v0.3.0 && git push --tags`）后，GitHub Actions 在 Windows runner 上打包 exe 并发布到 Releases。
 
 ## 下载
