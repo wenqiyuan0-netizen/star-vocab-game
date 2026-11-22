@@ -9,7 +9,8 @@
 import { supabase } from '../infrastructure/supabaseClient';
 import { localDictDB } from '../shared/services/dictionary/LocalDictionaryDB';
 
-const INDEX_FILE_URL = 'https://dodsisnlvmpvipgsvzid.supabase.co/storage/v1/object/public/dict-assets/search_index.json.gz';
+// Self-hosted with the app (web + desktop) so it never depends on a cloud bucket being online.
+const INDEX_FILE_URL = `${process.env.PUBLIC_URL || ''}/dict/search_index.json.gz`;
 
 export class LemmatizationService {
     constructor() {

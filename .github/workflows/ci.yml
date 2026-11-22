@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # Electron is only needed for the desktop release job.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint (errors fail the build, warnings are reported)
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:ci
+        env:
+          CI: true
+
+      - name: Build web (cloud-enabled)
+        run: npm run build
+        env:
+          # Lint already ran above; avoid CRA treating warnings as errors twice.
+          DISABLE_ESLINT_PLUGIN: 'true'
+          REACT_APP_SUPABASE_URL: ${{ vars.REACT_APP_SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ vars.REACT_APP_SUPABASE_ANON_KEY }}
+
+      - name: Build offline edition
+        run: npm run build:offline
+        env:
+          DISABLE_ESLINT_PLUGIN: 'true'
+
+      - name: Secret scan of build output
+        run: |
+          if grep -rEl "AIza[0-9A-Za-z_-]{35}|sb_secret_|service_role" build/static; then
+            echo "::error::Possible secret found in build output"; exit 1
+          fi

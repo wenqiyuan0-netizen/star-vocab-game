@@ -1,5 +1,4 @@
 import { normalizeGender } from './genderUtils';
-import { isStableId } from './idUtils';
 
 // Helper to convert between App word format and Supabase DB format
 

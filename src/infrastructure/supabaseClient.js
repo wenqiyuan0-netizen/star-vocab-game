@@ -1,29 +1,39 @@
 import { createClient } from '@supabase/supabase-js'
+import { CLOUD_CONFIGURED } from '../shared/constants/config'
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+// The anon/publishable key is designed to be public; data is protected by RLS policies.
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
+const OFFLINE_RESULT = { data: null, error: { message: 'cloud_disabled', code: 'OFFLINE' } }
+
+// A chainable no-op query builder: any method call returns itself, and awaiting it
+// resolves to an "offline" result. Lets cloud-aware code run unchanged in offline builds.
+const offlineQuery = () => {
+  const handler = {
+    get(_t, prop) {
+      if (prop === 'then') return (resolve) => resolve(OFFLINE_RESULT)
+      return () => proxy
+    }
+  }
+  const proxy = new Proxy({}, handler)
+  return proxy
 }
 
-// Create a safe client that won't crash if variables are missing, 
-// but will log errors when used.
-const options = {
+const offlineClient = {
+  from: () => offlineQuery(),
+  rpc: () => offlineQuery(),
+  storage: { from: () => offlineQuery() },
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
+    signInWithPassword: () => Promise.resolve(OFFLINE_RESULT),
+    signUp: () => Promise.resolve(OFFLINE_RESULT),
+    signOut: () => Promise.resolve({ error: null }),
   }
-};
+}
 
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-  ? createClient(supabaseUrl, supabaseAnonKey, options)
-  : {
-      from: () => ({ select: () => ({ data: null, error: new Error('Supabase not configured') }), upsert: () => ({ select: () => ({ data: null, error: new Error('Supabase not configured') }) }) }),
-      auth: {
-        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-        signInWithPassword: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-        signOut: () => Promise.resolve({ error: null }),
-      }
-    };
+export const supabase = CLOUD_CONFIGURED
+  ? createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true } })
+  : offlineClient

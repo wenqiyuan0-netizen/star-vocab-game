@@ -1,119 +1,101 @@
-# Vocab Master (德语词汇大师)
+<p align="center">
+  <img src="public/logo512.png" width="96" alt="Star Vocab logo" />
+</p>
 
-**Vocab Master** 是一款结合了游戏化玩法与现代磨砂玻璃 (Glassmorphism) 视觉风格的互动式词汇学习应用。它采用了科学的间隔重复系统 (SRS) 来帮助用户高效记忆单词（当前专注于德语-中文）。在游戏中，你需要通过输入正确的翻译来消除下落的“单词”，巩固记忆。
+<h1 align="center">Star Vocab · 就爱背单词</h1>
 
-![Vocab Master Screenshot](public/screenshot.png)
-*(注：此处可替换为实际截图)*
+<p align="center">
+  游戏化德语词汇训练：间隔重复 (FSRS / SM-2) + 物理引擎配对闯关，本地优先、可选云同步，另有离线桌面版。
+</p>
 
-## 🚀 功能特性
+<p align="center">
+  <a href="https://github.com/wenqiyuan0-netizen/star-vocab-game/actions/workflows/ci.yml"><img src="https://github.com/wenqiyuan0-netizen/star-vocab-game/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/wenqiyuan0-netizen/star-vocab-game/releases"><img src="https://img.shields.io/github/v/release/wenqiyuan0-netizen/star-vocab-game?label=desktop" alt="Release" /></a>
+</p>
 
-- **沉浸式视觉体验**：
-  - **极致磨砂玻璃 UI**：全站采用高通透的 Glassmorphism 设计，配合动态模糊算法，营造现代感十足的学习环境。
-  - **平滑主题切换**：基于 RGB 插值的色彩过渡引擎，实现壁纸与主题色的无缝切换。
-  - **自定义壁纸**：内置壁纸编辑器，支持上传图片并应用模糊、滤镜处理，打造专属学习背景。
-  - **动态交互**：流畅的动画效果及平滑的转场体验。
+---
 
-- **游戏化学习**：
-  - **单词对对碰**：通过打字或选择答案来消除单词，体验紧张刺激的游戏乐趣。
-  - **听说训练**（开发中）：结合轮盘与播客的进阶听力训练模式。
-  - **物理碰撞引擎**：真实的物体碰撞与反弹效果，让学习过程不再枯燥。
+## 功能
 
-- **智能记忆引擎**：
-  - **间隔重复 (SRS)**：内置基于 SM-2 算法的记忆引擎，根据你的掌握程度自动安排复习时间，最大化记忆效率。
-  - **智能复习队列**：优先推送即将遗忘的单词，兼顾新词学习与旧词巩固。
+| | |
+|---|---|
+| 🎮 **配对闯关** | Canvas + Matter.js 物理引擎，德语/中文词块漂浮碰撞，点击配对消除；连击、生命值、难度自适应 |
+| 🧠 **间隔重复** | FSRS v4.5 轻量实现（可配置目标记忆保持率，保留 SM-2 兼容评分），每日新词/复习配额，积压复习的“清理模式” |
+| 📚 **歌德 A1–B1 词库** | 一键导入 555 / 1310 / 2863 词预设，或粘贴自定义词表；自动去重、识别词性和名词性别 |
+| 🔎 **本地词典** | 2500 常用词释义、IPA、例句；离线词形还原（变位/变格 → 原形），IndexedDB 缓存 |
+| 📰 **文章取词** | 粘贴德语短文，TextRank 关键词提取 + 可分动词识别（`fängt … an` → `anfangen`），纯本地计算 |
+| ✨ **AI 造句（可选）** | 用户在浏览器内填入自己的 Gemini API Key，请求直连 Google，项目不托管任何 Key |
+| 🎨 **壁纸主题** | 从壁纸提取色板并自动校正对比度（WCAG AA），磨砂玻璃 UI，亮/暗自适应 |
+| 🔊 **音效与触感** | Web Audio 程序化音效（无音频文件）、按钮按压动效、移动端震动反馈，可调音量/静音 |
+| ☁️ **云同步（可选）** | Supabase Auth + Postgres（RLS），时间戳 + 软删除墓碑的多端合并；不登录即游客模式 |
+| 💻 **离线桌面版** | Electron 打包的 Windows exe，无账号、无网络依赖，数据保存在本机 |
 
-- **AI 辅助 (Google Gemini)**：
-  - **智能例句生成**：集成 Gemini API，可为单词自动生成上下文相关的德语例句。
-  - **语音朗读 (TTS)**：支持浏览器原生语音合成，提供单词和例句的标准德语发音。
+## 技术栈
 
-- **性能优化**：
-  - **移动端适配**：针对移动设备优化的模糊分级策略，在保持视觉效果的同时确保流畅度。
-  - **渲染优化**：精细管理的渲染管线，避免复杂玻璃特效导致的掉帧与闪烁。
+React 19 · Tailwind CSS · Canvas / Matter.js · Web Audio API · IndexedDB · Supabase (Postgres + Auth + RLS) · Electron · GitHub Actions · Vercel
 
-- **数据自主管理**：
-  - **本地优先**：所有进度自动保存于 LocalStorage，无需联网即可游玩。
-  - **导入/导出**：支持 Base64 存档代码的导出与导入，方便跨设备迁移或备份。
+## 架构要点
 
-## 🛠 技术栈
-
-- **前端核心**: React 19, Hooks API
-- **样式系统**: Tailwind CSS + CSS Modules (Glassmorphism Utility Classes)
-- **渲染引擎**: HTML5 Canvas API (用于高性能游戏画面)
-- **图标库**: Lucide React
-- **AI 集成**: Google Gemini API (`gemini-2.5-flash-preview`)
-- **构建工具**: Create React App
-
-## 📦 安装与运行
-
-### 前置要求
-- Node.js (建议 v14 或更高版本)
-- npm 或 yarn
-
-### 启动步骤
-
-1. **克隆仓库**
-   ```bash
-   git clone <repository-url>
-   cd star-vocab-game
-   ```
-
-2. **安装依赖**
-   ```bash
-   npm install
-   ```
-
-3. **启动开发服务器**
-   ```bash
-   npm start
-   ```
-   应用将在 `http://localhost:3000` 运行。
-
-### 功能开关 (Feature Flags)
-
-本项目使用 Feature Flags 来控制实验性功能的开启与关闭。
-
-#### 如何开启“听说模式” (Listening Mode)
-“听说模式”目前处于实验阶段，默认关闭。如需开启：
-
-1. 打开文件 `src/shared/services/FeatureFlagService.js`
-2. 找到 `mockBackendResponse` 对象
-3. 将 `enableListeningSpeaking` 设置为 `true`：
-
-```javascript
-const mockBackendResponse = {
-    enableListeningSpeaking: true // 设置为 true 开启
-};
+```
+src/
+├─ app/                     # 入口、全局触感反馈
+├─ features/
+│  ├─ game/                 # 配对闯关（Canvas 渲染循环 + Matter.js）
+│  ├─ learning/             # SRS 调度、今日卡组生成、积压清理
+│  ├─ vocabulary/           # 词库管理、导入解析、单词卡
+│  ├─ profile/              # 设置、AI Key、音效
+│  └─ auth/                 # 登录 / 游客模式
+├─ shared/services/
+│  ├─ dictionary/           # 本地词典 (IndexedDB) + 统一查询
+│  ├─ ai/                   # TextRank 取词 + BYOK Gemini
+│  └─ audio/                # 程序化音效 + 主音量总线
+└─ infrastructure/          # Supabase 客户端（离线构建时为安全空实现）
 ```
 
-## 🎮 使用指南
+- **本地优先**：所有学习进度先写 `localStorage`，登录后才与云端合并；云端不可用时自动降级为本地模式，不阻塞使用。
+- **同一份代码两种产物**：`REACT_APP_OFFLINE=true` 构建时 Supabase 客户端被替换为可链式调用的空实现，桌面版无需任何分支代码。
+- **桌面版用自定义协议**：Electron 通过 `app://bundle/` 提供构建产物（而非 `file://`），使 `fetch`、IndexedDB 与绝对路径资源行为与 Web 一致；窗口开启 sandbox、禁用 Node 集成、外链交给系统浏览器。
 
-### 1. 游戏玩法
-- **目标**：阻止单词陨石撞击屏幕底部的基地。
-- **操作**：
-  - **单词模式**：输入屏幕上单词对应的中文翻译或德语原词。
-  - **连击机制**：连续正确回答将触发 Combo 加成，获得更高分数与视觉特效。
+## 安全
 
-### 2. 个性化设置
-- **壁纸设置**：点击主页左上角菜单 -> 壁纸设置，上传你喜欢的图片，调节模糊度和滤镜，设为专属背景。
-- **AI 配置**：点击设置 (齿轮图标)，填入 Google Gemini API Key 以启用智能例句功能。
+- 仓库与构建产物中**不含任何私密 Key**；CI 会扫描构建产物。
+- Supabase 只使用 anon/publishable key（设计上公开），所有表启用 **RLS**；调试用 RPC 已移除，触发器函数撤销了公开执行权限，函数固定 `search_path`（见 `supabase/migrations/20261122_security_hardening.sql`）。
+- AI 功能采用 **Bring Your Own Key**：Key 仅存于用户浏览器，通过请求头直连 Google，不经过任何中转服务器。
+- 部署启用 CSP、HSTS、`nosniff` 等安全响应头（`vercel.json`）。
 
-### 3. 数据管理
-- **备份**：前往 设置 -> 数据管理，复制存档代码。
-- **恢复**：粘贴存档代码以恢复游戏进度。
+## 本地运行
 
-## 🤝 贡献指南
+需要 Node.js 22（见 `.nvmrc`）。
 
-欢迎提交 Issue 或 Pull Request 来改进本项目！我们特别关注以下方向的改进：
-- 新的游戏模式
-- 更多的词库支持
-- 性能优化
+```bash
+npm ci
+npm start                 # http://localhost:3000 ，无需任何配置即可以游客模式运行
+```
 
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/NewFeature`)
-3. 提交改动 (`git commit -m 'Add NewFeature'`)
-4. 推送到分支 (`git push origin feature/NewFeature`)
-5. 提交 Pull Request
+可选：复制 `.env.example` 为 `.env.local` 并填写 Supabase URL / anon key 以启用登录与云同步。
 
-## 📄 许可证
+```bash
+npm test                  # 单元测试
+npm run lint              # ESLint
+npm run build             # Web 构建
+npm run electron:pack     # 构建离线版并打包 Windows 安装包 + 便携版 exe（输出到 dist/）
+```
 
-本项目采用 MIT 许可证。
+## 发布流程
+
+- **CI**：每次 push / PR 运行 lint、单元测试、Web 与离线两种构建，并扫描构建产物中的密钥。
+- **Web**：Vercel 关联 GitHub 仓库，`main` 分支自动部署生产环境，PR 自动生成预览环境。
+- **桌面版**：推送 `v*` 标签（如 `git tag v0.3.0 && git push --tags`）后，GitHub Actions 在 Windows runner 上打包 exe 并发布到 Releases。
+
+## 下载
+
+在 [Releases](https://github.com/wenqiyuan0-netizen/star-vocab-game/releases) 下载：
+
+- `StarVocab-Setup-x.y.z.exe`：安装版
+- `StarVocab-Portable-x.y.z.exe`：便携版，免安装
+
+> 安装包未做代码签名，首次运行时 Windows SmartScreen 可能提示“未知发布者”，选择“仍要运行”即可。
+
+---
+
+开发笔记与历史设计文档见 [`docs/dev-notes`](docs/dev-notes)。

@@ -7,9 +7,10 @@ import { useAuth } from "../features/auth/contexts/AuthContext";
 import { ProfileProvider } from "../shared/contexts/ProfileContext";
 import SplashScreen from "../shared/components/SplashScreen";
 import { UpdateNotification } from "../shared/components/ui/UpdateNotification";
+import { soundManager, hapticTick } from "../shared/services/audio/SoundManager";
 
 export default function App() {
-    const { user, loading } = useAuth();
+    const { user, loading, isGuest } = useAuth();
 
     // Lazy initialize state to avoid race condition/flicker
     const [showSplash, setShowSplash] = useState(() => {
@@ -34,11 +35,6 @@ export default function App() {
             window._dictInitialized = true;
 
             try {
-                // Load diagnostic tool first (development mode)
-                const diagnostic = await import("../shared/services/dictionary/DiagnosticTool");
-                diagnostic.exposeToConsole();
-                console.log('[App] 词典诊断工具已加载 - 使用 dictDiagnostic.run() 查看状态');
-
                 // Initialize dictionary
                 const dictModule = await import("../shared/services/dictionary/DictionaryInit");
                 console.log('[App] Starting dictionary initialization...');
@@ -56,17 +52,25 @@ export default function App() {
                 });
 
                 console.log('[App] Dictionary init complete:', result);
-
-                // Run diagnostics after init
-                console.log('[App] 运行自动诊断...');
-                await diagnostic.runDiagnostics();
             } catch (err) {
-                console.error('[App] Dictionary initialization or diagnostic failed:', err);
+                console.error('[App] Dictionary initialization failed:', err);
             }
         };
 
         // Execute immediately
         init();
+    }, []);
+
+    // Global tactile feedback: soft tap sound + haptic tick for every button press.
+    useEffect(() => {
+        const onPointerDown = (e) => {
+            const el = e.target && e.target.closest && e.target.closest('button, [role="button"], [role="switch"], a[href]');
+            if (!el || el.disabled || el.dataset.silent !== undefined) return;
+            soundManager.playTap();
+            hapticTick();
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        return () => document.removeEventListener('pointerdown', onPointerDown, true);
     }, []);
 
     const handleSplashComplete = () => {
@@ -75,7 +79,6 @@ export default function App() {
         setShowSplash(false);
     };
 
-    console.log('[App] Render - showSplash:', showSplash, 'loading:', loading, 'user:', !!user);
 
     // Show splash screen if it's the first visit
     if (showSplash) {
@@ -89,7 +92,7 @@ export default function App() {
     return (
         <ThemeProvider>
             <UpdateNotification />
-            {!user ? (
+            {!user && !isGuest ? (
                 <LoginForm />
             ) : (
                 <ProfileProvider>

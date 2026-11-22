@@ -1,6 +1,5 @@
 
 import { localDictDB } from './LocalDictionaryDB';
-import { aiService } from '../ai/AIService';
 import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
 import { localDict } from '../../../utils/localDictionary';
 

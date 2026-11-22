@@ -1,6 +1,15 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  PlusCircle, Save, Trash2, Upload, X, Search, RotateCcw, FileText, CheckSquare, Square, BookOpen
+  PlusCircle,
+  Save,
+  Trash2,
+  Upload,
+  X,
+  Search,
+  RotateCcw,
+  FileText,
+  CheckSquare,
+  BookOpen
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { computeProficiency } from '../../logic/srs';

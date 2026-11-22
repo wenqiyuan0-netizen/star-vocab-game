@@ -92,7 +92,7 @@ export function extractPaletteFromImage(imageElement, sampleCount = 10) {
       // because we are not generating artificial colors.
       // Ideally, 'contrast' should be used for text.
 
-      resolve({
+      resolve(normalizePalette({
         primary: `rgb(${distinctColors[0].join(',')})`,
         secondary: `rgb(${distinctColors[1].join(',')})`,
         accent: `rgb(${distinctColors[2].join(',')})`,
@@ -108,7 +108,7 @@ export function extractPaletteFromImage(imageElement, sampleCount = 10) {
           light: { analogous, mid, contrast, complementary },
           dark: { analogous, mid, contrast, complementary }
         }
-      });
+      }));
 
     } catch (e) {
       console.error("Color extraction failed", e);
@@ -501,3 +501,71 @@ export function desaturate(color, amount = 0.5) {
   return `rgb(${r},${g},${b})`;
 }
 
+
+/**
+ * Turn a raw wallpaper palette into a readable UI palette.
+ *
+ * Raw extraction picks the most frequent colors, which for soft / near-monochrome
+ * wallpapers yields primary ≈ background (invisible buttons, white-on-white text).
+ * This keeps the wallpaper's mood (background + hue) but guarantees:
+ *  - text vs background contrast >= 7
+ *  - primary/secondary/accent vs background contrast >= 3, with real saturation
+ */
+const BRAND_HUE = 248; // indigo fallback for achromatic wallpapers
+
+export function normalizePalette(raw) {
+  if (!raw || raw.normalized === 3) return raw;
+  const toHsl = (c) => { const [r, g, b] = parseColorToRgb(c); return rgbToHsl(r, g, b); };
+  const str = (hsl) => hslToRgbString(hsl);
+
+  // Dominant wallpaper color is the background.
+  // Raw extraction stores the dominant color as primary; already-normalized palettes keep it in background.
+  const bgHsl = toHsl((raw.normalized ? raw.background : raw.primary) || raw.background || '#f0f0e0');
+  // Light mode when dark text reads better than white text on this background.
+  const isLight = contrastRatio(bgHsl, [0, 0, 0]) >= contrastRatio(bgHsl, [0, 0, 1]);
+
+  const candidates = [raw.secondary, raw.accent, raw.background, ...(raw.analogous || []), ...(raw.mid || []), ...(raw.complementary || []), ...(raw.contrast || [])]
+    .filter(Boolean).map(toHsl);
+  const vivid = candidates
+    .filter(c => c[1] >= 0.25 && c[2] > 0.12 && c[2] < 0.88)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Choose base hue: most saturated wallpaper color, else wallpaper tint, else brand.
+  let hue = vivid.length ? vivid[0][0] : (bgHsl[1] >= 0.12 ? bgHsl[0] : BRAND_HUE);
+  if (!vivid.length && bgHsl[1] >= 0.12 && bgHsl[1] < 0.3) hue = normalizeHue(bgHsl[0] + 180); // muted tinted bg → complementary pop
+
+  const fit = (h, s, startL) => {
+    // Walk lightness until contrast vs background >= 3.2
+    let l = startL;
+    for (let i = 0; i < 30; i++) {
+      if (contrastRatio([h, s, l], bgHsl) >= 3.2) break;
+      l = isLight ? l - 0.02 : l + 0.02;
+    }
+    return [normalizeHue(h), s, Math.min(0.92, Math.max(0.08, l))];
+  };
+
+  const primary = fit(hue, 0.62, isLight ? 0.48 : 0.62);
+  const secondary = fit(hue - 22, 0.6, isLight ? 0.46 : 0.64);
+  const accent = fit(hue + 160, 0.7, isLight ? 0.5 : 0.62);
+
+  let text = [bgHsl[0], Math.min(bgHsl[1], 0.25), isLight ? 0.14 : 0.94];
+  for (let i = 0; i < 20 && contrastRatio(text, bgHsl) < 7; i++) {
+    text = [text[0], text[1], Math.min(1, Math.max(0, isLight ? text[2] - 0.03 : text[2] + 0.03))];
+  }
+
+  const overlay = isLight
+    ? [bgHsl[0], Math.min(bgHsl[1], 0.3), 0.96]
+    : [bgHsl[0], Math.min(bgHsl[1], 0.35), 0.1];
+
+  return {
+    ...raw,
+    primary: str(primary),
+    secondary: str(secondary),
+    accent: str(accent),
+    background: str(bgHsl),
+    text: str(text),
+    overlay: str(overlay),
+    mode: isLight ? 'light' : 'dark',
+    normalized: 3,
+  };
+}

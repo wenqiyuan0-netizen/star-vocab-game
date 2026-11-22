@@ -1,4 +1,3 @@
-import { BACKEND_URL } from '../../constants/config'
 import { unifiedSearch } from '../../../utils/unifiedDictionarySearch';
 
 // Simple TextRank Implementation for German
@@ -110,18 +109,44 @@ class TextRank {
   }
 }
 
+const AI_KEY_STORAGE = 'star_vocab_gemini_key';
+const AI_MODEL_STORAGE = 'star_vocab_gemini_model';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+export const getAiConfig = () => {
+  try {
+    return {
+      apiKey: (localStorage.getItem(AI_KEY_STORAGE) || '').trim(),
+      model: (localStorage.getItem(AI_MODEL_STORAGE) || '').trim() || DEFAULT_GEMINI_MODEL,
+    };
+  } catch {
+    return { apiKey: '', model: DEFAULT_GEMINI_MODEL };
+  }
+};
+
+export const setAiConfig = ({ apiKey, model }) => {
+  try {
+    if (apiKey !== undefined) {
+      if (apiKey) localStorage.setItem(AI_KEY_STORAGE, apiKey.trim());
+      else localStorage.removeItem(AI_KEY_STORAGE);
+    }
+    if (model !== undefined) {
+      if (model) localStorage.setItem(AI_MODEL_STORAGE, model.trim());
+      else localStorage.removeItem(AI_MODEL_STORAGE);
+    }
+  } catch { }
+};
+
 //AI Service
 class AIService {
   constructor() {
     this.synth = window.speechSynthesis || null;
     this.isSpeaking = false;
-    this.accessToken = null; // Store user's Supabase token
     this.currentUtterance = null; // Keep reference to prevent GC
   }
 
-  // Set the user's access token for authenticated requests
-  setAccessToken(token) {
-    this.accessToken = token;
+  hasApiKey() {
+    return Boolean(getAiConfig().apiKey);
   }
 
   warmUp() {
@@ -321,63 +346,49 @@ class AIService {
   }
 
   async _fetchGemini(prompt) {
-    const url = `${BACKEND_URL}/api/gemini-proxy`;
+    // Bring-your-own-key: the key lives only in this browser (localStorage) and is
+    // sent straight to Google. No project-owned key, no proxy server.
+    const { apiKey, model } = getAiConfig();
+    if (!apiKey) {
+      const err = new Error('未配置 Gemini API Key：请在「我的 → AI 造句」中填写你自己的 Key');
+      err.code = 'NO_API_KEY';
+      throw err;
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] });
 
     let data = null;
-
     for (let i = 0; i < 3; i++) {
+      let res;
       try {
-        const bodyPayload = {
-          prompt,
-          model: 'gemini-2.5-flash-preview-09-2025'
-        };
-
-        console.log(`[AIService] Sending request to ${url}`, { bodyPayload });
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (this.accessToken) {
-          headers['Authorization'] = `Bearer ${this.accessToken}`;
-        }
-
-        const res = await fetch(url, {
+        res = await fetch(url, {
           method: 'POST',
-          headers: headers,
-          body: JSON.stringify(bodyPayload),
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body,
         });
-
-        if (!res.ok) {
-          // Handle 403 Forbidden (Feature Locked) specifically
-          if (res.status === 403) {
-            const errData = await res.json();
-            console.error(`[AIService] Feature Locked: ${errData.message}`);
-            throw new Error(errData.message || 'Level too low for AI features');
-          }
-          // 429 → 重试
-          if (res.status === 429) {
-            const delay = Math.pow(2, i) * 800 + Math.random() * 500;
-            await new Promise(r => setTimeout(r, delay));
-            continue;
-          }
-          return null;
-        }
-
-        data = await res.json();
-        break;
       } catch (err) {
-        // 网络异常 → 重试
-        const delay = Math.pow(2, i) * 800 + Math.random() * 500;
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 800 + Math.random() * 500));
+        continue;
       }
+      if (res.status === 429 || res.status >= 500) {
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 800 + Math.random() * 500));
+        continue;
+      }
+      if (!res.ok) {
+        const msg = res.status === 400 || res.status === 403
+          ? 'Gemini 拒绝了请求：请检查 API Key 是否有效'
+          : `Gemini 请求失败 (${res.status})`;
+        throw new Error(msg);
+      }
+      data = await res.json();
+      break;
     }
 
     if (!data) return null;
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    let clean = raw.replace(/```json|```/g, '').trim();
+    const clean = raw.replace(/```json|```/g, '').trim();
     const match = clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (!match) {
-      console.warn('[AIService] No JSON found in response');
-      return null;
-    }
+    if (!match) return null;
     try { return JSON.parse(match[0]); } catch (e) { return null; }
   }
 

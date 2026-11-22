@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, Key, RefreshCw, Zap, Globe, BookOpen } from 'lucide-react';
+import { Volume2, Key, Zap, BookOpen } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
 export function SettingsView({

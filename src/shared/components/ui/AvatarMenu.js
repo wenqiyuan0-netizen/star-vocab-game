@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Image as ImageIcon, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout }) {
+export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onLogout, logoutLabel = '退出登录' }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const fileRef = useRef(null);
@@ -48,21 +48,24 @@ export default function AvatarMenu({ avatarUrl, displayName, onChangeAvatar, onL
           <button
             onClick={handlePick}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/10"
+            style={{ color: theme.text }}
           >
             <ImageIcon className="w-4 h-4" />
             <span className="text-sm">自定义头像</span>
           </button>
           
-          <button
-            onClick={() => {
-              setOpen(false);
-              onLogout();
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/10"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="text-sm">退出登录</span>
-          </button>
+          {onLogout && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/10"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm">{logoutLabel}</span>
+            </button>
+          )}
           <input 
             ref={fileRef} 
             type="file" 
