@@ -6,7 +6,7 @@
  * - 新格式：稳定整数 ID + pos 字段
  */
 
-import { generateStableId, isStableId, isTemporaryId, isUuid, getIdType } from './idUtils';
+import { generateStableId, isStableId, getIdType } from './idUtils';
 
 const STORAGE_KEY = 'vocab_game_db';
 const MIGRATION_LOG_KEY = 'vocab_migration_log';

@@ -6,8 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 import { AuthProvider } from './features/auth/contexts/AuthContext';
-import './utils/testUnifiedSearch';
-import './utils/testLocalLemmatization';
+import { IS_OFFLINE_BUILD } from './shared/constants/config';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -20,7 +19,7 @@ root.render(
 
 // Register service worker for PWA support
 // Only register in production to avoid caching issues in development
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && !IS_OFFLINE_BUILD && window.location.protocol.startsWith('http')) {
   serviceWorkerRegistration.register({
     onUpdate: (registration) => {
       // 当发现新版本时，触发自定义事件通知 UI

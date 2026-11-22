@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search, Plus, Trash2, RotateCcw, X, Save,
-  MoreHorizontal, FileText, CheckSquare, Square, BookOpen
+  Search,
+  Plus,
+  Trash2,
+  RotateCcw,
+  X,
+  CheckSquare,
+  BookOpen
 } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { GlassButton } from '../../../shared/components/ui/GlassButton';
@@ -87,10 +92,11 @@ export function LibraryView({
 
   // 2. Background Colors
   // Normal: Dark Glassy (Referencing .glass-button style: rgba(0, 0, 0, 0.25))
-  const cardBaseColor = 'rgba(57, 57, 57, 0.25)';
+  const isLightTheme = (theme.mode || 'light') !== 'dark';
+  const cardBaseColor = 'var(--glass-bg)';
   // Hover: White with slight theme tint (Brighten effect), slightly more transparent/darker
   // Changed from #ffffff to #fdfdfdff (Light Gray) and opacity 0.75 for a dimmer, more glassy look
-  const cardHoverColor = React.useMemo(() => withOpacity(mixColors('#e5e5e5', theme.primary, 0.05), 0.75), [theme]);
+  const cardHoverColor = 'var(--glass-bg-hover)';
 
   const cardBgColor = React.useMemo(() => getBrightestVariant(theme.primary, 0.9), [theme.primary]);
   const ARTICLE_LIMIT = 3000;
@@ -432,11 +438,11 @@ export function LibraryView({
   };
 
   return (
-    <div className="h-full flex flex-col bg-transparent text-white">
+    <div className="h-full flex flex-col bg-transparent" style={{ color: theme.text }}>
       {/* 顶部工具栏 */}
       <div className="flex items-center justify-between p-4 glass-panel rounded-none border-x-0 border-t-0 sticky top-0 z-20">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          词库 <span className="text-sm font-normal text-gray-300 glass-panel px-2 py-0.5 rounded-full">{globalWordDb.length}</span>
+          词库 <span className="text-sm font-semibold glass-panel px-2 py-0.5 rounded-full" style={{ color: theme.primary }}>{globalWordDb.length}</span>
         </h2>
 
         <div className="flex items-center gap-2">
@@ -578,13 +584,13 @@ export function LibraryView({
       {/* 搜索栏 */}
       <div className="p-4 pb-2">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/80" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50" style={{ color: theme.text }} />
           <input
             type="search"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="搜索单词..."
-            className="w-full glass-input bg-black/40 cursor-text rounded-full pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2 transition-colors duration-200"
+            className="w-full glass-panel cursor-text rounded-full pl-10 pr-4 py-2 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 transition-colors duration-200"
             style={{ '--tw-ring-color': theme.primary, borderColor: searchTerm ? theme.primary : undefined }}
             name="librarySearch"
             autoComplete="off"
@@ -617,7 +623,7 @@ export function LibraryView({
               style={{
                 '--card-bg': selectionMode && selectedIds.has(w.id) ? `${theme.primary}33` : cardBaseColor,
                 '--card-hover-bg': cardHoverColor,
-                borderColor: selectionMode && selectedIds.has(w.id) ? `${theme.primary}80` : 'rgba(255,255,255,0.2)',
+                borderColor: selectionMode && selectedIds.has(w.id) ? `${theme.primary}80` : 'var(--glass-border)',
                 borderWidth: '1px',
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
@@ -645,8 +651,10 @@ export function LibraryView({
                         : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
                         }`}
                       style={{
-                        '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#ffffff',
-                        '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#1f2937'
+                        '--text-normal': isLightTheme
+                          ? (w.gender ? deepGenderColors[w.gender.toLowerCase()] : theme.text)
+                          : (w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#ffffff'),
+                        '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : theme.text
                       }}
                     >
                       {w.gender && (
@@ -707,7 +715,9 @@ export function LibraryView({
                       : 'text-[var(--text-normal)] group-hover:text-[var(--text-hover)]'
                       }`}
                     style={{
-                      '--text-normal': w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#d1d5db', // Fallback to light gray if no gender
+                      '--text-normal': isLightTheme
+                        ? withOpacity(theme.text, 0.6)
+                        : (w.gender ? pastelGenderColors[w.gender.toLowerCase()] : '#d1d5db'),
                       '--text-hover': w.gender ? deepGenderColors[w.gender.toLowerCase()] : '#4b5563'   // Fallback to dark gray
                     }}
                   >

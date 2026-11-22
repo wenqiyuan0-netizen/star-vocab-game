@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Heart, Play, Sparkles, Settings, AlertCircle, Sliders, Globe, Zap, Brain,
-  PlusCircle, Save, Trash2, Eye, X, LogOut, Activity, RotateCcw, Download,
-  Upload, Copy, Volume2, Info, BarChart2, Trophy
+  Heart,
+  Sparkles,
+  Settings,
+  AlertCircle,
+  Zap,
+  Save,
+  X,
+  LogOut,
+  Activity,
+  RotateCcw,
+  Upload,
+  Copy,
+  Info,
+  BarChart2
 } from 'lucide-react';
 import { ReviewClearanceModal } from '../learning/components/ReviewClearanceModal';
 import { detectReviewBacklog, activateClearanceMode, checkAndRestoreSettings } from '../learning/services/ClearanceHelper';
@@ -11,24 +22,22 @@ import { CalendarModal } from '../../shared/components/ui/CalendarModal';
 import { GlassButton } from '../../shared/components/ui/GlassButton';
 import { migrateLocalStorage, needsMigration } from '../../utils/localStorageMigration';
 
-import { LEARNING_STEPS, MIN_EASE_FACTOR, MAX_PRIORITY_QUEUE_SIZE, MIN_DECK_SIZE, DEFAULT_WORDS } from '../../logic/constants';
+import { MAX_PRIORITY_QUEUE_SIZE, MIN_DECK_SIZE } from '../../logic/constants';
 import { aiService } from '../../shared/services/ai/AIService';
-import { escapeRegex, decodeEntities, sanitizeCn, cleanGermanExample, sanitizeGermanSentence, getLines } from '../../logic/utils';
+import { getLines } from '../../logic/utils';
 import { exampleService } from '../../shared/services/examples/ExampleService';
 import { soundManager } from '../../shared/services/audio/SoundManager';
-import { getThemeColor, StarFragment, Particle } from './logic/visualEntities';
+import { StarFragment, Particle } from './logic/visualEntities';
 
 import { processImportInput } from '../vocabulary/services/WordProcessor';
 import { processWordResult } from '../../logic/srs';
 import { generateSaveCode, parseSaveCode, copyTextToClipboard } from '../../infrastructure/persistence/localStorage';
 import { calculateSpawnPair } from './logic/spawner';
-import { LocalCorpusService, localCorpusService } from '../../shared/services/examples/LocalCorpusService';
+import { localCorpusService } from '../../shared/services/examples/LocalCorpusService';
 import { DeckGenerator } from '../learning/services/DeckGenerator';
 import { useTheme } from '../../shared/hooks/useTheme';
 import { getLocalDateString, calculateStreakFromDates } from '../../utils/dateUtils';
 import { Dashboard } from '../dashboard/components/Dashboard';
-import { GameModeSelection } from './GameModeSelection';
-import { ListeningGame } from '../listening/ListeningGame';
 import { useSupabaseData } from '../../shared/hooks/useSupabase/useSupabaseData';
 import { useSupabaseProfile } from '../../shared/hooks/useSupabase/useSupabaseProfile';
 import { useAuth } from '../auth/contexts/AuthContext';
@@ -64,7 +73,7 @@ const CustomModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText 
 
 export default function SpaceVocabGame() {
   const theme = useTheme();
-  const { session, signOut } = useAuth();
+  const { signOut } = useAuth();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [showSaveArea, setShowSaveArea] = useState(false);
@@ -97,12 +106,6 @@ export default function SpaceVocabGame() {
     }
   }, []); // 空依赖数组，仅在组件挂载时执行一次
 
-  // Set access token for AI Service
-  useEffect(() => {
-    if (session?.access_token) {
-      aiService.setAccessToken(session.access_token);
-    }
-  }, [session]);
 
   const {
     words: cloudWords,
@@ -448,7 +451,6 @@ export default function SpaceVocabGame() {
   const [importString, setImportString] = useState('');
   const [wallpaper, setWallpaper] = useState(null);
 
-  const [showModeSelection, setShowModeSelection] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState('');
@@ -1713,25 +1715,16 @@ export default function SpaceVocabGame() {
   };
 
   const handleStartGameRequest = () => {
-    setShowModeSelection(true);
-  };
-
-  const handleModeSelect = (mode) => {
-    setShowModeSelection(false);
-    if (mode === 'falling') {
-      try {
-        const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
-        const today = new Date().toDateString();
-        if (saved && saved.date === today) {
-          showResumeDialog();
-        } else {
-          startGame();
-        }
-      } catch (e) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('space_vocab_daily_session'));
+      const today = new Date().toDateString();
+      if (saved && saved.date === today) {
+        showResumeDialog();
+      } else {
         startGame();
       }
-    } else if (mode === 'listening') {
-      setGameState('listening');
+    } catch (e) {
+      startGame();
     }
   };
 
@@ -1891,21 +1884,6 @@ export default function SpaceVocabGame() {
 
       <CalendarModal isOpen={showCheckInModal} onClose={() => { setShowCheckInModal(false); isPausedRef.current = false; }} todayCompleted={true} checkInDates={userProfileRef.current?.checkInDates || []} />
 
-      {showModeSelection && (
-        <GameModeSelection
-          onSelectMode={handleModeSelect}
-          onBack={() => setShowModeSelection(false)}
-        />
-      )}
-
-      {gameState === 'listening' && (
-        <div className="absolute inset-0 z-50 bg-slate-900">
-          <ListeningGame
-            onExit={() => setGameState('dashboard')}
-            globalWordDb={globalWordDb}
-          />
-        </div>
-      )}
 
       {showSaveModal && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[999] flex items-end justify-center sm:items-center p-4">
@@ -1939,7 +1917,7 @@ export default function SpaceVocabGame() {
         </div>
       )}
 
-      {(gameState === 'menu' || gameState === 'dashboard') && !showModeSelection && (
+      {(gameState === 'menu' || gameState === 'dashboard') && (
         <Dashboard
           globalWordDb={globalWordDb}
           setGlobalWordDb={setGlobalWordDb}

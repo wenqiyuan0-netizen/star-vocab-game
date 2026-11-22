@@ -1,5 +1,4 @@
 
-import { aiService } from '../../../shared/services/ai/AIService';
 import { computeRetrievability } from '../../../logic/srs';
 
 // 从 LocalStorage 读取配置和状态的辅助函数

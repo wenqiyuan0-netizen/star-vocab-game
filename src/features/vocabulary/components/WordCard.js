@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Minimize2, Sparkles, Volume2 } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
-import { generateGenderColors, withOpacity, getContrastColorFromTheme, desaturate } from '../../../utils/colorUtils';
+import { generateGenderColors, withOpacity, desaturate } from '../../../utils/colorUtils';
 import { aiService } from '../../../shared/services/ai/AIService';
 import { localLemmatization } from '../../../utils/localLemmatization';
 import { localDictDB } from '../../../shared/services/dictionary/LocalDictionaryDB';
-import { ProfileContext } from '../../../shared/contexts/ProfileContext';
+import { soundManager } from '../../../shared/services/audio/SoundManager';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -107,40 +107,11 @@ export const FrontFace = ({ w, entry, genderColors, isFocus }) => {
 
 export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) => {
   const theme = useTheme();
-  const profileContext = React.useContext(ProfileContext);
-
-  // 安全地获取用户等级，添加多层fallback
-  let userLevel = 1; // 默认等级
-  try {
-    if (profileContext && profileContext.profile && typeof profileContext.profile.level === 'number') {
-      userLevel = profileContext.profile.level;
-    } else {
-      // 尝试从localStorage读取（注意：键名是 'space_vocab_user_profile'）
-      const localProfile = localStorage.getItem('space_vocab_user_profile');
-      if (localProfile) {
-        const parsed = JSON.parse(localProfile);
-        userLevel = parsed.level || 1;
-      }
-    }
-  } catch (err) {
-    console.error('[WordCard] Failed to get user level:', err);
-  }
-
-  const REQUIRED_LEVEL = 10; // AI功能需要的等级
-
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [aiExample, setAiExample] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [savedExamples, setSavedExamples] = useState([]); // 从独立例句库加载的例句
-
-  // Debug: 打印用户等级信息
-  useEffect(() => {
-    if (isFocus) {
-        // 仅在聚焦时打印一次，避免频繁刷新
-        // console.log('[WordCard Debug] User Level:', userLevel);
-    }
-  }, [userLevel, isFocus]);
 
   // Conjugation state
   const [showConjugation, setShowConjugation] = useState(false);
@@ -174,12 +145,6 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
 
   const handleGenerateExample = async (e) => {
     e.stopPropagation();
-    console.log('[WordCard] AI Generate Button Clicked!');
-    console.log('[WordCard] Current Level:', userLevel, 'Required:', REQUIRED_LEVEL);
-
-    // Note: Backend validates level via gemini-proxy (secure check)
-    // Frontend only shows optimistic UI hint, but actual check is server-side
-
     setLoadingAi(true);
     setAiError(null);
     try {
@@ -216,15 +181,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
       }
     } catch (err) {
       console.error("AI Gen Error:", err);
-      // Backend returns "Level too low" or "AI feature requires Level X" messages
-      // Parse the error to display a user-friendly message
-      const errorMessage = err.message || '生成失败';
-      if (errorMessage.includes('Level') || errorMessage.includes('level')) {
-        // Backend returned a level-related error with accurate current level
-        setAiError(errorMessage);
-      } else {
-        setAiError(errorMessage);
-      }
+      setAiError(err.message || '生成失败');
     } finally {
       setLoadingAi(false);
     }
@@ -579,7 +536,7 @@ export const BackFace = ({ w, entry, genderColors, exampleBgColor, isFocus }) =>
                     border: `1px solid ${withOpacity(theme.accent, 0.3)}`,
                     cursor: loadingAi ? 'not-allowed' : 'pointer'
                   }}
-                  title={userLevel >= REQUIRED_LEVEL ? `AI 智能造句 (Lv.${userLevel})` : `需要 Lv.${REQUIRED_LEVEL} 解锁 (当前 Lv.${userLevel})`}
+                  title="AI 智能造句（使用你自己的 Gemini Key）"
                 >
                   <Sparkles className="w-3 h-3" />
                   {loadingAi ? '生成中...' : 'AI 造句'}
@@ -770,6 +727,7 @@ export const WordCardModal = ({
         className="w-full max-w-md aspect-[3/4] rounded-3xl shadow-2xl relative transition-all duration-500 transform hover:scale-[1.01] overflow-hidden group"
         onClick={(e) => {
           e.stopPropagation();
+          soundManager.playFlip();
           setFlipped(!flipped);
         }}
         style={{

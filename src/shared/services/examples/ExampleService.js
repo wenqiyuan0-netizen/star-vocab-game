@@ -2,7 +2,7 @@ import { aiService } from '../ai/AIService';
 import { localCorpusService } from './LocalCorpusService';
 import { unifiedDictService } from '../dictionary/UnifiedDictionaryService'; // 引入新服务
 
-import { sanitizeCn, cleanGermanExample } from '../../../logic/utils';
+import { cleanGermanExample } from '../../../logic/utils';
 
 import { localDictDB } from '../dictionary/LocalDictionaryDB'; // 引入DB
 

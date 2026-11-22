@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, Save, Trash2, Filter, Sparkles, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useTheme } from '../../../shared/hooks/useTheme';
 import { useFocusNavigation } from '../../../shared/hooks/useFocusNavigation';
 import { withOpacity, getBrightestVariant, mixColors } from '../../../utils/colorUtils';
@@ -7,6 +7,7 @@ import { DeckGenerator } from '../services/DeckGenerator';
 import { generateGenderColors } from '../../../utils/colorUtils';
 import { WordCardModal, FrontFace, BackFace } from '../../vocabulary/components/WordCard';
 import { unifiedDictService } from '../../../shared/services/dictionary/UnifiedDictionaryService';
+import { soundManager } from '../../../shared/services/audio/SoundManager';
 
 const genderToArticle = g => {
   if (!g) return '';
@@ -121,6 +122,7 @@ export function TodayView(props) {
   const visibleCards = useMemo(() => (onlyMatched ? cards.filter(c => !!c.entry) : cards), [cards, onlyMatched]);
 
   const toggleFlip = id => {
+    soundManager.playFlip();
     setFlippedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

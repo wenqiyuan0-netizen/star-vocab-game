@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import {
-  Download, Award, Calendar,
-  Volume2, Image, Sparkles, Bot,
-  Clock, AlertTriangle, BrainCircuit
+  Download,
+  Award,
+  Calendar,
+  Volume2,
+  Image,
+  Sparkles,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import AvatarMenu from '../../../shared/components/ui/AvatarMenu';
 import { WallpaperSettings } from '../../dashboard/views/WallpaperSettings';
@@ -13,10 +18,12 @@ import { withOpacity, getOffToggleColor, parseColorToRgb } from '../../../utils/
 import { getLocalDateString } from '../../../utils/dateUtils';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import { getEffectiveSettings } from '../../learning/services/ClearanceHelper';
+import { AiKeyCard } from './AiKeyCard';
+import { SoundCard } from './SoundCard';
 
 
 // 引入 lucide-react 图标（如果没有引入的话）
-// import { BrainCircuit } from 'lucide-react'; 
+//  
 
 
 
@@ -68,10 +75,10 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
           </div>
 
           <div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>确认注销账号？</h3>
+            <h3 className="text-xl font-bold mb-2" style={{ color: theme.text }}>退出并清除本机数据？</h3>
             <p className="text-sm opacity-70 leading-relaxed" style={{ color: theme.text }}>
               此操作将<span className="font-bold text-red-500">删除所有本地数据</span>并退出登录。<br />
-              云端数据可能保留，取决于同步状态。
+              云端已同步的数据会保留，下次登录可恢复。
             </p>
           </div>
 
@@ -94,7 +101,7 @@ const DeleteConfirmModal = ({ isOpen, onConfirm, onCancel, theme }) => {
                 boxShadow: `0 4px 12px ${withOpacity(theme.accent, 0.3)}`
               }}
             >
-              确认注销
+              确认
             </button>
           </div>
         </div>
@@ -120,7 +127,7 @@ export function ProfileView({
   const [showCalendar, setShowCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const theme = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, cloudEnabled } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('space_vocab_avatar'));
 
   // 临时清理模式状态
@@ -286,7 +293,8 @@ export function ProfileView({
           avatarUrl={avatarUrl}
           displayName={displayName}
           onChangeAvatar={handleChangeAvatar}
-          onLogout={handleLogout}
+          onLogout={cloudEnabled ? handleLogout : null}
+          logoutLabel={user ? '退出登录' : '登录 / 注册（云同步）'}
         />
       </div>
 
@@ -487,7 +495,6 @@ export function ProfileView({
         {/* --- Block 4: Limits (Medium, 6 cols) --- */}
         <div
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-center gap-3"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
           <div className="flex items-center justify-between mb-1 opacity-90" style={{ color: highlightColor }}>
             <div className="flex items-center gap-2">
@@ -537,7 +544,6 @@ export function ProfileView({
         {/* --- Block 5: Personalization (Medium, 6 cols) - NEW --- */}
         <div
           className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col gap-3"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
           <div className="flex items-center justify-between mb-0 opacity-90" style={{ color: highlightColor }}>
             <div className="flex items-center gap-2">
@@ -637,8 +643,7 @@ export function ProfileView({
         {/* --- Block 6: Wallpaper (Medium, 6 cols) - MOVED --- */}
         <button
           onClick={() => setShowWallpaperSettings(true)}
-          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col items-center justify-center gap-3 text-center group transition-all hover:scale-[1.02]"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          className="col-span-12 md:col-span-6 glass-panel rounded-3xl p-4 flex flex-col items-center justify-center gap-3 text-center group transition-all hover:scale-[1.02]"
         >
           <div className="w-12 h-12 rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform" style={{ backgroundColor: withOpacity(highlightColor, 0.3), color: highlightColor }}>
             <Image className="w-6 h-6" />
@@ -649,45 +654,10 @@ export function ProfileView({
           </div>
         </button>
 
-        {/* --- Block 7: AI Info (Medium, 6 cols) - Updated: Proxy Auth --- */}
-        <div
-          className="col-span-6 glass-panel rounded-3xl p-4 flex flex-col justify-between overflow-hidden relative"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-        >
-          <div className="flex items-center justify-between mb-2 opacity-90" style={{ color: highlightColor }}>
-            <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              <span className="text-sm font-bold">AI 助手</span>
-            </div>
-            <button
-              onClick={() => {
-                if (safeSettings.aiEnabled) {
-                  updateSettings({ aiEnabled: false });
-                } else {
-                  if (level < 10) {
-                    alert(`需要达到 Lv.10 才能开启 AI 助手功能 (当前 Lv.${level})`);
-                    return;
-                  }
-                  updateSettings({ aiEnabled: true });
-                }
-              }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner`}
-              style={{ backgroundColor: safeSettings.aiEnabled ? highlightColor : getOffToggleColor(theme) }}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${safeSettings.aiEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-            </button>
-          </div>
+        {/* --- Block 7: AI (bring your own Gemini key) --- */}
+        <AiKeyCard accentColor={highlightColor} />
 
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold opacity-90 transition-colors" style={{ color: highlightColor }}>
-              {safeSettings.aiEnabled ? '智能造句已激活' : '开启以启用智能辅助'}
-            </span>
-            <span className="text-[10px] opacity-70 font-medium" style={{ color: highlightColor }}>
-              {safeSettings.aiEnabled ? '自动生成语境例句' : '需 Lv.10 解锁'}
-            </span>
-          </div>
-        </div>
+        <SoundCard accentColor={highlightColor} />
 
         {/* --- Block 7: Actions (Full Width) --- */}
         <div className="col-span-12 mt-4 space-y-3">
@@ -714,7 +684,7 @@ export function ProfileView({
             重置所有游戏数据
           </GlassButton>
 
-          <GlassButton
+          {user && <GlassButton
             onClick={handleDeleteAccountRequest}
             tone="secondary"
             variant="homeSecondary"
@@ -723,8 +693,8 @@ export function ProfileView({
             className="rounded-2xl opacity-80 text-red-400 hover:text-red-300 hover:bg-red-900/20 border-red-900/30"
             leadingIcon={AlertTriangle}
           >
-            注销账户 (Delete Account)
-          </GlassButton>
+            退出并清除本机数据
+          </GlassButton>}
         </div>
 
       </div>

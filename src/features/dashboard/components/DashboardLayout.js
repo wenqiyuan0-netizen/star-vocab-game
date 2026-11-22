@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Home, Book, User, Calendar } from 'lucide-react';
 import { HomeView } from '../views/HomeView';
 import { LibraryView } from '../../vocabulary/components/LibraryView';

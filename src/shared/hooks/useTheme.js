@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
-import { extractPaletteFromImage } from '../../utils/colorUtils'
+import { extractPaletteFromImage, normalizePalette } from '../../utils/colorUtils'
 // Theme constants
 import { DEFAULT_WALLPAPER_URL } from '../constants/config'
 
 const DEFAULT_THEME = {
-  primary: '#ffffff',
-  secondary: '#ffffff',
-  accent: '#ffffff',
-  background: '#ffffff',
-  text: '#000000',
-  overlay: '#ffffff',
+  primary: 'rgb(79,70,229)',
+  secondary: 'rgb(124,58,237)',
+  accent: 'rgb(217,119,6)',
+  background: 'rgb(244,242,236)',
+  text: 'rgb(30,27,46)',
+  overlay: 'rgb(248,247,243)',
+  mode: 'light',
   analogous: [],
   mid: [],
   contrast: [],
@@ -45,7 +46,7 @@ function getThemeFromStorage() {
   try {
     const saved = localStorage.getItem('star-vocab-theme-palette')
     if (saved) {
-      const parsed = JSON.parse(saved)
+      const parsed = normalizePalette(JSON.parse(saved))
       const mode = pickMode(parsed)
       const current = parsed.variants && parsed.variants[mode] ? parsed.variants[mode] : { analogous: [], mid: [], contrast: [], complementary: [] }
       const base = {
@@ -55,6 +56,7 @@ function getThemeFromStorage() {
         background: parsed.background || DEFAULT_THEME.background,
         text: parsed.text || textOn(parsed.background || parsed.primary || DEFAULT_THEME.background),
         overlay: parsed.overlay || DEFAULT_THEME.overlay,
+        mode: parsed.mode || mode,
         analogous: parsed.analogous || current.analogous.map(x => x),
         mid: parsed.mid || current.mid.map(x => x),
         contrast: parsed.contrast || current.contrast.map(x => x),
@@ -118,6 +120,7 @@ export function ThemeProvider({ children }) {
             background: palette.background,
             text: palette.text || textOn(palette.background || palette.primary || DEFAULT_THEME.background),
             overlay: palette.overlay,
+            mode: palette.mode || mode,
             analogous: palette.analogous || current.analogous,
             mid: palette.mid || current.mid,
             contrast: palette.contrast || current.contrast,
@@ -136,6 +139,20 @@ export function ThemeProvider({ children }) {
       img.src = url
     }
   }, [])
+
+  // Expose theme to plain CSS (glass panels, focus rings, scrollbars)
+  useEffect(() => {
+    const root = document.documentElement
+    const light = (theme.mode || 'light') === 'light'
+    root.dataset.themeMode = light ? 'light' : 'dark'
+    root.style.setProperty('--theme-primary', theme.primary)
+    root.style.setProperty('--theme-accent', theme.accent)
+    root.style.setProperty('--theme-text', theme.text)
+    root.style.setProperty('--glass-bg', light ? 'rgba(255,255,255,0.58)' : 'rgba(18,18,28,0.48)')
+    root.style.setProperty('--glass-bg-hover', light ? 'rgba(255,255,255,0.72)' : 'rgba(28,28,40,0.58)')
+    root.style.setProperty('--glass-border', light ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.12)')
+    root.style.setProperty('--glass-shadow', light ? '0 10px 30px -12px rgba(30,27,46,0.18)' : '0 12px 34px -12px rgba(0,0,0,0.55)')
+  }, [theme])
 
   const roles = useMemo(() => ({
     background: theme.background,

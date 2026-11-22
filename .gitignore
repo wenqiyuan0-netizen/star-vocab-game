@@ -30,7 +30,6 @@ dist/
 public/resources/kaikki.org-dictionary-German.jsonl
 public/dict/word_forms.json
 public/dict/search_index.json
-public/dict/search_index.json.gz
 src/shared/services/dictionary/dict/Kaikki_Dict_Output.json
 src/shared/services/dictionary/dict/Rare_Vocab_cloud.json
 src/shared/services/dictionary/dict/lemma/Kaikki_Lemma_Output.json
@@ -38,3 +37,10 @@ src/shared/services/dictionary/dict/Kaikki_Dict_Cleaned.csv
 
 # invalid windows file
 nul
+
+# local tool settings
+.claude/settings.local.json
+.trae/
+
+# env templates are allowed
+!.env.example

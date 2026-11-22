@@ -413,32 +413,6 @@ class LocalDictionaryDB {
     // --- 新增：按 word_lower 查询 ---
 
     /**
-     * 按单词查询所有词性的词条
-     * @param {string} word
-     * @returns {Promise<Object[]>}
-     */
-    async getEntriesByWord(word) {
-        await this.ensureConnection();
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction([STORE_ENTRIES], 'readonly');
-            const store = tx.objectStore(STORE_ENTRIES);
-
-            // 尝试使用 word_lower 索引
-            let index;
-            try {
-                index = store.index('word_lower');
-            } catch (e) {
-                // 降级到 word 索引
-                index = store.index('word');
-            }
-
-            const request = index.getAll(word.toLowerCase().trim());
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    /**
      * 按单词和来源类型查询
      * @param {string} word
      * @param {string} sourceType

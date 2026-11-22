@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../../../infrastructure/supabaseClient';
 
 export default function LoginForm() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, enterGuest } = useAuth();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -355,9 +355,18 @@ export default function LoginForm() {
             </div>
           </div>
 
-          <div className="px-8 pb-6 text-center">
+          <div className="px-8 pb-6 text-center space-y-3">
+            <div className="flex items-center gap-3 text-[10px] text-slate-300 uppercase tracking-widest">
+              <span className="flex-1 h-px bg-slate-200" />或<span className="flex-1 h-px bg-slate-200" />
+            </div>
+            <button
+              onClick={enterGuest}
+              className="w-full py-3 rounded-xl font-bold text-slate-600 bg-white/60 border border-slate-200 hover:bg-white hover:border-orange-200 transition-all active:scale-[0.98]"
+            >
+              游客体验（数据仅保存在本机）
+            </button>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">
-              Secure Cloud Sync
+              登录后可云端同步 · Cloud sync optional
             </p>
           </div>
         </div>

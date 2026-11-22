@@ -5,14 +5,12 @@
  */
 
 import { localDictDB } from './LocalDictionaryDB';
-import { createCommonAdapter } from './adapters/WiktionaryAdapter';
 import { createGoetheAdapter } from './adapters/GoetheAdapter';
 import {
-    createUnifiedEntry,
-    createExample,
-    createSourceRecord,
-    SOURCE_TYPES,
-    SOURCE_IDS
+  createUnifiedEntry,
+  createSourceRecord,
+  SOURCE_TYPES,
+  SOURCE_IDS
 } from './models/UnifiedEntry';
 
 /**
